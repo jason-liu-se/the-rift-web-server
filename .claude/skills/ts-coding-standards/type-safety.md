@@ -1,364 +1,193 @@
-# Type Safety Best Practices
+# Type Safety
 
-This guide covers modern TypeScript type safety patterns that leverage the
-strictest compiler settings.
+Patterns that work with this repo's strict compiler settings (see
+`tsconfig.json` for the exact flags).
 
-## Strict Compiler Options
-
-These options are mandatory for this project:
+## Strict-Mode Patterns
 
 ### `noUncheckedIndexedAccess`
 
-Array and object indexed access may return `undefined`:
+Indexed access may return `undefined`:
 
 ```typescript
 const items = ["a", "b", "c"];
 
-// BAD - assumes index exists
-const first = items[0]; // Type: string | undefined (not just string)
+// BAD - assumes the index exists
+const first = items[0]; // string | undefined
 console.log(first.toUpperCase()); // Error: possibly undefined
 
 // GOOD - check before use
-const first = items[0];
 if (first !== undefined) {
-	console.log(first.toUpperCase()); // Safe
+	console.log(first.toUpperCase());
 }
 
-// GOOD - use at() with nullish coalescing
-const first = items.at(0) ?? "default";
-```
-
-### `exactOptionalPropertyTypes`
-
-Optional properties cannot be assigned `undefined` explicitly:
-
-```typescript
-interface Config {
-	name: string;
-	timeout?: number; // Optional, but NOT number | undefined
-}
-
-// BAD - explicit undefined not allowed
-const config: Config = {
-	name: "test",
-	timeout: undefined // Error with exactOptionalPropertyTypes
-};
-
-// GOOD - omit the property
-const config: Config = {
-	name: "test"
-	// timeout is simply not present
-};
-
-// If you need explicit undefined, declare it:
-interface ConfigWithUndefined {
-	name: string;
-	timeout?: number | undefined; // Now undefined is allowed
-}
+// GOOD - fall back explicitly
+const firstOrDefault = items.at(0) ?? "default";
 ```
 
 ### `noPropertyAccessFromIndexSignature`
 
-Forces bracket notation for index signature access:
+Index signatures need bracket notation, which makes dynamic access visible:
 
 ```typescript
 interface Dictionary {
 	[key: string]: string;
-	knownKey: string; // Known property
+	knownKey: string;
 }
 
 const dict: Dictionary = { knownKey: "value" };
 
-// BAD - dot notation hides the dynamic nature
-const value = dict.unknownKey; // Error
-
-// GOOD - bracket notation makes it explicit
-const value = dict["unknownKey"]; // OK, clearly dynamic access
-const known = dict.knownKey; // OK, known property
+dict.knownKey; // OK, declared property
+dict["unknownKey"]; // OK, clearly dynamic
+dict.unknownKey; // Error
 ```
+
+## Fixed Value Domains
+
+Model a closed set of values as a union of string literals, not a plain
+`string`. Derive the type from an `as const` array when the values are also
+needed at runtime (validation, iteration), so there is one source of truth:
+
+```typescript
+// BAD - any string is accepted
+interface EventSourceConfig {
+	readonly kind: string;
+}
+
+// GOOD - one list drives both the type and runtime checks
+const EVENT_SOURCE_KINDS = ["cron", "webhook", "matrix"] as const;
+type EventSourceKind = (typeof EVENT_SOURCE_KINDS)[number];
+
+interface EventSourceConfig {
+	readonly kind: EventSourceKind;
+}
+
+// With Zod, validate external input against the same list
+const eventSourceKind = z.enum(EVENT_SOURCE_KINDS);
+```
+
+Don't use TypeScript `enum`s; they aren't erasable syntax.
 
 ## Branded Types
 
-Prevent mixing up primitive values that represent different things:
+Prevent mixing up primitives that mean different things:
 
 ```typescript
-// Define branded types
 type Brand<T, B extends string> = T & { readonly __brand: B };
 
 type UserId = Brand<string, "UserId">;
 type OrderId = Brand<string, "OrderId">;
-type Email = Brand<string, "Email">;
 
-// Constructor functions
-function createUserId(id: string): UserId {
-	return id as UserId;
-}
-
-function createEmail(email: string): Email {
-	if (!email.includes("@")) {
-		throw new Error("Invalid email");
-	}
-	return email as Email;
-}
-
-// Usage - compiler prevents mixing
 function getUser(id: UserId): User {
 	/* ... */
 }
-function getOrder(id: OrderId): Order {
-	/* ... */
-}
 
-const userId = createUserId("user-123");
-const orderId = createUserId("order-456") as unknown as OrderId;
-
-getUser(userId); // OK
-getUser(orderId); // Error: OrderId not assignable to UserId
+getUser(orderId); // Error: OrderId is not assignable to UserId
 ```
+
+Create branded values only after validating them (e.g. in a Zod schema with
+`.brand()`), never by casting arbitrary input.
 
 ## Type Guards
 
-Narrow types safely at runtime:
+Narrow `unknown` and unions safely:
 
 ```typescript
-// User-defined type guard
 function isString(value: unknown): value is string {
 	return typeof value === "string";
 }
 
-// Discriminated union type guard
-type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
-
-function isOk<T, E>(result: Result<T, E>): result is { ok: true; value: T } {
-	return result.ok;
-}
-
-// Usage
-function processResult(result: Result<User, Error>): void {
-	if (isOk(result)) {
-		console.log(result.value.name); // Type narrowed to { ok: true; value: User }
-	} else {
-		console.error(result.error.message); // Type narrowed to { ok: false; error: Error }
-	}
-}
-
-// Array type guard with filter
+// Filter with a type predicate
 const items: (string | null)[] = ["a", null, "b"];
 const strings = items.filter((item): item is string => item !== null);
-// strings is string[], not (string | null)[]
 ```
 
 ## Readonly and Immutability
 
-Prevent accidental mutations:
-
 ```typescript
-// Readonly properties
 interface User {
 	readonly id: string;
 	readonly createdAt: Date;
-	name: string; // Mutable
+	name: string;
 }
 
-// Readonly arrays
 function processItems(items: readonly string[]): void {
 	items.push("new"); // Error: push does not exist on readonly string[]
 }
 
-// Deep readonly with utility type
-type DeepReadonly<T> = {
-	readonly [P in keyof T]: T[P] extends object ? DeepReadonly<T[P]> : T[P];
-};
-
-// Readonly parameter with as const
 const config = {
-	api: {
-		baseUrl: "https://api.example.com",
-		timeout: 5000
-	}
+	api: { baseUrl: "https://api.example.com", timeout: 5000 }
 } as const;
-// config.api.baseUrl = 'new'; // Error: readonly
 ```
+
+Don't mutate function parameters; return new values instead.
 
 ## Discriminated Unions
 
-Model state machines and complex types safely:
+Model states and variants so invalid combinations can't be represented, and
+check exhaustiveness:
 
 ```typescript
-// Request state machine
 type RequestState<T> =
 	| { status: "idle" }
 	| { status: "loading" }
 	| { status: "success"; data: T }
 	| { status: "error"; error: Error };
 
-function handleRequest<T>(state: RequestState<T>): string {
+function describe<T>(state: RequestState<T>): string {
 	switch (state.status) {
 		case "idle":
-			return "Ready to start";
+			return "Ready";
 		case "loading":
 			return "Loading...";
 		case "success":
-			return `Data: ${JSON.stringify(state.data)}`;
+			return "Done";
 		case "error":
-			return `Error: ${state.error.message}`;
-		default:
-			// Exhaustiveness check
-			const _exhaustive: never = state;
-			throw new Error(`Unhandled state: ${_exhaustive}`);
+			return state.error.message;
+		default: {
+			const exhaustive: never = state;
+			throw new Error(`Unhandled state: ${String(exhaustive)}`);
+		}
 	}
 }
 ```
 
-## Template Literal Types
+## Utility and Template Literal Types
 
-Create precise string types:
-
-```typescript
-// Event names
-type EventName = `on${Capitalize<"click" | "focus" | "blur">}`;
-// 'onClick' | 'onFocus' | 'onBlur'
-
-// Route paths
-type ApiRoute = `/api/${string}`;
-const route: ApiRoute = "/api/users"; // OK
-const invalid: ApiRoute = "/users"; // Error
-
-// CSS units
-type CSSUnit = `${number}${"px" | "rem" | "em" | "%"}`;
-const width: CSSUnit = "100px"; // OK
-const invalid: CSSUnit = "100"; // Error
-```
-
-## Enums for Fixed Value Domains
-
-Use string enums for values that come from a fixed or known domain, especially
-when they are reused across runtime validation, configuration, dispatch, or
-persistence boundaries. Do not type these variables or properties as plain
-`string`. This applies whether the allowed values are expressed in a schema,
-union, validator, `Set([...])`, array, switch, config examples, provider
-contract, mode list, or status list.
+Prefer deriving types over redeclaring them:
 
 ```typescript
-// BAD: fixed values are modeled as raw strings and the type accepts any string.
-interface EventSourceConfig {
-	readonly kind: string;
-}
-
-const SUPPORTED_SOURCE_KINDS = new Set(["cron", "webhook", "matrix"]);
-
-// GOOD: one enum defines the accepted domain for types and validation.
-export enum EventSourceKind {
-	Cron = "cron",
-	Webhook = "webhook",
-	Matrix = "matrix"
-}
-
-interface EventSourceConfig {
-	readonly kind: EventSourceKind;
-}
-
-const SUPPORTED_SOURCE_KINDS = new Set<EventSourceKind>(
-	Object.values(EventSourceKind)
-);
-```
-
-Use enums when the values are part of a public module contract, config file
-schema, persisted event/state value, adapter/provider kind, mode, status, or any
-other closed vocabulary. When parsing external JSON, validate the raw string
-first and then narrow or convert it to the enum before passing it deeper into
-the system.
-
-## Utility Types
-
-Leverage built-in utility types:
-
-```typescript
-interface User {
-	id: string;
-	name: string;
-	email: string;
-	password: string;
-}
-
-// Partial - all properties optional
-type PartialUser = Partial<User>;
-
-// Required - all properties required
-type RequiredUser = Required<PartialUser>;
-
-// Pick - select specific properties
-type UserCredentials = Pick<User, "email" | "password">;
-
-// Omit - exclude specific properties
 type PublicUser = Omit<User, "password">;
-
-// Record - dictionary type
+type UserCredentials = Pick<User, "email" | "password">;
+type PartialUser = Partial<User>;
 type UserMap = Record<string, User>;
 
-// Extract/Exclude for union types
-type StringOrNumber = string | number | boolean;
-type OnlyStrings = Extract<StringOrNumber, string>; // string
-type NoStrings = Exclude<StringOrNumber, string>; // number | boolean
+type ApiRoute = `/api/${string}`;
 ```
 
-## Anti-Patterns to Avoid
+Derive types from Zod schemas with `z.infer<typeof schema>` instead of writing a
+matching interface by hand.
+
+## Anti-Patterns
 
 ```typescript
-// BAD: Using any
+// BAD: any
 function process(data: any): void {
-	data.foo.bar.baz(); // No type safety
+	data.foo.bar.baz();
 }
 
-// GOOD: Use unknown and narrow
+// GOOD: unknown, then narrow
 function process(data: unknown): void {
 	if (typeof data === "object" && data !== null && "foo" in data) {
-		// Narrowed safely
+		// narrowed
 	}
 }
 
-// BAD: Type assertion without validation
-const user = JSON.parse(json) as User; // Unsafe
+// BAD: asserting the shape of external data
+const user = JSON.parse(json) as User;
 
-// GOOD: Validate at runtime
-import { z } from "zod";
-const UserSchema = z.object({
-	id: z.string(),
-	name: z.string()
-});
-const user = UserSchema.parse(JSON.parse(json)); // Safe
-
-// BAD: Ignoring null/undefined
-const name = user.profile.name; // Could be undefined
-
-// GOOD: Explicit handling
-const name = user.profile?.name ?? "Unknown";
-
-// BAD: Non-exhaustive switch
-function getLabel(status: "active" | "inactive" | "pending"): string {
-	switch (status) {
-		case "active":
-			return "Active";
-		case "inactive":
-			return "Inactive";
-		// Missing 'pending' - no compile error without exhaustive check
-	}
-}
-
-// GOOD: Exhaustive switch
-function getLabel(status: "active" | "inactive" | "pending"): string {
-	switch (status) {
-		case "active":
-			return "Active";
-		case "inactive":
-			return "Inactive";
-		case "pending":
-			return "Pending";
-		default:
-			const _exhaustive: never = status;
-			throw new Error(`Unhandled status: ${_exhaustive}`);
-	}
-}
+// GOOD: validate at runtime
+const user = userSchema.parse(JSON.parse(json));
 ```
 
 ## References
@@ -366,4 +195,3 @@ function getLabel(status: "active" | "inactive" | "pending"): string {
 - [TypeScript Handbook - Narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing.html)
 - [TypeScript Handbook - Utility Types](https://www.typescriptlang.org/docs/handbook/utility-types.html)
 - [Total TypeScript](https://www.totaltypescript.com/)
-- [Type Challenges](https://github.com/type-challenges/type-challenges)

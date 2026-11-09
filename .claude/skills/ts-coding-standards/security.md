@@ -1,119 +1,45 @@
-# Security Guidelines for Output Files
+# Security: Keeping Secrets Out
 
-This document defines mandatory security rules for all generated output files.
+Code, tests, docs, logs, and commit messages must never contain information that
+exposes the host machine or credentials.
 
-## Core Rule
+## Never Include
 
-**Output files must NEVER contain sensitive information that could expose the
-host system or user credentials.**
+| Category                | Examples                                                       |
+| ----------------------- | -------------------------------------------------------------- |
+| Host absolute paths     | `/home/<user>/...`, `/Users/<user>/...`, `C:\Users\<user>\...` |
+| Environment values      | API keys, tokens, any `*_TOKEN` / `*_SECRET` value             |
+| Database credentials    | Connection strings with passwords, database passwords          |
+| Keys                    | SSH private keys, signing keys, key passphrases                |
+| Service credentials     | OAuth tokens, JWT secrets, service account keys                |
+| Private repository URLs | Unless the user explicitly asks                                |
 
-## Prohibited Content
+## Guidelines
 
-The following content types are strictly prohibited in any output files:
+- **Paths:** use paths relative to the project root, or build them from the
+  module's location (`path.join(import.meta.dirname, "file.json")`).
+- **Credentials:** read them from configuration (see `CLAUDE.md` for how this
+  repo loads env), never hard-code them, including in tests and examples. In
+  example config, show a placeholder or variable reference, not a real value.
+- **Logs and errors:** don't log secrets or full connection strings. Redact
+  before logging when an object might contain them.
+- **Docs:** describe locations relative to the repo, not your machine.
 
-### 1. Host Machine Absolute Paths
+## Before Committing
 
-- Never include absolute filesystem paths from the host machine
-- Use relative paths from project root instead
-- Examples of prohibited patterns:
-    - `/home/username/...`
-    - `/Users/username/...`
-    - `C:\Users\username\...`
+- [ ] No absolute host paths
+- [ ] No environment variable values (names and references are fine)
+- [ ] No keys, tokens, or passwords
+- [ ] No connection strings with credentials
+- [ ] No private repository URLs (unless requested)
 
-### 2. Credential Information
+## If a Request Would Break These Rules
 
-Never include any of the following:
-
-| Category              | Examples                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------- |
-| Environment Variables | `GITHUB_TOKEN`, `AWS_SECRET_ACCESS_KEY`, API keys, any `*_TOKEN` or `*_SECRET` values |
-| SSH Keys              | Private keys (`id_rsa`, `id_ed25519`), key passphrases                                |
-| Cryptocurrency Keys   | Private keys, seed phrases, wallet secrets                                            |
-| Database Credentials  | Connection strings with passwords, database passwords                                 |
-| Service Credentials   | OAuth tokens, JWT secrets, service account keys                                       |
-
-### 3. Private Repository URLs
-
-- Links to GitHub private repositories are treated as credential information
-- Only include private repository URLs when **explicitly instructed by the
-  user**
-- Public repository URLs are acceptable
-
-## Implementation Guidelines
-
-### When Writing Configuration Files
-
-```typescript
-// BAD - Exposes host path
-const configPath = "/home/user/projects/myapp/config.json";
-
-// GOOD - Uses relative path
-const configPath = "./config.json";
-// or
-const configPath = path.join(__dirname, "config.json");
-```
-
-### When Generating Documentation
-
-```markdown
-<!-- BAD -->
-
-Project located at: /home/developer/workspace/project
-
-<!-- GOOD -->
-
-Project located at: ./project (relative to workspace root)
-```
-
-### When Writing Test Files
-
-```typescript
-// BAD - Hardcoded credential
-const token = "ghp_xxxxxxxxxxxxxxxxxxxx";
-
-// GOOD - Environment variable reference
-const token = process.env.GITHUB_TOKEN;
-```
-
-### When Creating Example Configurations
-
-```yaml
-# BAD
-github_token: ghp_actualTokenValue123
-ssh_key: |
-    -----BEGIN OPENSSH PRIVATE KEY-----
-    actual-key-content
-    -----END OPENSSH PRIVATE KEY-----
-
-# GOOD
-github_token: ${GITHUB_TOKEN} # Set via environment variable
-ssh_key_path: ~/.ssh/id_ed25519 # Reference path, not content
-```
-
-## Verification Checklist
-
-Before committing or outputting any file, verify:
-
-- [ ] No absolute host paths present
-- [ ] No environment variable values embedded (references are OK)
-- [ ] No SSH private keys or key content
-- [ ] No cryptocurrency private keys or seed phrases
-- [ ] No private repository URLs (unless explicitly requested)
-- [ ] No API tokens or secrets hardcoded
-- [ ] No database passwords or connection strings with credentials
-
-## Handling User Requests
-
-If a user requests output that would violate these rules:
-
-1. **Warn** the user about the security implications
-2. **Suggest** secure alternatives (e.g., environment variables, secret
-   managers)
-3. **Only proceed** if the user explicitly confirms after understanding the
-   risks
+1. Warn the user about the risk.
+2. Suggest a safe alternative (environment variable, secret manager).
+3. Proceed only if the user confirms after understanding the risk.
 
 ## References
 
-- OWASP Secrets Management Guide
-- GitHub Secret Scanning Documentation
-- 12-Factor App: Config
+- [OWASP Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html)
+- [The Twelve-Factor App: Config](https://12factor.net/config)

@@ -1,247 +1,112 @@
-# Error Handling Patterns
+# Error Handling
 
-Modern TypeScript error handling prioritizes type safety and explicit error
-states over traditional try-catch patterns.
+`CLAUDE.md` decides how errors reach the caller (throw, let the error handler
+respond, never leak internals). This file covers handling errors inside the
+code.
 
-## Result Type Pattern
+## Expected vs Exceptional Failures
 
-The Result type makes error states explicit in the type system. Invalid states
-become impossible to represent.
-
-### Basic Implementation
-
-```typescript
-type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
-
-// Usage
-function parseJson<T>(json: string): Result<T, SyntaxError> {
-	try {
-		return { ok: true, value: JSON.parse(json) as T };
-	} catch (e) {
-		return { ok: false, error: e as SyntaxError };
-	}
-}
-
-// Handling
-const result = parseJson<User>(input);
-if (result.ok) {
-	console.log(result.value.name); // Type-safe access
-} else {
-	console.error(result.error.message);
-}
-```
-
-### With neverthrow Library
-
-For production use, consider
-[neverthrow](https://github.com/supermacro/neverthrow):
+- **Exceptional** (database down, bug, invalid request at the HTTP boundary):
+  throw an `Error` and let it propagate to the error handler.
+- **Expected, and the caller must branch on it** (e.g. "not found" vs "found"
+  inside a helper): return a value that makes both outcomes explicit, such as
+  `T | undefined` or a discriminated union, rather than throwing for control
+  flow.
 
 ```typescript
-import { ok, err, Result, ResultAsync } from "neverthrow";
-
-// Sync operations
-function divide(a: number, b: number): Result<number, Error> {
-	if (b === 0) {
-		return err(new Error("Division by zero"));
-	}
-	return ok(a / b);
-}
-
-// Async operations with ResultAsync
-function fetchUser(id: string): ResultAsync<User, ApiError> {
-	return ResultAsync.fromPromise(
-		fetch(`/api/users/${id}`).then((r) => r.json()),
-		(e) => new ApiError("Failed to fetch user", e)
-	);
-}
-
-// Chaining operations
-const result = await fetchUser("123")
-	.andThen((user) => validateUser(user))
-	.map((user) => user.profile)
-	.mapErr((e) => logError(e));
+type FindResult<T> = { found: true; value: T } | { found: false };
 ```
 
-## Discriminated Unions for Error States
-
-Model different error types explicitly:
-
-```typescript
-type ApiError =
-	| { type: "network"; message: string; retryable: true }
-	| { type: "validation"; fields: string[]; retryable: false }
-	| { type: "auth"; reason: "expired" | "invalid"; retryable: false }
-	| { type: "notFound"; resource: string; retryable: false };
-
-function handleError(error: ApiError): void {
-	switch (error.type) {
-		case "network":
-			// TypeScript knows: error.retryable is true
-			scheduleRetry();
-			break;
-		case "validation":
-			// TypeScript knows: error.fields exists
-			highlightFields(error.fields);
-			break;
-		case "auth":
-			// TypeScript knows: error.reason is 'expired' | 'invalid'
-			redirectToLogin(error.reason);
-			break;
-		case "notFound":
-			showNotFound(error.resource);
-			break;
-		default:
-			// Exhaustive check - compile error if case missed
-			const _exhaustive: never = error;
-			throw new Error(`Unhandled error type: ${_exhaustive}`);
-	}
-}
-```
-
-## Custom Error Classes
-
-When you need error hierarchies:
-
-```typescript
-// Base error with common properties
-abstract class AppError extends Error {
-	abstract readonly code: string;
-	abstract readonly retryable: boolean;
-
-	constructor(
-		message: string,
-		readonly cause?: unknown
-	) {
-		super(message);
-		this.name = this.constructor.name;
-	}
-}
-
-// Specific error types
-class ValidationError extends AppError {
-	readonly code = "VALIDATION_ERROR";
-	readonly retryable = false;
-
-	constructor(
-		message: string,
-		readonly fields: Record<string, string[]>
-	) {
-		super(message);
-	}
-}
-
-class NetworkError extends AppError {
-	readonly code = "NETWORK_ERROR";
-	readonly retryable = true;
-
-	constructor(message: string, cause?: unknown) {
-		super(message, cause);
-	}
-}
-
-// Type guard for error checking
-function isAppError(error: unknown): error is AppError {
-	return error instanceof AppError;
-}
-```
+Don't add a `Result`-type library for this; a small union is enough.
 
 ## Safe Catch Handling
 
-TypeScript's `useUnknownInCatchVariables` makes caught values `unknown`:
+Caught values are `unknown`. Narrow before use:
 
 ```typescript
-// BAD - assumes error is Error
+// BAD - assumes an Error
 try {
 	await riskyOperation();
 } catch (e) {
 	console.log(e.message); // Error: 'e' is of type 'unknown'
 }
 
-// GOOD - narrow the type explicitly
-try {
-	await riskyOperation();
-} catch (e) {
-	if (e instanceof Error) {
-		console.log(e.message);
-	} else if (typeof e === "string") {
-		console.log(e);
-	} else {
-		console.log("Unknown error occurred");
+// GOOD - narrow, or use a helper
+function getErrorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	if (typeof error === "string") {
+		return error;
+	}
+	return "Unknown error";
+}
+```
+
+## Custom Error Classes
+
+Use a subclass when callers need to tell errors apart (e.g. the error handler
+mapping an error to a status code). Declare fields explicitly; constructor
+parameter properties aren't erasable syntax:
+
+```typescript
+class NotFoundError extends Error {
+	readonly resource: string;
+
+	constructor(resource: string, options?: ErrorOptions) {
+		super(`${resource} not found`, options);
+		this.name = "NotFoundError";
+		this.resource = resource;
 	}
 }
 
-// BETTER - use a helper function
-function getErrorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	if (typeof error === "string") return error;
-	return "Unknown error occurred";
-}
-
-try {
-	await riskyOperation();
-} catch (e) {
-	console.error(getErrorMessage(e));
-}
+// Keep the original error as the cause when wrapping
+throw new NotFoundError("gallery collection", { cause: error });
 ```
 
-## When to Use Each Pattern
+Narrow with `instanceof` when handling.
 
-| Scenario                                 | Recommended Pattern        |
-| ---------------------------------------- | -------------------------- |
-| Expected failures (parsing, validation)  | Result type                |
-| Async operations with recoverable errors | ResultAsync (neverthrow)   |
-| Multiple distinct error types            | Discriminated unions       |
-| Error hierarchies with inheritance       | Custom error classes       |
-| Truly exceptional situations             | throw + try-catch          |
-| External library errors                  | Wrap in Result at boundary |
+## Discriminated Unions for Error Kinds
 
-## Anti-Patterns to Avoid
+When an operation can fail in several distinct ways, model them so the compiler
+checks every case:
 
 ```typescript
-// BAD: Throwing for control flow
-function findUser(id: string): User {
-	const user = db.find(id);
-	if (!user) throw new Error("Not found"); // Control flow via exception
-	return user;
-}
+type ImportError =
+	| { kind: "network"; retryable: true }
+	| { kind: "validation"; fields: string[] }
+	| { kind: "notFound"; resource: string };
+```
 
-// GOOD: Return explicit result
-function findUser(id: string): Result<User, NotFoundError> {
-	const user = db.find(id);
-	if (!user) return err(new NotFoundError(id));
-	return ok(user);
-}
+## Anti-Patterns
 
-// BAD: Swallowing errors
+```typescript
+// BAD: swallowing errors
 try {
 	await operation();
 } catch {
-	// Silent failure - no logging, no handling
+	// silent failure
 }
 
-// GOOD: Always handle or propagate
+// GOOD: handle meaningfully, or log with context and rethrow
 try {
 	await operation();
 } catch (e) {
-	logger.error("Operation failed", { error: e });
-	throw e; // or return err(...)
+	console.error("Operation failed:", e);
+	throw e;
 }
 
-// BAD: Generic error messages
-return err(new Error("Something went wrong"));
+// BAD: vague internal error messages
+throw new Error("Something went wrong");
 
-// GOOD: Specific, actionable messages
-return err(
-	new ValidationError("Email format invalid", {
-		email: ["Must be valid email"]
-	})
-);
+// GOOD: specific messages for logs and developers
+throw new Error(`Could not load gallery collection '${name}'`, { cause: e });
 ```
+
+Specific messages are for the server log. What the caller sees follows
+`CLAUDE.md`: enough to fix their request, nothing that exposes internals.
 
 ## References
 
-- [neverthrow](https://github.com/supermacro/neverthrow) - Type-Safe Errors for
-  JS & TypeScript
-- [Effect.ts](https://effect.website/) - Comprehensive functional programming
-  library
-- [Error Handling Comparison](https://devalade.me/blog/error-handling-in-typescript-neverthrow-try-catch-and-alternative-like-effec-ts.mdx)
+- [MDN: Error `cause`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Error/cause)
+- [TypeScript Handbook - Narrowing](https://www.typescriptlang.org/docs/handbook/2/narrowing.html)
