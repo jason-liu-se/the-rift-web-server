@@ -9,7 +9,7 @@ export default defineConfig([
 		ignores: ["coverage/", "dist/"]
 	},
 	{
-		files: ["**/*.{js,ts}"],
+		files: ["**/*.{js,mjs,ts}"],
 		extends: [eslint.configs.recommended],
 		languageOptions: {
 			globals: globals.node
@@ -23,7 +23,7 @@ export default defineConfig([
 	prettierConfig,
 	// After prettierConfig, which disables `curly`; "all" doesn't conflict with Prettier.
 	{
-		files: ["**/*.{js,ts}"],
+		files: ["**/*.{js,mjs,ts}"],
 		rules: {
 			curly: ["error", "all"]
 		}

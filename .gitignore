@@ -1,3 +1,7 @@
 node_modules
 .env
 dist
+
+# Claude Code (personal overrides)
+.claude/settings.local.json
+.claude/logs/
