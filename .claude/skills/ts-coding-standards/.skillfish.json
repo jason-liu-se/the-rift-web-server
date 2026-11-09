@@ -1,0 +1,10 @@
+{
+	"version": 2,
+	"name": "ts-coding-standards",
+	"owner": "tacogips",
+	"repo": "claude-code-agent",
+	"path": ".agents/skills/ts-coding-standards",
+	"branch": "main",
+	"sha": "94624e601aa3b2a0fcadfda483228680ba1904e9",
+	"source": "manual"
+}
