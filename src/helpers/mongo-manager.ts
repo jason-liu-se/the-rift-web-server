@@ -23,6 +23,11 @@ export async function connect(connectionString: string) {
 	console.log("Connected to MongoDB");
 }
 
+export async function disconnect() {
+	await mongoose.disconnect();
+	console.log("Disconnected from MongoDB");
+}
+
 // Omitting `limit` returns every image from `startIndex` onwards.
 export async function getGalleryCollection(
 	collectionName: string,

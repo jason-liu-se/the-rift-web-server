@@ -112,6 +112,11 @@ Routers parse query parameters and call `mongo-manager`, which owns every
 database query and returns plain results to the router. Routers do not query
 Mongoose models directly.
 
+On `SIGTERM` or `SIGINT` (Ctrl+C), `src/index.ts` shuts down gracefully: it
+stops accepting connections, lets in-flight requests finish, and disconnects
+from MongoDB. If that takes longer than the timeout in `src/index.ts`, it forces
+the exit. Pressing Ctrl+C a second time exits immediately.
+
 ### Endpoints
 
 | Method and path                       | Query parameters                               | Returns                                                              |
