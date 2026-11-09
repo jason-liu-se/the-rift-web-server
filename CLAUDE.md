@@ -52,8 +52,9 @@ done.
 - **Routers** (`src/routes/`) parse `req.query` with the Zod schemas in
   `src/routes/query-schemas.ts`, call `mongo-manager`, and send the result. They
   don't catch errors: Express 5 forwards thrown errors and rejected promises to
-  the handler in `app.ts`, which answers `400` for a `ZodError` and a generic
-  `500` (details logged, not returned) for anything else.
+  the handler in `app.ts`, which answers `400` for a `ZodError`, `404` for a
+  `NotFoundError` (`src/errors/`, also thrown for unmatched routes), and a
+  generic `500` (details logged, not returned) for anything else.
 - **`src/helpers/mongo-manager.ts` owns all database access.** Routers never
   touch models. Each content type has its own database, with one schema and
   interface per file in `src/models/`. Collection names are used as given

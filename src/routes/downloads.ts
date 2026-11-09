@@ -8,10 +8,10 @@ downloadsRouter.get("/get-collection", async (req, res) => {
 	const { collection } = collectionQuery.parse(req.query);
 
 	const data = await mongoManager.getDownloadCollection(collection);
-	res.send(data);
+	res.json(data);
 });
 
 downloadsRouter.get("/get-all", async (req, res) => {
 	const data = await mongoManager.getAllDownloadCollections();
-	res.send(data);
+	res.json(data);
 });

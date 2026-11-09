@@ -14,12 +14,12 @@ galleryRouter.get("/get-collection", async (req, res) => {
 		startIndex,
 		limit
 	);
-	res.send(data);
+	res.json(data);
 });
 
 galleryRouter.get("/count-collection-items", async (req, res) => {
 	const { collection } = collectionQuery.parse(req.query);
 
 	const data = await mongoManager.countGalleryCollectionItems(collection);
-	res.send({ count: data });
+	res.json({ count: data });
 });

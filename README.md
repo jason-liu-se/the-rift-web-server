@@ -140,6 +140,7 @@ Errors respond with `{ "error": string }`:
 - `400` when query parameters are missing or invalid, e.g. no `collection`, a
   collection name MongoDB doesn't allow, or a negative or non-integer
   `startIndex`/`limit`.
+- `404` when no endpoint matches the method and path.
 - `500` when a query fails. The details are logged to the server console, not
   returned.
 
