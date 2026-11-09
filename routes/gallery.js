@@ -1,10 +1,7 @@
 const express = require("express");
-const dotenv = require("dotenv");
 const mongoManager = require("../helpers/mongo-manager.js");
 
 const galleryRouter = express.Router();
-
-dotenv.config();
 
 galleryRouter.get("/get-collection", async (req, res) => {
 	const collectionName = req.query.collection ? req.query.collection : "";

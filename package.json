@@ -4,7 +4,7 @@
 	"description": "",
 	"main": "index.js",
 	"scripts": {
-		"start": "node index.js",
+		"start": "node --env-file-if-exists=.env index.js",
 		"prepare": "husky",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
@@ -22,7 +22,6 @@
 	},
 	"homepage": "https://github.com/Jason-Liu-SE/rift-website-web-server#readme",
 	"dependencies": {
-		"dotenv": "^16.3.1",
 		"express": "^5.3.0",
 		"mongoose": "^9.12.0"
 	},

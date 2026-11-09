@@ -1,10 +1,7 @@
 const express = require("express");
-const dotenv = require("dotenv");
 const mongoManager = require("../helpers/mongo-manager.js");
 
 const downloadsRouter = express.Router();
-
-dotenv.config();
 
 downloadsRouter.get("/get-collection", async (req, res) => {
 	const collectionName = req.query.collection ? req.query.collection : "";

@@ -1,10 +1,7 @@
 const express = require("express");
-const dotenv = require("dotenv");
 
 const path = require("path");
 const mapRouter = express.Router();
-
-dotenv.config();
 
 mapRouter.use(express.static(path.join(__dirname, "../output map test")));
 

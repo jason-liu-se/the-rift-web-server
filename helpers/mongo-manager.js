@@ -1,10 +1,7 @@
 const mongoose = require("mongoose");
-const dotenv = require("dotenv");
 const gallerySchema = require("../models/gallery-schema.js");
 const newsSchema = require("../models/news-schema.js");
 const downloadsSchema = require("../models/downloads-schema.js");
-
-dotenv.config();
 
 exports.connect = () => {
 	try {
