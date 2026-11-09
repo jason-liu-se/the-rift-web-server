@@ -3,16 +3,14 @@ const gallerySchema = require("../models/gallery-schema.js");
 const newsSchema = require("../models/news-schema.js");
 const downloadsSchema = require("../models/downloads-schema.js");
 
-exports.connect = () => {
-	try {
-		mongoose.connect(process.env.MONGODB_CONNECTION_STRING);
-		mongoose.pluralize(null);
-		mongoose.set("autoCreate", false);
+// Resolves once MongoDB is reachable; rejects if it can't connect, so callers
+// don't serve requests without a database.
+exports.connect = async (connectionString) => {
+	mongoose.pluralize(null);
+	mongoose.set("autoCreate", false);
 
-		console.log("Connected to MongoDB");
-	} catch (e) {
-		console.error(e);
-	}
+	await mongoose.connect(connectionString);
+	console.log("Connected to MongoDB");
 };
 
 // limit = -1 implies that no limit was specified. Assumed all documents are desired

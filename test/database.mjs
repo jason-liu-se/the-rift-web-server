@@ -9,10 +9,8 @@ let server;
 
 export async function startDatabase() {
 	server = await MongoMemoryServer.create();
-	process.env.MONGODB_CONNECTION_STRING = server.getUri();
 	// Connect through the app's own code so its Mongoose settings apply.
-	mongoManager.connect();
-	await mongoose.connection.asPromise();
+	await mongoManager.connect(server.getUri());
 }
 
 export async function stopDatabase() {
