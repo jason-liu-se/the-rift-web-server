@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 
 export interface DownloadItem {
-	title: string;
-	desc: string;
-	downloadUrl: string;
-	backgroundUrl: string;
+	readonly title: string;
+	readonly desc: string;
+	readonly downloadUrl: string;
+	readonly backgroundUrl: string;
 }
 
 const downloadsSchema = new mongoose.Schema<DownloadItem>({

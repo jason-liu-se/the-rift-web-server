@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
 export interface GalleryImage {
-	caption: string;
-	url: string;
+	readonly caption: string;
+	readonly url: string;
 }
 
 const gallerySchema = new mongoose.Schema<GalleryImage>({
