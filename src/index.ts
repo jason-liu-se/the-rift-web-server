@@ -20,7 +20,8 @@ async function start() {
 	const server = app.listen(PORT, (error) => {
 		// Express 5 passes startup errors (e.g. port in use) here instead of throwing.
 		if (error) {
-			throw error;
+			console.error(`Could not listen on port ${PORT}: ${error.message}`);
+			process.exit(1);
 		}
 
 		console.log(`Listening on port ${PORT}`);

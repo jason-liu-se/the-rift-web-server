@@ -3,9 +3,16 @@ import * as z from "zod";
 const DEFAULT_PORT = 4000;
 const MAX_PORT = 65_535;
 
+// `PORT=` in .env sets an empty string, which would coerce to 0 (a random
+// port); treat it as unset instead.
+const emptyAsUnset = (value: unknown) => (value === "" ? undefined : value);
+
 const envSchema = z.object({
 	MONGODB_CONNECTION_STRING: z.string().min(1),
-	PORT: z.coerce.number().int().min(0).max(MAX_PORT).default(DEFAULT_PORT)
+	PORT: z.preprocess(
+		emptyAsUnset,
+		z.coerce.number().int().min(0).max(MAX_PORT).default(DEFAULT_PORT)
+	)
 });
 
 export type Env = z.infer<typeof envSchema>;

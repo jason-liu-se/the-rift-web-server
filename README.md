@@ -91,10 +91,12 @@ starting, seeding, and clearing the database live in `test/database.ts`.
 ├── src/
 │   ├── config/
 │   │   └── env.ts            Environment variable schema
+│   ├── errors/               Error classes the error handler maps to status codes
 │   ├── helpers/
 │   │   └── mongo-manager.ts  MongoDB connection and all database queries
 │   ├── models/               Mongoose schemas and types, one file per database
-│   ├── routes/               Express routers, one per URL prefix, and query schemas
+│   ├── routes/               Express routers, one per URL prefix, request schemas,
+│   │                         and the deprecated routes (legacy.ts)
 │   ├── app.ts                Express app: CORS headers and router mounting
 │   └── index.ts              Entry point: connects to MongoDB and starts listening
 ├── test/                     Shared test helpers
@@ -103,17 +105,18 @@ starting, seeding, and clearing the database live in `test/database.ts`.
 
 ## Architecture
 
-`src/app.ts` builds the Express app: it sets the CORS headers and mounts one
-Express router per URL prefix from `src/routes/`. `src/index.ts` connects to
-MongoDB through `src/helpers/mongo-manager.ts` and starts the app listening.
-Keeping the two apart lets the tests run the app without opening a port.
+`src/app.ts` builds the Express app: it sets the CORS headers, mounts the
+deprecated routes from `src/routes/legacy.ts`, then one Express router per URL
+prefix from `src/routes/`. `src/index.ts` connects to MongoDB through
+`src/helpers/mongo-manager.ts` and starts the app listening. Keeping the two
+apart lets the tests run the app without opening a port.
 
 The API is public and read-only, so CORS allows any origin
 (`Access-Control-Allow-Origin: *`).
 
-Routers parse query parameters and call `mongo-manager`, which owns every
-database query and returns plain results to the router. Routers do not query
-Mongoose models directly.
+Routers parse path and query parameters and call `mongo-manager`, which owns
+every database query and returns plain results to the router. Routers do not
+query Mongoose models directly.
 
 On `SIGTERM` or `SIGINT` (Ctrl+C), `src/index.ts` shuts down gracefully: it
 stops accepting connections, lets in-flight requests finish, and disconnects
@@ -122,24 +125,41 @@ the exit. Pressing Ctrl+C a second time exits immediately.
 
 ### Endpoints
 
-| Method and path                       | Query parameters                               | Returns                                                              |
-| ------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------- |
-| `GET /news/get-items`                 | `startIndex`, `limit`                          | News items, newest first                                             |
-| `GET /news/count-items`               |                                                | `{ "count": number }`                                                |
-| `GET /gallery/get-collection`         | `collection` (required), `startIndex`, `limit` | Images in a gallery collection                                       |
-| `GET /gallery/count-collection-items` | `collection` (required)                        | `{ "count": number }`                                                |
-| `GET /downloads/get-collection`       | `collection` (required)                        | Items in a download collection                                       |
-| `GET /downloads/get-all`              |                                                | `[{ "name": string, "items": [...] }]` for every download collection |
+| Method and path                  | Query parameters      | Returns                                                                       |
+| -------------------------------- | --------------------- | ----------------------------------------------------------------------------- |
+| `GET /news`                      | `startIndex`, `limit` | `{ "items": [...], "total": number }`, news items newest first                |
+| `GET /news/count`                |                       | `{ "total": number }`, without fetching any items                             |
+| `GET /gallery/:collection`       | `startIndex`, `limit` | `{ "items": [...], "total": number }`, images in a gallery collection         |
+| `GET /gallery/:collection/count` |                       | `{ "total": number }`, without fetching any images                            |
+| `GET /downloads`                 |                       | `[{ "name": string, "items": [...] }]` for every download collection, by name |
+| `GET /downloads/:collection`     |                       | Items in a download collection                                                |
 
 `startIndex` defaults to `0`. Omitting `limit` returns every item from
-`startIndex` onwards. Query parameters are validated with the Zod schemas in
-`src/routes/query-schemas.ts`.
+`startIndex` onwards; `total` counts the whole collection. Use the `/count`
+endpoints when only the size is needed. Path and query parameters are validated
+with the Zod schemas in `src/routes/query-schemas.ts`.
+
+#### Deprecated endpoints
+
+These predate the routes above and stay until the website switches over. They
+take the collection as a query parameter, return bare arrays, and answer an
+unknown collection with an empty list instead of `404`.
+
+| Method and path                       | Query parameters                               | Use instead                      |
+| ------------------------------------- | ---------------------------------------------- | -------------------------------- |
+| `GET /news/get-items`                 | `startIndex`, `limit`                          | `GET /news` (`items`)            |
+| `GET /news/count-items`               |                                                | `GET /news/count`                |
+| `GET /gallery/get-collection`         | `collection` (required), `startIndex`, `limit` | `GET /gallery/:collection`       |
+| `GET /gallery/count-collection-items` | `collection` (required)                        | `GET /gallery/:collection/count` |
+| `GET /downloads/get-collection`       | `collection` (required)                        | `GET /downloads/:collection`     |
+| `GET /downloads/get-all`              |                                                | `GET /downloads`                 |
 
 Errors respond with `{ "error": string }`:
 
-- `400` when query parameters are missing or invalid, e.g. no `collection`, a
-  collection name MongoDB doesn't allow, or a negative or non-integer
-  `startIndex`/`limit`.
+- `400` when path or query parameters are missing or invalid, e.g. a collection
+  name MongoDB doesn't allow, or a negative or non-integer `startIndex`/`limit`.
+- `404` when the collection doesn't exist, or no endpoint matches the method and
+  path.
 - `500` when a query fails. The details are logged to the server console, not
   returned.
 
@@ -148,11 +168,11 @@ Errors respond with `{ "error": string }`:
 Each content type lives in its own MongoDB database, with schemas in
 `src/models/`:
 
-| Database    | Collections                                       | Schema                           |
-| ----------- | ------------------------------------------------- | -------------------------------- |
-| `news`      | `news-items`                                      | `src/models/news-schema.ts`      |
-| `gallery`   | One per gallery, named by the website             | `src/models/gallery-schema.ts`   |
-| `downloads` | One per download group, all returned by `get-all` | `src/models/downloads-schema.ts` |
+| Database    | Collections                                              | Schema                           |
+| ----------- | -------------------------------------------------------- | -------------------------------- |
+| `news`      | `news-items`                                             | `src/models/news-schema.ts`      |
+| `gallery`   | One per gallery, named by the website                    | `src/models/gallery-schema.ts`   |
+| `downloads` | One per download group, all returned by `GET /downloads` | `src/models/downloads-schema.ts` |
 
 Collection names are used as-is (pluralization is off), and the server does not
 create collections, so a new gallery or download group is added by creating its
