@@ -3,7 +3,6 @@
 import express, { type ErrorRequestHandler } from "express";
 import * as z from "zod";
 import { NotFoundError } from "./errors/not-found-error.ts";
-import { legacyRouter } from "./routes/legacy.ts";
 import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";
 import { galleryRouter } from "./routes/gallery.ts";
@@ -20,7 +19,6 @@ app.use((req, res, next) => {
 		next();
 	}
 });
-app.use(legacyRouter);
 app.use("/news", newsRouter);
 app.use("/downloads", downloadsRouter);
 app.use("/gallery", galleryRouter);

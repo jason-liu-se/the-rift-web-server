@@ -95,8 +95,7 @@ starting, seeding, and clearing the database live in `test/database.ts`.
 │   ├── helpers/
 │   │   └── mongo-manager.ts  MongoDB connection and all database queries
 │   ├── models/               Mongoose schemas and types, one file per database
-│   ├── routes/               Express routers, one per URL prefix, request schemas,
-│   │                         and the deprecated routes (legacy.ts)
+│   ├── routes/               Express routers, one per URL prefix, and request schemas
 │   ├── app.ts                Express app: CORS headers and router mounting
 │   └── index.ts              Entry point: connects to MongoDB and starts listening
 ├── test/                     Shared test helpers
@@ -105,11 +104,10 @@ starting, seeding, and clearing the database live in `test/database.ts`.
 
 ## Architecture
 
-`src/app.ts` builds the Express app: it sets the CORS headers, mounts the
-deprecated routes from `src/routes/legacy.ts`, then one Express router per URL
-prefix from `src/routes/`. `src/index.ts` connects to MongoDB through
-`src/helpers/mongo-manager.ts` and starts the app listening. Keeping the two
-apart lets the tests run the app without opening a port.
+`src/app.ts` builds the Express app: it sets the CORS headers and mounts one
+Express router per URL prefix from `src/routes/`. `src/index.ts` connects to
+MongoDB through `src/helpers/mongo-manager.ts` and starts the app listening.
+Keeping the two apart lets the tests run the app without opening a port.
 
 The API is public and read-only, so CORS allows any origin
 (`Access-Control-Allow-Origin: *`).
@@ -138,21 +136,6 @@ the exit. Pressing Ctrl+C a second time exits immediately.
 `startIndex` onwards; `total` counts the whole collection. Use the `/count`
 endpoints when only the size is needed. Path and query parameters are validated
 with the Zod schemas in `src/routes/query-schemas.ts`.
-
-#### Deprecated endpoints
-
-These predate the routes above and stay until the website switches over. They
-take the collection as a query parameter, return bare arrays, and answer an
-unknown collection with an empty list instead of `404`.
-
-| Method and path                       | Query parameters                               | Use instead                      |
-| ------------------------------------- | ---------------------------------------------- | -------------------------------- |
-| `GET /news/get-items`                 | `startIndex`, `limit`                          | `GET /news` (`items`)            |
-| `GET /news/count-items`               |                                                | `GET /news/count`                |
-| `GET /gallery/get-collection`         | `collection` (required), `startIndex`, `limit` | `GET /gallery/:collection`       |
-| `GET /gallery/count-collection-items` | `collection` (required)                        | `GET /gallery/:collection/count` |
-| `GET /downloads/get-collection`       | `collection` (required)                        | `GET /downloads/:collection`     |
-| `GET /downloads/get-all`              |                                                | `GET /downloads`                 |
 
 Errors respond with `{ "error": string }`:
 

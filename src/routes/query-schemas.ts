@@ -19,10 +19,3 @@ export const paginationQuery = z.object({
 	// Omitted returns every item from `startIndex` onwards.
 	limit: z.coerce.number().int().min(1).optional()
 });
-
-// Deprecated routes take the collection as a query parameter instead.
-export const collectionQuery = z.object({ collection: collectionName });
-
-export const paginatedCollectionQuery = collectionQuery.extend(
-	paginationQuery.shape
-);

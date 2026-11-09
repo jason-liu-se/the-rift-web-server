@@ -45,11 +45,10 @@ done.
 ## Architecture
 
 - **`src/app.ts` builds the app; `src/index.ts` runs it.** `app.ts` sets CORS
-  headers, mounts the deprecated routes (`src/routes/legacy.ts`) and then one
-  router per URL prefix, and installs the error handler, without connecting or
-  listening, so tests can drive it with Supertest. `index.ts` validates the
-  environment, connects to MongoDB, listens, and shuts down gracefully on
-  SIGTERM/SIGINT.
+  headers, mounts one router per URL prefix, and installs the error handler,
+  without connecting or listening, so tests can drive it with Supertest.
+  `index.ts` validates the environment, connects to MongoDB, listens, and shuts
+  down gracefully on SIGTERM/SIGINT.
 - **Routers** (`src/routes/`) parse `req.params` and `req.query` with the Zod
   schemas in `src/routes/query-schemas.ts`, call `mongo-manager`, and send the
   result. They don't catch errors: Express 5 forwards thrown errors and rejected
@@ -115,10 +114,7 @@ Work as a software engineer, not a code generator.
   (`GET /news`, `GET /gallery/:collection`, not `/news/get-items`); use HTTP
   methods for actions, query parameters for filtering and pagination, and status
   codes that match the outcome (`200`, `201`, `204`, `400`, `404`, `500`, ...).
-  Return JSON consistently, including errors (`{ "error": string }`). The
-  verb-style endpoints in `src/routes/legacy.ts` are deprecated aliases kept
-  until the website switches; don't extend them, and treat removing them as a
-  breaking change (see below).
+  Return JSON consistently, including errors (`{ "error": string }`).
 - **API compatibility.** Keep responses backward compatible with the website.
   For a breaking change (renamed field, new required parameter, different status
   code), raise it with the user and update the website in step.
