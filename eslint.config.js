@@ -24,5 +24,12 @@ module.exports = defineConfig([
 		}
 	},
 	// Must be last: turns off any rules that conflict with Prettier.
-	prettierConfig
+	prettierConfig,
+	// After prettierConfig, which disables `curly`; "all" doesn't conflict with Prettier.
+	{
+		files: ["**/*.ts"],
+		rules: {
+			curly: ["error", "all"]
+		}
+	}
 ]);
