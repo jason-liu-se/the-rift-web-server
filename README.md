@@ -37,9 +37,17 @@ The server loads these from `.env` in the repository root.
 
 ## Npm scripts
 
-| Command     | Description                       |
-| ----------- | --------------------------------- |
-| `npm start` | Start the server with `index.js`. |
+| Command                | Description                                          |
+| ---------------------- | ---------------------------------------------------- |
+| `npm start`            | Start the server with `index.js`.                    |
+| `npm run lint`         | Check JavaScript with ESLint.                        |
+| `npm run lint:fix`     | Fix ESLint problems that can be fixed automatically. |
+| `npm run format`       | Format every file with Prettier.                     |
+| `npm run format:check` | Check formatting without writing changes.            |
+
+A Husky pre-commit hook runs ESLint and Prettier on staged files. Formatting
+rules live in `.prettierrc` and `.editorconfig`; lint rules in
+`eslint.config.js`.
 
 ## Testing
 
