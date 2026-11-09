@@ -40,6 +40,8 @@ The server loads these from `.env` in the repository root.
 | Command                | Description                                          |
 | ---------------------- | ---------------------------------------------------- |
 | `npm start`            | Start the server with `index.js`.                    |
+| `npm test`             | Run the tests once with Vitest.                      |
+| `npm run test:watch`   | Re-run the tests as files change.                    |
 | `npm run lint`         | Check JavaScript with ESLint.                        |
 | `npm run lint:fix`     | Fix ESLint problems that can be fixed automatically. |
 | `npm run format`       | Format every file with Prettier.                     |
@@ -51,24 +53,42 @@ rules live in `.prettierrc` and `.editorconfig`; lint rules in
 
 ## Testing
 
-> > > TODO: Write unit and integration tests
+Run the tests with:
+
+```bash
+npm test
+```
+
+The tests are integration tests:
+[Supertest](https://github.com/forwardemail/supertest) sends real HTTP requests
+to the Express app from `app.js`, which runs against a temporary in-memory
+MongoDB from
+[mongodb-memory-server](https://github.com/typegoose/mongodb-memory-server). No
+`.env` or running database is needed. The first run downloads a MongoDB binary
+(about 80 MB) and caches it.
+
+Test files sit next to the code they cover as `*.test.mjs`. Shared helpers for
+starting, seeding, and clearing the database live in `test/database.mjs`.
 
 ## Project structure
 
 ```text
 .
 ├── helpers/
-│   └── mongo-manager.js   MongoDB connection and all database queries
+│   └── mongo-manager.js  MongoDB connection and all database queries
 ├── models/               Mongoose schemas, one file per database
 ├── routes/               Express routers, one file per URL prefix
-└── index.js              App entry point: CORS headers, router mounting, listen
+├── test/                 Shared test helpers
+├── app.js                Express app: CORS headers and router mounting
+└── index.js              Entry point: connects to MongoDB and starts listening
 ```
 
 ## Architecture
 
-`index.js` loads the environment, connects to MongoDB through
-`helpers/mongo-manager.js`, sets the CORS headers, and mounts one Express router
-per URL prefix from `routes/`.
+`app.js` builds the Express app: it sets the CORS headers and mounts one Express
+router per URL prefix from `routes/`. `index.js` connects to MongoDB through
+`helpers/mongo-manager.js` and starts the app listening. Keeping the two apart
+lets the tests run the app without opening a port.
 
 The API is public and read-only, so CORS allows any origin
 (`Access-Control-Allow-Origin: *`).
