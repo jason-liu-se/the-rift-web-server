@@ -125,7 +125,8 @@ Mongoose models directly.
 
 `startIndex` defaults to `0`. Omitting `limit` returns every item from
 `startIndex` onwards. A missing `collection` returns a JSON object with an
-`error` field.
+`error` field. If a query fails, the endpoint responds `500` with
+`{ "error": string }` and logs the details to the server console.
 
 ### Data model
 
@@ -144,8 +145,11 @@ collection in MongoDB.
 
 ## Troubleshooting
 
-### Endpoints return empty responses
+### Endpoints return empty lists
 
-Confirm that `MONGODB_CONNECTION_STRING` is set and reachable, and that the
-database and collection names match the [data model](#data-model). Query errors
-are logged to the server console rather than returned to the caller.
+Unknown collections return an empty list rather than an error. Confirm that the
+database and collection names match the [data model](#data-model).
+
+### Endpoints return 500 errors
+
+The query failed. The server console logs the request and the underlying error.
