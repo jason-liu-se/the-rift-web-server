@@ -2,9 +2,20 @@
 	"name": "the-rift-site-web-server",
 	"version": "1.0.0",
 	"description": "",
-	"main": "index.js",
+	"type": "module",
+	"main": "dist/index.js",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"dev": "node --watch --env-file-if-exists=.env src/index.ts",
+		"build": "tsc -p tsconfig.build.json",
+		"start": "node --env-file-if-exists=.env dist/index.js",
+		"typecheck": "tsc",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"prepare": "husky",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"lint": "eslint .",
+		"lint:fix": "eslint --fix ."
 	},
 	"repository": {
 		"type": "git",
@@ -17,8 +28,32 @@
 	},
 	"homepage": "https://github.com/Jason-Liu-SE/rift-website-web-server#readme",
 	"dependencies": {
-		"dotenv": "^16.3.1",
-		"express": "^4.18.2",
-		"mongoose": "^8.0.0"
+		"express": "^5.3.0",
+		"mongoose": "^9.12.0",
+		"zod": "^4.6.7"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"@types/express": "^5.0.6",
+		"@types/node": "^24.19.2",
+		"@types/supertest": "^7.2.1",
+		"eslint": "^10.14.0",
+		"eslint-config-prettier": "^10.1.8",
+		"globals": "^17.14.0",
+		"husky": "^9.1.7",
+		"lint-staged": "^17.6.0",
+		"mongodb-memory-server": "^11.3.0",
+		"prettier": "3.9.10",
+		"supertest": "^7.3.2",
+		"typescript": "~6.0",
+		"typescript-eslint": "^8.72.1",
+		"vitest": "^5.1.0"
+	},
+	"lint-staged": {
+		"*.{js,mjs,ts}": [
+			"eslint --fix",
+			"prettier --write"
+		],
+		"!(*.js|*.mjs|*.ts)": "prettier --write --ignore-unknown"
 	}
 }
