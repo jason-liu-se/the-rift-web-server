@@ -58,7 +58,7 @@ rules live in `.prettierrc` and `.editorconfig`; lint rules in
 ```text
 .
 ├── helpers/
-│   └── mongoManager.js   MongoDB connection and all database queries
+│   └── mongo-manager.js   MongoDB connection and all database queries
 ├── models/               Mongoose schemas, one file per database
 ├── routes/               Express routers, one file per URL prefix
 └── index.js              App entry point: CORS headers, router mounting, listen
@@ -67,13 +67,13 @@ rules live in `.prettierrc` and `.editorconfig`; lint rules in
 ## Architecture
 
 `index.js` loads the environment, connects to MongoDB through
-`helpers/mongoManager.js`, sets the CORS headers, and mounts one Express router
+`helpers/mongo-manager.js`, sets the CORS headers, and mounts one Express router
 per URL prefix from `routes/`.
 
 The API is public and read-only, so CORS allows any origin
 (`Access-Control-Allow-Origin: *`).
 
-Routers parse query parameters and call `mongoManager`, which owns every
+Routers parse query parameters and call `mongo-manager`, which owns every
 database query and returns plain results to the router. Routers do not query
 Mongoose models directly.
 

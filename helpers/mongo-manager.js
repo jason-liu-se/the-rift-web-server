@@ -171,7 +171,7 @@ exports.getAllDownloadCollections = async () => {
 
 					collections.push({
 						name: collection.name,
-						items: items,
+						items: items
 					});
 				}
 			});

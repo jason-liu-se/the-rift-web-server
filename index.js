@@ -4,7 +4,7 @@ const mapRouter = require("./routes/map");
 const newsRouter = require("./routes/news");
 const downloadsRouter = require("./routes/downloads");
 const galleryRouter = require("./routes/gallery");
-const mongoManger = require("./helpers/mongoManager.js");
+const mongoManger = require("./helpers/mongo-manager.js");
 
 dotenv.config();
 

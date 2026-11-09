@@ -1,6 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
-const mongoManager = require("../helpers/mongoManager.js");
+const mongoManager = require("../helpers/mongo-manager.js");
 
 const newsRouter = express.Router();
 
