@@ -14,12 +14,9 @@ const port = process.env.PORT || 4000;
 mongoManger.connect();
 
 app.use((req, res, next) => {
-	res.header("Access-Control-Allow-Origin", process.env.FRONTEND_URL);
-	res.header("Access-Control-Allow-Methods", "GET,PUT,OPTIONS");
-	res.header(
-		"Access-Control-Allow-Headers",
-		"Access-Control-Allow-Origin, Content-Type, Accept, Accept-Language, Origin, User-Agent"
-	);
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Methods", "GET,OPTIONS");
+	res.header("Access-Control-Allow-Headers", "Content-Type");
 	if (req.method === "OPTIONS") {
 		res.sendStatus(204);
 	} else {
