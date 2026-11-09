@@ -28,6 +28,11 @@ app.use("/news", newsRouter);
 app.use("/downloads", downloadsRouter);
 app.use("/gallery", galleryRouter);
 
-app.listen(port, () => {
+app.listen(port, (error) => {
+	// Express 5 passes startup errors (e.g. port in use) here instead of throwing.
+	if (error) {
+		throw error;
+	}
+
 	console.log(`Listening on port ${port}`);
 });
