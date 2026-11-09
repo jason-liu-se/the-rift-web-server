@@ -1,22 +1,32 @@
-const mongoose = require("mongoose");
-const gallerySchema = require("../models/gallery-schema.js");
-const newsSchema = require("../models/news-schema.js");
-const downloadsSchema = require("../models/downloads-schema.js");
+import mongoose, { type HydratedDocument } from "mongoose";
+import * as gallerySchema from "../models/gallery-schema.ts";
+import * as newsSchema from "../models/news-schema.ts";
+import * as downloadsSchema from "../models/downloads-schema.ts";
+
+export interface DownloadCollection {
+	name: string;
+	items: HydratedDocument<downloadsSchema.DownloadItem>[] | undefined;
+}
 
 // Resolves once MongoDB is reachable; rejects if it can't connect, so callers
 // don't serve requests without a database.
-exports.connect = async (connectionString) => {
+export async function connect(connectionString: string) {
 	mongoose.pluralize(null);
 	mongoose.set("autoCreate", false);
 
 	await mongoose.connect(connectionString);
 	console.log("Connected to MongoDB");
-};
+}
 
 // limit = -1 implies that no limit was specified. Assumed all documents are desired
-exports.getGalleryCollection = async (collectionName, startIndex, limit) => {
+export async function getGalleryCollection(
+	collectionName: string,
+	startIndex: number,
+	limit: number
+) {
 	const model = gallerySchema.getModel(collectionName);
-	let galleryCollection;
+	let galleryCollection:
+		HydratedDocument<gallerySchema.GalleryImage>[] | undefined;
 
 	try {
 		if (limit === -1) {
@@ -43,11 +53,11 @@ exports.getGalleryCollection = async (collectionName, startIndex, limit) => {
 	}
 
 	return galleryCollection;
-};
+}
 
-exports.countGalleryCollectionItems = async (collectionName) => {
+export async function countGalleryCollectionItems(collectionName: string) {
 	const model = gallerySchema.getModel(collectionName);
-	let galleryCollectionCount;
+	let galleryCollectionCount: number | undefined;
 
 	try {
 		await model
@@ -68,16 +78,16 @@ exports.countGalleryCollectionItems = async (collectionName) => {
 	}
 
 	return galleryCollectionCount;
-};
+}
 
 // Pre:
 // limit = -1 implies that no limit was specified. Assumed all documents are desired
 //
 // Post:
 // The specified number of news items, starting at the startIndex, are sorted by date (newest to oldest) and returned
-exports.getNewsItems = async (startIndex, limit) => {
+export async function getNewsItems(startIndex: number, limit: number) {
 	const model = newsSchema.model;
-	let newsItems;
+	let newsItems: HydratedDocument<newsSchema.NewsItem>[] | undefined;
 
 	try {
 		if (limit === -1) {
@@ -100,11 +110,11 @@ exports.getNewsItems = async (startIndex, limit) => {
 	}
 
 	return newsItems;
-};
+}
 
-exports.countNewsItems = async () => {
+export async function countNewsItems() {
 	const model = newsSchema.model;
-	let count;
+	let count: number | undefined;
 
 	try {
 		await model
@@ -120,11 +130,12 @@ exports.countNewsItems = async () => {
 	}
 
 	return count;
-};
+}
 
-exports.getDownloadCollection = async (collectionName) => {
+export async function getDownloadCollection(collectionName: string) {
 	const model = downloadsSchema.getModel(collectionName);
-	let downloadCollection;
+	let downloadCollection:
+		HydratedDocument<downloadsSchema.DownloadItem>[] | undefined;
 
 	try {
 		await model
@@ -145,24 +156,22 @@ exports.getDownloadCollection = async (collectionName) => {
 	}
 
 	return downloadCollection;
-};
+}
 
-exports.getAllDownloadCollections = async () => {
+export async function getAllDownloadCollections() {
 	const db = mongoose.connection.useDb("downloads");
-	let collections = [];
+	const collections: DownloadCollection[] = [];
 
 	// getting a list of the collections
 	// and formatting each collection with its
 	// associated records
 	try {
 		await db.db
-			.listCollections()
+			?.listCollections()
 			.toArray()
 			.then(async (data) => {
-				for (let collection of data) {
-					const items = await this.getDownloadCollection(
-						collection.name
-					);
+				for (const collection of data) {
+					const items = await getDownloadCollection(collection.name);
 
 					collections.push({
 						name: collection.name,
@@ -178,4 +187,4 @@ exports.getAllDownloadCollections = async () => {
 	}
 
 	return collections;
-};
+}

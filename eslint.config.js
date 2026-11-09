@@ -1,33 +1,29 @@
-const eslint = require("@eslint/js");
-const { defineConfig } = require("eslint/config");
-const globals = require("globals");
-const prettierConfig = require("eslint-config-prettier");
+import eslint from "@eslint/js";
+import { defineConfig } from "eslint/config";
+import globals from "globals";
+import tseslint from "typescript-eslint";
+import prettierConfig from "eslint-config-prettier";
 
-module.exports = defineConfig([
+export default defineConfig([
 	{
-		ignores: ["coverage/"]
+		ignores: ["coverage/", "dist/"]
 	},
 	{
-		files: ["**/*.js"],
+		files: ["**/*.{js,ts}"],
 		extends: [eslint.configs.recommended],
 		languageOptions: {
-			sourceType: "commonjs",
 			globals: globals.node
 		}
 	},
 	{
-		files: ["**/*.mjs"],
-		extends: [eslint.configs.recommended],
-		languageOptions: {
-			sourceType: "module",
-			globals: globals.node
-		}
+		files: ["**/*.ts"],
+		extends: [tseslint.configs.recommended, tseslint.configs.stylistic]
 	},
 	// Must be last: turns off any rules that conflict with Prettier.
 	prettierConfig,
 	// After prettierConfig, which disables `curly`; "all" doesn't conflict with Prettier.
 	{
-		files: ["**/*.ts"],
+		files: ["**/*.{js,ts}"],
 		rules: {
 			curly: ["error", "all"]
 		}

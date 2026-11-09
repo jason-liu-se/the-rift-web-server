@@ -2,8 +2,9 @@
 
 The Rift web server is the REST API behind
 [The Rift website](https://github.com/jason-liu-se/the-rift-website) for the
-Minecraft server community. It is a Node.js application built with Express and
-Mongoose, and it serves news, gallery, and download content stored in MongoDB.
+Minecraft server community. It is a Node.js application written in TypeScript
+with Express and Mongoose, and it serves news, gallery, and download content
+stored in MongoDB.
 
 The server is read-only (for now): every endpoint is a `GET` that returns JSON.
 Content is added to MongoDB directly; see [Data model](#data-model).
@@ -21,14 +22,22 @@ Create a `.env` file in the repository root with the
 
 ```bash
 npm ci
+npm run dev
+```
+
+The server listens on <http://localhost:4000/> by default. `npm run dev` runs
+the TypeScript source directly and restarts on changes. To run it as in
+production, build first:
+
+```bash
+npm run build
 npm start
 ```
 
-The server listens on <http://localhost:4000/> by default.
-
 ### Environment variables
 
-The server loads these from `.env` in the repository root.
+The server loads these from `.env` in the repository root. It exits with an
+error if `MONGODB_CONNECTION_STRING` is missing or MongoDB is unreachable.
 
 | Variable                    | Required | Description                                                               |
 | --------------------------- | -------- | ------------------------------------------------------------------------- |
@@ -37,19 +46,23 @@ The server loads these from `.env` in the repository root.
 
 ## Npm scripts
 
-| Command                | Description                                          |
-| ---------------------- | ---------------------------------------------------- |
-| `npm start`            | Start the server with `index.js`.                    |
-| `npm test`             | Run the tests once with Vitest.                      |
-| `npm run test:watch`   | Re-run the tests as files change.                    |
-| `npm run lint`         | Check JavaScript with ESLint.                        |
-| `npm run lint:fix`     | Fix ESLint problems that can be fixed automatically. |
-| `npm run format`       | Format every file with Prettier.                     |
-| `npm run format:check` | Check formatting without writing changes.            |
+| Command                | Description                                           |
+| ---------------------- | ----------------------------------------------------- |
+| `npm run dev`          | Run `src/index.ts` directly, restarting on changes.   |
+| `npm run build`        | Compile `src/` to JavaScript in `dist/`.              |
+| `npm start`            | Start the built server from `dist/index.js`.          |
+| `npm run typecheck`    | Type-check the source, tests, and configs with `tsc`. |
+| `npm test`             | Run the tests once with Vitest.                       |
+| `npm run test:watch`   | Re-run the tests as files change.                     |
+| `npm run lint`         | Check the code with ESLint.                           |
+| `npm run lint:fix`     | Fix ESLint problems that can be fixed automatically.  |
+| `npm run format`       | Format every file with Prettier.                      |
+| `npm run format:check` | Check formatting without writing changes.             |
 
 A Husky pre-commit hook runs ESLint and Prettier on staged files. Formatting
 rules live in `.prettierrc` and `.editorconfig`; lint rules in
-`eslint.config.js`.
+`eslint.config.js`; compiler options in `tsconfig.json` (type-checking) and
+`tsconfig.build.json` (the `dist/` build).
 
 ## Testing
 
@@ -61,34 +74,36 @@ npm test
 
 The tests are integration tests:
 [Supertest](https://github.com/forwardemail/supertest) sends real HTTP requests
-to the Express app from `app.js`, which runs against a temporary in-memory
+to the Express app from `src/app.ts`, which runs against a temporary in-memory
 MongoDB from
 [mongodb-memory-server](https://github.com/typegoose/mongodb-memory-server). No
 `.env` or running database is needed. The first run downloads a MongoDB binary
 (about 80 MB) and caches it.
 
-Test files sit next to the code they cover as `*.test.mjs`. Shared helpers for
-starting, seeding, and clearing the database live in `test/database.mjs`.
+Test files sit next to the code they cover as `*.test.ts`. Shared helpers for
+starting, seeding, and clearing the database live in `test/database.ts`.
 
 ## Project structure
 
 ```text
 .
-├── helpers/
-│   └── mongo-manager.js  MongoDB connection and all database queries
-├── models/               Mongoose schemas, one file per database
-├── routes/               Express routers, one file per URL prefix
-├── test/                 Shared test helpers
-├── app.js                Express app: CORS headers and router mounting
-└── index.js              Entry point: connects to MongoDB and starts listening
+├── src/
+│   ├── helpers/
+│   │   └── mongo-manager.ts  MongoDB connection and all database queries
+│   ├── models/               Mongoose schemas and types, one file per database
+│   ├── routes/               Express routers, one file per URL prefix
+│   ├── app.ts                Express app: CORS headers and router mounting
+│   └── index.ts              Entry point: connects to MongoDB and starts listening
+├── test/                     Shared test helpers
+└── dist/                     Build output (git-ignored)
 ```
 
 ## Architecture
 
-`app.js` builds the Express app: it sets the CORS headers and mounts one Express
-router per URL prefix from `routes/`. `index.js` connects to MongoDB through
-`helpers/mongo-manager.js` and starts the app listening. Keeping the two apart
-lets the tests run the app without opening a port.
+`src/app.ts` builds the Express app: it sets the CORS headers and mounts one
+Express router per URL prefix from `src/routes/`. `src/index.ts` connects to
+MongoDB through `src/helpers/mongo-manager.ts` and starts the app listening.
+Keeping the two apart lets the tests run the app without opening a port.
 
 The API is public and read-only, so CORS allows any origin
 (`Access-Control-Allow-Origin: *`).
@@ -112,19 +127,20 @@ Mongoose models directly.
 `startIndex` onwards. A missing `collection` returns a JSON object with an
 `error` field.
 
-`routes/map.js` mounts `GET /map/test`, which served a static map export that
-has since been removed from the repository; the route currently returns an
+`src/routes/map.ts` mounts `GET /map/test`, which served a static map export
+that has since been removed from the repository; the route currently returns an
 error.
 
 ### Data model
 
-Each content type lives in its own MongoDB database, with schemas in `models/`:
+Each content type lives in its own MongoDB database, with schemas in
+`src/models/`:
 
-| Database    | Collections                                       | Schema                       |
-| ----------- | ------------------------------------------------- | ---------------------------- |
-| `news`      | `news-items`                                      | `models/news-schema.js`      |
-| `gallery`   | One per gallery, named by the website             | `models/gallery-schema.js`   |
-| `downloads` | One per download group, all returned by `get-all` | `models/downloads-schema.js` |
+| Database    | Collections                                       | Schema                           |
+| ----------- | ------------------------------------------------- | -------------------------------- |
+| `news`      | `news-items`                                      | `src/models/news-schema.ts`      |
+| `gallery`   | One per gallery, named by the website             | `src/models/gallery-schema.ts`   |
+| `downloads` | One per download group, all returned by `get-all` | `src/models/downloads-schema.ts` |
 
 Collection names are used as-is (pluralization is off), and the server does not
 create collections, so a new gallery or download group is added by creating its

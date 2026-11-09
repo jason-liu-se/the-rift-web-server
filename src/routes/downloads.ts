@@ -1,10 +1,13 @@
-const express = require("express");
-const mongoManager = require("../helpers/mongo-manager.js");
+import express from "express";
+import * as mongoManager from "../helpers/mongo-manager.ts";
 
-const downloadsRouter = express.Router();
+export const downloadsRouter = express.Router();
 
 downloadsRouter.get("/get-collection", async (req, res) => {
-	const collectionName = req.query.collection ? req.query.collection : "";
+	const collectionName =
+		typeof req.query["collection"] === "string"
+			? req.query["collection"]
+			: "";
 
 	if (collectionName === "") {
 		res.send({
@@ -21,5 +24,3 @@ downloadsRouter.get("/get-all", async (req, res) => {
 	const data = await mongoManager.getAllDownloadCollections();
 	res.send(data);
 });
-
-module.exports = downloadsRouter;

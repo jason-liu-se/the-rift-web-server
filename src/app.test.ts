@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import request from "supertest";
-import app from "./app.js";
+import { app } from "./app.ts";
 
 describe("CORS", () => {
 	it("answers preflight requests from any origin", async () => {

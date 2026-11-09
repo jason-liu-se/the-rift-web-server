@@ -1,12 +1,15 @@
-const express = require("express");
-const mongoManager = require("../helpers/mongo-manager.js");
+import express from "express";
+import * as mongoManager from "../helpers/mongo-manager.ts";
 
-const galleryRouter = express.Router();
+export const galleryRouter = express.Router();
 
 galleryRouter.get("/get-collection", async (req, res) => {
-	const collectionName = req.query.collection ? req.query.collection : "";
-	const startIndex = req.query.startIndex ? req.query.startIndex : 0;
-	const limit = req.query.limit ? req.query.limit : -1;
+	const collectionName =
+		typeof req.query["collection"] === "string"
+			? req.query["collection"]
+			: "";
+	const startIndex = Number(req.query["startIndex"] || 0);
+	const limit = Number(req.query["limit"] || -1);
 
 	if (collectionName === "") {
 		res.send({
@@ -23,7 +26,10 @@ galleryRouter.get("/get-collection", async (req, res) => {
 });
 
 galleryRouter.get("/count-collection-items", async (req, res) => {
-	const collectionName = req.query.collection ? req.query.collection : "";
+	const collectionName =
+		typeof req.query["collection"] === "string"
+			? req.query["collection"]
+			: "";
 
 	if (collectionName === "") {
 		res.send({
@@ -35,5 +41,3 @@ galleryRouter.get("/count-collection-items", async (req, res) => {
 		res.send({ count: data });
 	}
 });
-
-module.exports = galleryRouter;
