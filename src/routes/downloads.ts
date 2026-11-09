@@ -1,23 +1,14 @@
 import express from "express";
 import * as mongoManager from "../helpers/mongo-manager.ts";
+import { collectionQuery } from "./query-schemas.ts";
 
 export const downloadsRouter = express.Router();
 
 downloadsRouter.get("/get-collection", async (req, res) => {
-	const collectionName =
-		typeof req.query["collection"] === "string"
-			? req.query["collection"]
-			: "";
+	const { collection } = collectionQuery.parse(req.query);
 
-	if (collectionName === "") {
-		res.send({
-			data: [],
-			error: "ERROR: a collection name has not been passed with the endpoint call"
-		});
-	} else {
-		const data = await mongoManager.getDownloadCollection(collectionName);
-		res.send(data);
-	}
+	const data = await mongoManager.getDownloadCollection(collection);
+	res.send(data);
 });
 
 downloadsRouter.get("/get-all", async (req, res) => {

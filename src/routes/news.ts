@@ -1,11 +1,11 @@
 import express from "express";
 import * as mongoManager from "../helpers/mongo-manager.ts";
+import { paginationQuery } from "./query-schemas.ts";
 
 export const newsRouter = express.Router();
 
 newsRouter.get("/get-items", async (req, res) => {
-	const startIndex = Number(req.query["startIndex"] || 0);
-	const limit = req.query["limit"] ? Number(req.query["limit"]) : undefined;
+	const { startIndex, limit } = paginationQuery.parse(req.query);
 
 	const data = await mongoManager.getNewsItems(startIndex, limit);
 	res.send(data);

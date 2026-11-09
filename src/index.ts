@@ -1,35 +1,29 @@
 import type { Server } from "node:http";
 import { app } from "./app.ts";
+import { loadEnv } from "./config/env.ts";
 import * as mongoManager from "./helpers/mongo-manager.ts";
 
-const DEFAULT_PORT = 4000;
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 const SHUTDOWN_SIGNALS: NodeJS.Signals[] = ["SIGTERM", "SIGINT"];
 
-const port = process.env["PORT"] || DEFAULT_PORT;
-const connectionString = process.env["MONGODB_CONNECTION_STRING"];
-
 async function start() {
-	if (!connectionString) {
-		console.error("MONGODB_CONNECTION_STRING is not set; see README.md");
-		process.exit(1);
-	}
+	const { MONGODB_CONNECTION_STRING, PORT } = loadEnv();
 
 	try {
-		await mongoManager.connect(connectionString);
+		await mongoManager.connect(MONGODB_CONNECTION_STRING);
 	} catch (error) {
 		const reason = error instanceof Error ? error.message : error;
 		console.error(`Could not connect to MongoDB: ${reason}`);
 		process.exit(1);
 	}
 
-	const server = app.listen(port, (error) => {
+	const server = app.listen(PORT, (error) => {
 		// Express 5 passes startup errors (e.g. port in use) here instead of throwing.
 		if (error) {
 			throw error;
 		}
 
-		console.log(`Listening on port ${port}`);
+		console.log(`Listening on port ${PORT}`);
 	});
 
 	// `once`: a second Ctrl+C falls back to Node's default and exits immediately.

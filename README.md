@@ -36,8 +36,9 @@ npm start
 
 ### Environment variables
 
-The server loads these from `.env` in the repository root. It exits with an
-error if `MONGODB_CONNECTION_STRING` is missing or MongoDB is unreachable.
+The server loads these from `.env` in the repository root and validates them at
+startup against the schema in `src/config/env.ts`. It exits listing every
+invalid variable, or if MongoDB is unreachable.
 
 | Variable                    | Required | Description                                                               |
 | --------------------------- | -------- | ------------------------------------------------------------------------- |
@@ -88,10 +89,12 @@ starting, seeding, and clearing the database live in `test/database.ts`.
 ```text
 .
 ├── src/
+│   ├── config/
+│   │   └── env.ts            Environment variable schema
 │   ├── helpers/
 │   │   └── mongo-manager.ts  MongoDB connection and all database queries
 │   ├── models/               Mongoose schemas and types, one file per database
-│   ├── routes/               Express routers, one file per URL prefix
+│   ├── routes/               Express routers, one per URL prefix, and query schemas
 │   ├── app.ts                Express app: CORS headers and router mounting
 │   └── index.ts              Entry point: connects to MongoDB and starts listening
 ├── test/                     Shared test helpers
@@ -129,9 +132,16 @@ the exit. Pressing Ctrl+C a second time exits immediately.
 | `GET /downloads/get-all`              |                                                | `[{ "name": string, "items": [...] }]` for every download collection |
 
 `startIndex` defaults to `0`. Omitting `limit` returns every item from
-`startIndex` onwards. A missing `collection` returns a JSON object with an
-`error` field. If a query fails, the endpoint responds `500` with
-`{ "error": string }` and logs the details to the server console.
+`startIndex` onwards. Query parameters are validated with the Zod schemas in
+`src/routes/query-schemas.ts`.
+
+Errors respond with `{ "error": string }`:
+
+- `400` when query parameters are missing or invalid, e.g. no `collection`, a
+  collection name MongoDB doesn't allow, or a negative or non-integer
+  `startIndex`/`limit`.
+- `500` when a query fails. The details are logged to the server console, not
+  returned.
 
 ### Data model
 

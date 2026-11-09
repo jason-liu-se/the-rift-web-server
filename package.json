@@ -29,7 +29,8 @@
 	"homepage": "https://github.com/Jason-Liu-SE/rift-website-web-server#readme",
 	"dependencies": {
 		"express": "^5.3.0",
-		"mongoose": "^9.12.0"
+		"mongoose": "^9.12.0",
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
