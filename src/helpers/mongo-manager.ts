@@ -3,6 +3,9 @@ import * as gallerySchema from "../models/gallery-schema.ts";
 import * as newsSchema from "../models/news-schema.ts";
 import * as downloadsSchema from "../models/downloads-schema.ts";
 
+// MongoDB treats a limit of 0 as "no limit".
+const NO_LIMIT = 0;
+
 export interface DownloadCollection {
 	name: string;
 	items: HydratedDocument<downloadsSchema.DownloadItem>[] | undefined;
@@ -18,173 +21,95 @@ export async function connect(connectionString: string) {
 	console.log("Connected to MongoDB");
 }
 
-// limit = -1 implies that no limit was specified. Assumed all documents are desired
+// Omitting `limit` returns every image from `startIndex` onwards.
 export async function getGalleryCollection(
 	collectionName: string,
 	startIndex: number,
-	limit: number
+	limit?: number
 ) {
-	const model = gallerySchema.getModel(collectionName);
-	let galleryCollection:
-		HydratedDocument<gallerySchema.GalleryImage>[] | undefined;
-
 	try {
-		if (limit === -1) {
-			await model.countDocuments({}).then(async (data) => (limit = data));
-		}
-
-		await model
-			.find({})
+		return await gallerySchema
+			.getModel(collectionName)
+			.find()
 			.skip(startIndex)
-			.limit(limit)
-			.then(async (data) => {
-				galleryCollection = data;
-			})
-			.catch((e) =>
-				console.log(
-					"ERROR: could not fetch gallery collection '" +
-						collectionName +
-						"': ",
-					e
-				)
-			);
-	} catch (e) {
-		console.log(e);
+			.limit(limit ?? NO_LIMIT);
+	} catch (error) {
+		console.error(
+			`ERROR: could not fetch gallery collection '${collectionName}':`,
+			error
+		);
+		return undefined;
 	}
-
-	return galleryCollection;
 }
 
 export async function countGalleryCollectionItems(collectionName: string) {
-	const model = gallerySchema.getModel(collectionName);
-	let galleryCollectionCount: number | undefined;
-
 	try {
-		await model
-			.countDocuments({})
-			.then(async (data) => {
-				galleryCollectionCount = data;
-			})
-			.catch((e) =>
-				console.log(
-					"ERROR: could not fetch gallery collection '" +
-						collectionName +
-						"' count: ",
-					e
-				)
-			);
-	} catch (e) {
-		console.log(e);
+		return await gallerySchema.getModel(collectionName).countDocuments();
+	} catch (error) {
+		console.error(
+			`ERROR: could not count gallery collection '${collectionName}':`,
+			error
+		);
+		return undefined;
 	}
-
-	return galleryCollectionCount;
 }
 
-// Pre:
-// limit = -1 implies that no limit was specified. Assumed all documents are desired
-//
-// Post:
-// The specified number of news items, starting at the startIndex, are sorted by date (newest to oldest) and returned
-export async function getNewsItems(startIndex: number, limit: number) {
-	const model = newsSchema.model;
-	let newsItems: HydratedDocument<newsSchema.NewsItem>[] | undefined;
-
+// Returns news items newest first. Omitting `limit` returns every item from
+// `startIndex` onwards.
+export async function getNewsItems(startIndex: number, limit?: number) {
 	try {
-		if (limit === -1) {
-			await model.countDocuments({}).then((data) => (limit = data));
-		}
-
-		await model
-			.find({})
+		return await newsSchema.model
+			.find()
 			.sort({ date: -1 })
 			.skip(startIndex)
-			.limit(limit)
-			.then(async (data) => {
-				newsItems = data;
-			})
-			.catch((e) =>
-				console.log("ERROR: could not fetch news items: ", e)
-			);
-	} catch (e) {
-		console.log(e);
+			.limit(limit ?? NO_LIMIT);
+	} catch (error) {
+		console.error("ERROR: could not fetch news items:", error);
+		return undefined;
 	}
-
-	return newsItems;
 }
 
 export async function countNewsItems() {
-	const model = newsSchema.model;
-	let count: number | undefined;
-
 	try {
-		await model
-			.countDocuments({})
-			.then(async (data) => {
-				count = data;
-			})
-			.catch((e) =>
-				console.log("ERROR: could not fetch news item count.'", e)
-			);
-	} catch (e) {
-		console.log(e);
+		return await newsSchema.model.countDocuments();
+	} catch (error) {
+		console.error("ERROR: could not count news items:", error);
+		return undefined;
 	}
-
-	return count;
 }
 
 export async function getDownloadCollection(collectionName: string) {
-	const model = downloadsSchema.getModel(collectionName);
-	let downloadCollection:
-		HydratedDocument<downloadsSchema.DownloadItem>[] | undefined;
-
 	try {
-		await model
-			.find({})
-			.then(async (data) => {
-				downloadCollection = data;
-			})
-			.catch((e) =>
-				console.log(
-					"ERROR: could not fetch download collection '" +
-						collectionName +
-						"': ",
-					e
-				)
-			);
-	} catch (e) {
-		console.log(e);
+		return await downloadsSchema.getModel(collectionName).find();
+	} catch (error) {
+		console.error(
+			`ERROR: could not fetch download collection '${collectionName}':`,
+			error
+		);
+		return undefined;
 	}
-
-	return downloadCollection;
 }
 
-export async function getAllDownloadCollections() {
-	const db = mongoose.connection.useDb("downloads");
-	const collections: DownloadCollection[] = [];
-
-	// getting a list of the collections
-	// and formatting each collection with its
-	// associated records
+// Returns every collection in the downloads database with its items.
+export async function getAllDownloadCollections(): Promise<
+	DownloadCollection[]
+> {
 	try {
-		await db.db
-			?.listCollections()
-			.toArray()
-			.then(async (data) => {
-				for (const collection of data) {
-					const items = await getDownloadCollection(collection.name);
+		const collections = await mongoose.connection
+			.useDb("downloads")
+			.listCollections();
 
-					collections.push({
-						name: collection.name,
-						items: items
-					});
-				}
-			});
-	} catch (e) {
-		console.log(
-			"ERROR: could not fetch all of the download collections",
-			e
+		return await Promise.all(
+			collections.map(async ({ name }) => ({
+				name,
+				items: await getDownloadCollection(name)
+			}))
 		);
+	} catch (error) {
+		console.error(
+			"ERROR: could not fetch all of the download collections:",
+			error
+		);
+		return [];
 	}
-
-	return collections;
 }

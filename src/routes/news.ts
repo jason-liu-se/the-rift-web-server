@@ -5,7 +5,7 @@ export const newsRouter = express.Router();
 
 newsRouter.get("/get-items", async (req, res) => {
 	const startIndex = Number(req.query["startIndex"] || 0);
-	const limit = Number(req.query["limit"] || -1);
+	const limit = req.query["limit"] ? Number(req.query["limit"]) : undefined;
 
 	const data = await mongoManager.getNewsItems(startIndex, limit);
 	res.send(data);

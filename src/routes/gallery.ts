@@ -9,7 +9,7 @@ galleryRouter.get("/get-collection", async (req, res) => {
 			? req.query["collection"]
 			: "";
 	const startIndex = Number(req.query["startIndex"] || 0);
-	const limit = Number(req.query["limit"] || -1);
+	const limit = req.query["limit"] ? Number(req.query["limit"]) : undefined;
 
 	if (collectionName === "") {
 		res.send({
