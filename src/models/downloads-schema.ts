@@ -14,8 +14,8 @@ const downloadsSchema = new mongoose.Schema<DownloadItem>({
 	backgroundUrl: { type: String, required: true }
 });
 
-const db = mongoose.connection.useDb("downloads");
+export const downloadsDb = mongoose.connection.useDb("downloads");
 
-export function getModel(modelName: string) {
-	return db.model<DownloadItem>(modelName, downloadsSchema);
+export function getDownloadModel(collectionName: string) {
+	return downloadsDb.model<DownloadItem>(collectionName, downloadsSchema);
 }

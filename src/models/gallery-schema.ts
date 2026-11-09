@@ -10,8 +10,8 @@ const gallerySchema = new mongoose.Schema<GalleryImage>({
 	url: { type: String, required: true }
 });
 
-const db = mongoose.connection.useDb("gallery");
+export const galleryDb = mongoose.connection.useDb("gallery");
 
-export function getModel(modelName: string) {
-	return db.model<GalleryImage>(modelName, gallerySchema);
+export function getGalleryModel(collectionName: string) {
+	return galleryDb.model<GalleryImage>(collectionName, gallerySchema);
 }

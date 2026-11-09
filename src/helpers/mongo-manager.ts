@@ -2,12 +2,16 @@
 // Mongoose documents. Query errors propagate to the caller; the app's error
 // handler turns them into 500 responses.
 import mongoose from "mongoose";
-import * as gallerySchema from "../models/gallery-schema.ts";
-import * as newsSchema from "../models/news-schema.ts";
-import * as downloadsSchema from "../models/downloads-schema.ts";
-import type { DownloadItem } from "../models/downloads-schema.ts";
-import type { GalleryImage } from "../models/gallery-schema.ts";
-import type { NewsItem } from "../models/news-schema.ts";
+import {
+	downloadsDb,
+	getDownloadModel,
+	type DownloadItem
+} from "../models/downloads-schema.ts";
+import {
+	getGalleryModel,
+	type GalleryImage
+} from "../models/gallery-schema.ts";
+import { newsItemModel, type NewsItem } from "../models/news-schema.ts";
 
 // MongoDB treats a limit of 0 as "no limit".
 const NO_LIMIT = 0;
@@ -38,8 +42,7 @@ export async function getGalleryCollection(
 	startIndex: number,
 	limit?: number
 ): Promise<GalleryImage[]> {
-	return gallerySchema
-		.getModel(collectionName)
+	return getGalleryModel(collectionName)
 		.find()
 		.skip(startIndex)
 		.limit(limit ?? NO_LIMIT)
@@ -49,7 +52,7 @@ export async function getGalleryCollection(
 export async function countGalleryCollectionItems(
 	collectionName: string
 ): Promise<number> {
-	return gallerySchema.getModel(collectionName).countDocuments();
+	return getGalleryModel(collectionName).countDocuments();
 }
 
 // Returns news items newest first. Omitting `limit` returns every item from
@@ -58,7 +61,7 @@ export async function getNewsItems(
 	startIndex: number,
 	limit?: number
 ): Promise<NewsItem[]> {
-	return newsSchema.model
+	return newsItemModel
 		.find()
 		.sort({ date: -1 })
 		.skip(startIndex)
@@ -67,22 +70,20 @@ export async function getNewsItems(
 }
 
 export async function countNewsItems(): Promise<number> {
-	return newsSchema.model.countDocuments();
+	return newsItemModel.countDocuments();
 }
 
 export async function getDownloadCollection(
 	collectionName: string
 ): Promise<DownloadItem[]> {
-	return downloadsSchema.getModel(collectionName).find().lean();
+	return getDownloadModel(collectionName).find().lean();
 }
 
 // Returns every collection in the downloads database with its items.
 export async function getAllDownloadCollections(): Promise<
 	DownloadCollection[]
 > {
-	const collections = await mongoose.connection
-		.useDb("downloads")
-		.listCollections();
+	const collections = await downloadsDb.listCollections();
 
 	return Promise.all(
 		collections.map(async ({ name }) => ({

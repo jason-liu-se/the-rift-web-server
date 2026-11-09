@@ -14,6 +14,6 @@ const newsSchema = new mongoose.Schema<NewsItem>({
 	bannerImg: { type: String }
 });
 
-const db = mongoose.connection.useDb("news");
+export const newsDb = mongoose.connection.useDb("news");
 
-export const model = db.model<NewsItem>("news-items", newsSchema);
+export const newsItemModel = newsDb.model<NewsItem>("news-items", newsSchema);
