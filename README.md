@@ -127,10 +127,6 @@ Mongoose models directly.
 `startIndex` onwards. A missing `collection` returns a JSON object with an
 `error` field.
 
-`src/routes/map.ts` mounts `GET /map/test`, which served a static map export
-that has since been removed from the repository; the route currently returns an
-error.
-
 ### Data model
 
 Each content type lives in its own MongoDB database, with schemas in

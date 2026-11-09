@@ -1,7 +1,6 @@
 // Builds the Express app without connecting to MongoDB or listening, so tests
 // can drive it with Supertest. index.ts does both to run the real server.
 import express from "express";
-import { mapRouter } from "./routes/map.ts";
 import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";
 import { galleryRouter } from "./routes/gallery.ts";
@@ -18,7 +17,6 @@ app.use((req, res, next) => {
 		next();
 	}
 });
-app.use("/map", mapRouter);
 app.use("/news", newsRouter);
 app.use("/downloads", downloadsRouter);
 app.use("/gallery", galleryRouter);
