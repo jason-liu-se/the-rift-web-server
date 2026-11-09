@@ -1,13 +1,14 @@
 // Database access for the routers. Reads return plain objects (`.lean()`), not
 // Mongoose documents. Query errors propagate to the caller; the app's error
 // handler turns them into 500 responses.
-import mongoose from "mongoose";
+import mongoose, { type Connection } from "mongoose";
 import {
 	downloadsDb,
 	getDownloadModel,
 	type DownloadItem
 } from "../models/downloads-schema.ts";
 import {
+	galleryDb,
 	getGalleryModel,
 	type GalleryImage
 } from "../models/gallery-schema.ts";
@@ -34,6 +35,28 @@ export async function connect(connectionString: string): Promise<void> {
 export async function disconnect(): Promise<void> {
 	await mongoose.disconnect();
 	console.log("Disconnected from MongoDB");
+}
+
+async function hasCollection(
+	db: Connection,
+	collectionName: string
+): Promise<boolean> {
+	const collections = await db.listCollections();
+	return collections.some(({ name }) => name === collectionName);
+}
+
+// Collections are never auto-created, so a query against a missing one just
+// returns nothing; these let routes answer 404 instead.
+export async function hasGalleryCollection(
+	collectionName: string
+): Promise<boolean> {
+	return hasCollection(galleryDb, collectionName);
+}
+
+export async function hasDownloadCollection(
+	collectionName: string
+): Promise<boolean> {
+	return hasCollection(downloadsDb, collectionName);
 }
 
 // Omitting `limit` returns every image from `startIndex` onwards.
@@ -79,14 +102,16 @@ export async function getDownloadCollection(
 	return getDownloadModel(collectionName).find().lean();
 }
 
-// Returns every collection in the downloads database with its items.
+// Returns every collection in the downloads database with its items, sorted by
+// name (MongoDB lists collections in no guaranteed order).
 export async function getAllDownloadCollections(): Promise<
 	DownloadCollection[]
 > {
 	const collections = await downloadsDb.listCollections();
+	const names = collections.map(({ name }) => name).toSorted();
 
 	return Promise.all(
-		collections.map(async ({ name }) => ({
+		names.map(async (name) => ({
 			name,
 			items: await getDownloadCollection(name)
 		}))

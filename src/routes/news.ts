@@ -4,14 +4,18 @@ import { paginationQuery } from "./query-schemas.ts";
 
 export const newsRouter = express.Router();
 
-newsRouter.get("/get-items", async (req, res) => {
+// A page of news items, newest first, with the total for paginating.
+newsRouter.get("/", async (req, res) => {
 	const { startIndex, limit } = paginationQuery.parse(req.query);
 
-	const data = await mongoManager.getNewsItems(startIndex, limit);
-	res.json(data);
+	const [items, total] = await Promise.all([
+		mongoManager.getNewsItems(startIndex, limit),
+		mongoManager.countNewsItems()
+	]);
+	res.json({ items, total });
 });
 
-newsRouter.get("/count-items", async (req, res) => {
-	const data = await mongoManager.countNewsItems();
-	res.json({ count: data });
+// Just the total, for callers that don't need any items.
+newsRouter.get("/count", async (req, res) => {
+	res.json({ total: await mongoManager.countNewsItems() });
 });

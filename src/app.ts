@@ -3,6 +3,7 @@
 import express, { type ErrorRequestHandler } from "express";
 import * as z from "zod";
 import { NotFoundError } from "./errors/not-found-error.ts";
+import { legacyRouter } from "./routes/legacy.ts";
 import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";
 import { galleryRouter } from "./routes/gallery.ts";
@@ -19,6 +20,7 @@ app.use((req, res, next) => {
 		next();
 	}
 });
+app.use(legacyRouter);
 app.use("/news", newsRouter);
 app.use("/downloads", downloadsRouter);
 app.use("/gallery", galleryRouter);
@@ -29,7 +31,7 @@ app.use((req) => {
 });
 
 // Express 5 sends errors thrown by any route (including rejected promises)
-// here. Zod errors come from routes parsing their query parameters, so they're
+// here. Zod errors come from routes parsing their path and query parameters, so they're
 // the caller's mistake (400); NotFoundError means the resource doesn't exist
 // (404). Anything else is logged but not exposed (500).
 const handleError: ErrorRequestHandler = (error, req, res, next) => {
@@ -44,7 +46,7 @@ const handleError: ErrorRequestHandler = (error, req, res, next) => {
 			(issue) => `${issue.path.join(".")}: ${issue.message}`
 		);
 		res.status(400).json({
-			error: `ERROR: invalid query parameters (${problems.join("; ")})`
+			error: `ERROR: invalid request parameters (${problems.join("; ")})`
 		});
 		return;
 	}
