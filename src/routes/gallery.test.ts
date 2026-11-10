@@ -8,6 +8,7 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../test/database.ts";
+import { expectContractError } from "../../test/responses.ts";
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);
@@ -28,7 +29,8 @@ describe("GET /gallery/:collection", () => {
 		const res = await request(app).get("/gallery/builds").expect(200);
 
 		expect(res.body.total).toBe(3);
-		expect(res.body.items).toMatchObject([
+		// toEqual: only the contract's fields, no MongoDB _id or __v
+		expect(res.body.items).toEqual([
 			{ caption: "First", url: "1.png" },
 			{ caption: "Second", url: "2.png" },
 			{ caption: "Third", url: "3.png" }
@@ -52,6 +54,12 @@ describe("GET /gallery/:collection", () => {
 		const res = await request(app).get("/gallery/empty").expect(200);
 
 		expect(res.body).toEqual({ items: [], total: 0 });
+	});
+
+	it("answers 500 when a stored image breaks the contract", async () => {
+		await collection("gallery", "builds").insertOne({ caption: "No url" });
+
+		await expectContractError("/gallery/builds");
 	});
 
 	it("answers 404 for a collection that doesn't exist", async () => {

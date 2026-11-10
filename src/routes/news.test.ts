@@ -7,6 +7,7 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../test/database.ts";
+import { expectContractError } from "../../test/responses.ts";
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);
@@ -32,7 +33,8 @@ describe("GET /news", () => {
 		const res = await request(app).get("/news").expect(200);
 
 		expect(res.body.total).toBe(3);
-		expect(res.body.items).toMatchObject([
+		// toEqual: only the contract's fields, no MongoDB _id or __v
+		expect(res.body.items).toEqual([
 			{
 				title: "Newest",
 				date: "2025-01-01T00:00:00.000Z",
@@ -60,6 +62,15 @@ describe("GET /news", () => {
 		const res = await request(app).get("/news").expect(200);
 
 		expect(res.body).toEqual({ items: [], total: 0 });
+	});
+
+	it("answers 500 when a stored item breaks the contract", async () => {
+		await collection("news", "news-items").insertOne({
+			title: "No date",
+			content: "a"
+		});
+
+		await expectContractError("/news");
 	});
 
 	it.each(["limit=0", "limit=abc", "startIndex=-1", "startIndex=1.5"])(

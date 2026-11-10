@@ -7,6 +7,7 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../test/database.ts";
+import { expectContractError } from "../../test/responses.ts";
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);
@@ -32,7 +33,8 @@ describe("GET /downloads", () => {
 
 		const res = await request(app).get("/downloads").expect(200);
 
-		expect(res.body).toMatchObject([
+		// toEqual: only the contract's fields, no MongoDB _id or __v
+		expect(res.body).toEqual([
 			{ name: "maps", items: [MAP] },
 			{ name: "packs", items: [PACK] }
 		]);
@@ -51,7 +53,13 @@ describe("GET /downloads/:collection", () => {
 
 		const res = await request(app).get("/downloads/maps").expect(200);
 
-		expect(res.body).toMatchObject([MAP]);
+		expect(res.body).toEqual([MAP]);
+	});
+
+	it("answers 500 when a stored item breaks the contract", async () => {
+		await collection("downloads", "maps").insertOne({ title: "No url" });
+
+		await expectContractError("/downloads/maps");
 	});
 
 	it("answers 404 for a collection that doesn't exist", async () => {

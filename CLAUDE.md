@@ -61,10 +61,14 @@ done.
   (pluralization and auto-creation are off), so a query against an unknown
   collection returns nothing; routes check `hasGalleryCollection` /
   `hasDownloadCollection` first and answer `404`.
-- **The website is the only client.** It reads these responses through the
-  interfaces in `../website/src/app/interfaces/` and the services in
-  `../website/src/app/services/`. Endpoint paths, query parameters, and response
-  shapes are a contract: check the website before changing them.
+- **Responses follow `src/contract/api-responses.ts`.** It's the contract with
+  the website (the only client), which keeps a verbatim copy, so keep it
+  dependency-free. Routes send every body through `parseResponse` and a schema
+  in `src/routes/response-schemas.ts`, typed with `z.toZod<ContractType>()`. A
+  failed parse is a `500`, not a `400`. Change the contract file first, then the
+  schemas, then run `npm run api:sync` in `../website`. Endpoint paths, query
+  parameters, and response shapes are a contract: check the website's services
+  in `../website/src/app/services/` before changing them.
 
 ## Testing
 
