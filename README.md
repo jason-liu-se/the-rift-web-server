@@ -147,15 +147,6 @@ strings, and answers `500` if stored data is missing a required field. To change
 a response, edit the contract file first. The schemas then fail to compile until
 they match, and the website picks up the change with `npm run api:sync`.
 
-That script reads this file from `../web-server`, so this repo must be cloned
-into a folder named `web-server` next to the website repo (a plain `git clone`
-names it `the-rift-web-server`):
-
-```bash
-git clone https://github.com/jason-liu-se/the-rift-web-server.git web-server
-git clone https://github.com/jason-liu-se/the-rift-website.git website
-```
-
 See the website README's "API contract" section for details.
 
 Errors respond with `{ "error": string }`:
