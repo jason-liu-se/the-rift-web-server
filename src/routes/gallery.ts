@@ -2,6 +2,11 @@ import express from "express";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import * as mongoManager from "../helpers/mongo-manager.ts";
 import { collectionParams, paginationQuery } from "./query-schemas.ts";
+import {
+	countResponse,
+	galleryPage,
+	parseResponse
+} from "./response-schemas.ts";
 
 export const galleryRouter = express.Router();
 
@@ -24,14 +29,16 @@ galleryRouter.get("/:collection", async (req, res) => {
 		mongoManager.getGalleryCollection(collection, startIndex, limit),
 		mongoManager.countGalleryCollectionItems(collection)
 	]);
-	res.json({ items, total });
+	res.json(parseResponse(galleryPage, { items, total }));
 });
 
 // Just the total, for callers that don't need any images.
 galleryRouter.get("/:collection/count", async (req, res) => {
 	const collection = await parseExistingCollection(req.params);
 
-	res.json({
-		total: await mongoManager.countGalleryCollectionItems(collection)
-	});
+	res.json(
+		parseResponse(countResponse, {
+			total: await mongoManager.countGalleryCollectionItems(collection)
+		})
+	);
 });

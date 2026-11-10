@@ -92,10 +92,12 @@ starting, seeding, and clearing the database live in `test/database.ts`.
 │   ├── config/
 │   │   └── env.ts            Environment variable schema
 │   ├── errors/               Error classes the error handler maps to status codes
+│   ├── contract/
+│   │   └── api-responses.ts  Response body types shared with the website
 │   ├── helpers/
 │   │   └── mongo-manager.ts  MongoDB connection and all database queries
 │   ├── models/               Mongoose schemas and types, one file per database
-│   ├── routes/               Express routers, one per URL prefix, and request schemas
+│   ├── routes/               Express routers, one per URL prefix, and request/response schemas
 │   ├── app.ts                Express app: CORS headers and router mounting
 │   └── index.ts              Entry point: connects to MongoDB and starts listening
 ├── test/                     Shared test helpers
@@ -137,14 +139,24 @@ the exit. Pressing Ctrl+C a second time exits immediately.
 endpoints when only the size is needed. Path and query parameters are validated
 with the Zod schemas in `src/routes/query-schemas.ts`.
 
+The exact response types are in `src/contract/api-responses.ts`, the contract
+with the website, which keeps a verbatim copy of that file. Every route sends
+its body through the matching schema in `src/routes/response-schemas.ts`. That
+drops fields outside the contract (such as MongoDB's `_id`), sends dates as ISO
+strings, and answers `500` if stored data is missing a required field. To change
+a response, edit the contract file first. The schemas then fail to compile until
+they match, and the website picks up the change with `npm run api:sync`.
+
+See the website README's "API contract" section for details.
+
 Errors respond with `{ "error": string }`:
 
 - `400` when path or query parameters are missing or invalid, e.g. a collection
   name MongoDB doesn't allow, or a negative or non-integer `startIndex`/`limit`.
 - `404` when the collection doesn't exist, or no endpoint matches the method and
   path.
-- `500` when a query fails. The details are logged to the server console, not
-  returned.
+- `500` when a query fails or stored data breaks the response contract. The
+  details are logged to the server console, not returned.
 
 ### Data model
 

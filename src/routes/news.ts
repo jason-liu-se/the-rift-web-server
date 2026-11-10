@@ -1,6 +1,7 @@
 import express from "express";
 import * as mongoManager from "../helpers/mongo-manager.ts";
 import { paginationQuery } from "./query-schemas.ts";
+import { countResponse, newsPage, parseResponse } from "./response-schemas.ts";
 
 export const newsRouter = express.Router();
 
@@ -12,10 +13,14 @@ newsRouter.get("/", async (req, res) => {
 		mongoManager.getNewsItems(startIndex, limit),
 		mongoManager.countNewsItems()
 	]);
-	res.json({ items, total });
+	res.json(parseResponse(newsPage, { items, total }));
 });
 
 // Just the total, for callers that don't need any items.
 newsRouter.get("/count", async (req, res) => {
-	res.json({ total: await mongoManager.countNewsItems() });
+	res.json(
+		parseResponse(countResponse, {
+			total: await mongoManager.countNewsItems()
+		})
+	);
 });
