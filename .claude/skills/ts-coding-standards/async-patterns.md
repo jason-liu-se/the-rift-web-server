@@ -16,17 +16,7 @@ export async function getUser(id: string): Promise<User | undefined> {
 
 ### `Promise.all` for independent operations
 
-```typescript
-// BAD: sequential waits for independent work
-const user = await fetchUser(userId);
-const orders = await fetchOrders(userId);
-
-// GOOD: run them in parallel
-const [user, orders] = await Promise.all([
-	fetchUser(userId),
-	fetchOrders(userId)
-]);
-```
+Run independent awaits together with `Promise.all`, not one after another.
 
 ### `Promise.allSettled` when partial failure is acceptable
 
@@ -44,24 +34,8 @@ failure propagate.
 
 ### Process large sets in batches
 
-Unbounded `Promise.all` over thousands of items can overwhelm a database or API:
-
-```typescript
-async function processInBatches<T, R>(
-	items: readonly T[],
-	processor: (item: T) => Promise<R>,
-	batchSize: number
-): Promise<R[]> {
-	const results: R[] = [];
-
-	for (let i = 0; i < items.length; i += batchSize) {
-		const batch = items.slice(i, i + batchSize);
-		results.push(...(await Promise.all(batch.map(processor))));
-	}
-
-	return results;
-}
-```
+Unbounded `Promise.all` over thousands of items can overwhelm a database or API;
+process them in fixed-size batches instead.
 
 ## Avoid Unhandled Rejections
 
@@ -105,30 +79,9 @@ through to the libraries that support it.
 
 ## Retries
 
-Retry only operations that are safe to repeat (idempotent) and only for
-transient failures, with exponential backoff and a cap:
-
-```typescript
-async function withRetry<T>(
-	operation: () => Promise<T>,
-	maxAttempts: number,
-	baseDelayMs: number
-): Promise<T> {
-	for (let attempt = 1; ; attempt++) {
-		try {
-			return await operation();
-		} catch (e) {
-			if (attempt >= maxAttempts) {
-				throw e;
-			}
-			const delay = baseDelayMs * 2 ** (attempt - 1);
-			await new Promise((resolve) => setTimeout(resolve, delay));
-		}
-	}
-}
-```
-
-Prefer a library's built-in retry (e.g. a database driver's) when it has one.
+Prefer a library's built-in retry (e.g. the MongoDB driver's) over writing your
+own. If you must retry by hand, retry only idempotent operations, only for
+transient failures, with exponential backoff and a cap.
 
 ## Async Iteration
 
