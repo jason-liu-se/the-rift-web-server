@@ -9,7 +9,7 @@ argument-hint: <endpoint and what it returns>
 
 Add or change the endpoint described in: $ARGUMENTS
 
-Read `.claude/docs/api.md` and `.claude/docs/database.md` first.
+Read `.claude/rules/database.md` first.
 
 ## 1. Check the website
 
@@ -44,7 +44,7 @@ and send the body through `parseResponse`. Don't catch errors.
 
 ## 6. Tests
 
-Add tests in the router's `*.test.ts` (`.claude/docs/testing.md`): the success
+Add tests in the router's `*.test.ts` (`.claude/rules/testing.md`): the success
 body, the `400` and `404` paths, and `expectContractError` for stored data
 missing a required field. Then run:
 

@@ -1,3 +1,10 @@
+---
+paths:
+    - "src/helpers/**/*"
+    - "src/models/**/*"
+    - "test/database.ts"
+---
+
 # Database
 
 `src/helpers/mongo-manager.ts` owns the connection and every query, and returns

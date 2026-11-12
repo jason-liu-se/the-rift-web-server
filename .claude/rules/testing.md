@@ -1,3 +1,10 @@
+---
+paths:
+    - "**/*.test.ts"
+    - "test/**/*"
+    - "vitest.config.ts"
+---
+
 # Testing
 
 Vitest + Supertest integration tests: requests go to `app` from `src/app.ts`,

@@ -44,7 +44,7 @@ are invalid.
 | `npm run lint` / `format` | ESLint / Prettier (`lint:fix`, `format:check`) |
 
 Tests run against an in-memory MongoDB; the first run downloads its binary.
-Details: [testing.md](./.claude/docs/testing.md).
+Details: [testing.md](./.claude/rules/testing.md).
 
 ## Docker
 
@@ -94,7 +94,7 @@ work: [api.md](./.claude/docs/api.md).
 Each content type has its own database: `news` (collection `news-items`),
 `gallery` (one collection per gallery), and `downloads` (one per download
 group). Add content in MongoDB directly; a new gallery or download group is just
-a new collection. Details: [database.md](./.claude/docs/database.md).
+a new collection. Details: [database.md](./.claude/rules/database.md).
 
 ## Project structure
 
