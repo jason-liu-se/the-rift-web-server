@@ -4,9 +4,6 @@
 	"description": "",
 	"type": "module",
 	"main": "dist/index.js",
-	"engines": {
-		"node": "24.x"
-	},
 	"scripts": {
 		"dev": "node --watch --env-file-if-exists=.env src/index.ts",
 		"build": "tsc -p tsconfig.build.json",
