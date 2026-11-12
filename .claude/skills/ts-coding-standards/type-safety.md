@@ -88,20 +88,6 @@ getUser(orderId); // Error: OrderId is not assignable to UserId
 Create branded values only after validating them (e.g. in a Zod schema with
 `.brand()`), never by casting arbitrary input.
 
-## Type Guards
-
-Narrow `unknown` and unions safely:
-
-```typescript
-function isString(value: unknown): value is string {
-	return typeof value === "string";
-}
-
-// Filter with a type predicate
-const items: (string | null)[] = ["a", null, "b"];
-const strings = items.filter((item): item is string => item !== null);
-```
-
 ## Readonly and Immutability
 
 ```typescript
@@ -152,21 +138,12 @@ function describe<T>(state: RequestState<T>): string {
 }
 ```
 
-## Utility and Template Literal Types
+## Derived Types
 
-Prefer deriving types over redeclaring them:
-
-```typescript
-type PublicUser = Omit<User, "password">;
-type UserCredentials = Pick<User, "email" | "password">;
-type PartialUser = Partial<User>;
-type UserMap = Record<string, User>;
-
-type ApiRoute = `/api/${string}`;
-```
-
-Derive types from Zod schemas with `z.infer<typeof schema>` instead of writing a
-matching interface by hand.
+Derive types (utility types, `z.infer<typeof schema>`) instead of redeclaring
+them by hand. The exception is `src/contract/api-responses.ts`: the website
+keeps a verbatim copy, so its types stay hand-written and dependency-free, and
+the schemas are checked against them instead.
 
 ## Anti-Patterns
 

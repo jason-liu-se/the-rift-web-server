@@ -12,9 +12,10 @@ allowed-tools: Read, Grep, Glob
 
 General TypeScript guidance for this project.
 
-**Precedence:** `CLAUDE.md` and the repo's config (`.prettierrc`,
-`.editorconfig`, `eslint.config.js`, `tsconfig.json`) override anything here.
-Formatting is Prettier's job; don't hand-format against it.
+**Precedence:** this project's own instructions (`CLAUDE.md` and the docs and
+rules it loads) and its config (`.prettierrc`, `.editorconfig`,
+`eslint.config.js`, `tsconfig.json`) override anything here. Formatting is
+Prettier's job; don't hand-format against it.
 
 ## When to Apply
 
@@ -33,7 +34,9 @@ Formatting is Prettier's job; don't hand-format against it.
 
 ## Quick Reference
 
-### Must-Use Patterns
+### Preferred Patterns
+
+Reach for these where the code calls for them:
 
 | Pattern                                     | Use Case                                                |
 | ------------------------------------------- | ------------------------------------------------------- |

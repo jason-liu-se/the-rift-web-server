@@ -20,15 +20,14 @@ npm run lint / format                  # ESLint / Prettier (lint:fix, format:che
 Run `typecheck`, `lint`, and `test` before calling work done. A Husky pre-commit
 hook lints and formats staged files.
 
-## Docs
+## Docs and rules
 
-Read the relevant file before working in its area:
+`.claude/docs/` holds context every session needs, imported below.
+`.claude/rules/` holds standards for one area (database access, tests); each
+sets `paths` frontmatter so it loads only when matching files are read or
+edited.
 
-- `.claude/docs/api.md`: routes, error handling, the response contract with the
-  website, and REST/compatibility rules.
-- `.claude/docs/database.md`: `mongo-manager`, models, collections, and query
-  rules.
-- `.claude/docs/testing.md`: test setup and helpers.
+@.claude/docs/api.md
 
 ## Architecture
 
@@ -84,6 +83,7 @@ Read the relevant file before working in its area:
   tests fail when it breaks.
 - **Scope and debt.** Keep changes scoped. Fix minor debt and remove dead code
   in code you touch; raise major debt or unrelated refactors with the user.
-- **Docs.** Update `README.md`, `.claude/docs/`, skills, and `CLAUDE.md` in the
-  same change when what they describe changes. Point to code instead of copying
-  values (versions, ports, limits), and don't list Claude tooling here.
+- **Docs.** Update `README.md`, `.claude/docs/`, `.claude/rules/`, skills, and
+  `CLAUDE.md` in the same change when what they describe changes. Point to code
+  instead of copying values (versions, ports, limits), and don't list Claude
+  tooling here.
