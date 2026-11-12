@@ -1,185 +1,100 @@
 # The Rift Web Server
 
-The Rift web server is the REST API behind
-[The Rift website](https://github.com/jason-liu-se/the-rift-website) for the
-Minecraft server community. It is a Node.js application written in TypeScript
-with Express and Mongoose, and it serves news, gallery, and download content
-stored in MongoDB.
-
-The server is read-only (for now): every endpoint is a `GET` that returns JSON.
-Content is added to MongoDB directly; see [Data model](#data-model).
+The read-only REST API behind
+[The Rift website](https://github.com/jason-liu-se/the-rift-website): an
+Express + Mongoose app in TypeScript that serves news, gallery, and download
+content from MongoDB (versions in [`package.json`](./package.json)).
 
 ## Requirements
 
-- Node.js at the version in [`.nvmrc`](./.nvmrc) (run `nvm use`)
-- npm 11.x
-- A MongoDB instance reachable from the server (local or hosted, e.g. Atlas)
+- **Node.js** at the version in [`.nvmrc`](./.nvmrc) and **npm 11+**
+- A **MongoDB** instance (local or hosted)
 
 ## Getting started
 
-Create a `.env` file in the repository root with the
-[environment variables](#environment-variables) below, then run:
+Create a `.env` file (see below), then:
 
 ```bash
 npm ci
-npm run dev
+npm run dev   # http://localhost:4000
 ```
 
-The server listens on <http://localhost:4000/> by default. `npm run dev` runs
-the TypeScript source directly and restarts on changes. To run it as in
-production, build first:
+## Environment variables
 
-```bash
-npm run build
-npm start
-```
+Validated at startup by `src/config/env.ts`; the server exits listing any that
+are invalid.
 
-### Environment variables
+| Variable                    | Required | Sets                                                    |
+| --------------------------- | -------- | ------------------------------------------------------- |
+| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                  |
+| `PORT`                      | No       | Port to listen on (default `4000`, the website expects) |
 
-The server loads these from `.env` in the repository root and validates them at
-startup against the schema in `src/config/env.ts`. It exits listing every
-invalid variable, or if MongoDB is unreachable.
+## Commands
 
-| Variable                    | Required | Description                                                               |
-| --------------------------- | -------- | ------------------------------------------------------------------------- |
-| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI.                                                   |
-| `PORT`                      | No       | Port to listen on. Defaults to `4000`, which the website expects locally. |
+| Command                   | What it does                                   |
+| ------------------------- | ---------------------------------------------- |
+| `npm run dev`             | Run the source directly, restarting on changes |
+| `npm run build` / `start` | Compile to `dist/` / run the build             |
+| `npm test` / `test:watch` | Tests (no `.env` or database needed)           |
+| `npm run typecheck`       | Type-check source, tests, and configs          |
+| `npm run lint` / `format` | ESLint / Prettier (`lint:fix`, `format:check`) |
 
-## Npm scripts
+Tests run against an in-memory MongoDB; the first run downloads its binary.
+Details: [testing.md](./.claude/docs/testing.md).
 
-| Command                | Description                                           |
-| ---------------------- | ----------------------------------------------------- |
-| `npm run dev`          | Run `src/index.ts` directly, restarting on changes.   |
-| `npm run build`        | Compile `src/` to JavaScript in `dist/`.              |
-| `npm start`            | Start the built server from `dist/index.js`.          |
-| `npm run typecheck`    | Type-check the source, tests, and configs with `tsc`. |
-| `npm test`             | Run the tests once with Vitest.                       |
-| `npm run test:watch`   | Re-run the tests as files change.                     |
-| `npm run lint`         | Check the code with ESLint.                           |
-| `npm run lint:fix`     | Fix ESLint problems that can be fixed automatically.  |
-| `npm run format`       | Format every file with Prettier.                      |
-| `npm run format:check` | Check formatting without writing changes.             |
+## Endpoints
 
-A Husky pre-commit hook runs ESLint and Prettier on staged files. Formatting
-rules live in `.prettierrc` and `.editorconfig`; lint rules in
-`eslint.config.js`; compiler options in `tsconfig.json` (type-checking) and
-`tsconfig.build.json` (the `dist/` build).
+All `GET`, all JSON. Errors are `{ "error": string }` with `400` (invalid
+parameters), `404` (unknown collection or path), or `500` (details logged, not
+returned).
 
-## Testing
+| Path                         | Query                 | Returns                                      |
+| ---------------------------- | --------------------- | -------------------------------------------- |
+| `/news`                      | `startIndex`, `limit` | `{ items, total }`, newest first             |
+| `/news/count`                |                       | `{ total }`                                  |
+| `/gallery/:collection`       | `startIndex`, `limit` | `{ items, total }`                           |
+| `/gallery/:collection/count` |                       | `{ total }`                                  |
+| `/downloads`                 |                       | `[{ name, items }]` for every download group |
+| `/downloads/:collection`     |                       | The group's items                            |
 
-Run the tests with:
+`startIndex` defaults to `0`; omitting `limit` returns everything after it.
+Response types are in
+[`src/contract/api-responses.ts`](./src/contract/api-responses.ts), which the
+website copies (see its README's "API contract"). How routes and the contract
+work: [api.md](./.claude/docs/api.md).
 
-```bash
-npm test
-```
+## Data
 
-The tests are integration tests:
-[Supertest](https://github.com/forwardemail/supertest) sends real HTTP requests
-to the Express app from `src/app.ts`, which runs against a temporary in-memory
-MongoDB from
-[mongodb-memory-server](https://github.com/typegoose/mongodb-memory-server). No
-`.env` or running database is needed. The first run downloads a MongoDB binary
-(about 80 MB) and caches it.
-
-Test files sit next to the code they cover as `*.test.ts`. Shared helpers for
-starting, seeding, and clearing the database live in `test/database.ts`.
+Each content type has its own database: `news` (collection `news-items`),
+`gallery` (one collection per gallery), and `downloads` (one per download
+group). Add content in MongoDB directly; a new gallery or download group is just
+a new collection. Details: [database.md](./.claude/docs/database.md).
 
 ## Project structure
 
 ```text
-.
-├── src/
-│   ├── config/
-│   │   └── env.ts            Environment variable schema
-│   ├── errors/               Error classes the error handler maps to status codes
-│   ├── contract/
-│   │   └── api-responses.ts  Response body types shared with the website
-│   ├── helpers/
-│   │   └── mongo-manager.ts  MongoDB connection and all database queries
-│   ├── models/               Mongoose schemas and types, one file per database
-│   ├── routes/               Express routers, one per URL prefix, and request/response schemas
-│   ├── app.ts                Express app: CORS headers and router mounting
-│   └── index.ts              Entry point: connects to MongoDB and starts listening
-├── test/                     Shared test helpers
-└── dist/                     Build output (git-ignored)
+src/
+├── config/env.ts      Environment variable schema
+├── contract/          Response types shared with the website
+├── errors/            Errors the handler maps to status codes
+├── helpers/           mongo-manager: connection and all queries
+├── models/            Mongoose schemas, one file per database
+├── routes/            Routers and request/response schemas
+├── app.ts             Express app (CORS, routers, error handler)
+└── index.ts           Entry point: connect, listen, shut down
+test/                  Shared test helpers
 ```
-
-## Architecture
-
-`src/app.ts` builds the Express app: it sets the CORS headers and mounts one
-Express router per URL prefix from `src/routes/`. `src/index.ts` connects to
-MongoDB through `src/helpers/mongo-manager.ts` and starts the app listening.
-Keeping the two apart lets the tests run the app without opening a port.
-
-The API is public and read-only, so CORS allows any origin
-(`Access-Control-Allow-Origin: *`).
-
-Routers parse path and query parameters and call `mongo-manager`, which owns
-every database query and returns plain results to the router. Routers do not
-query Mongoose models directly.
-
-On `SIGTERM` or `SIGINT` (Ctrl+C), `src/index.ts` shuts down gracefully: it
-stops accepting connections, lets in-flight requests finish, and disconnects
-from MongoDB. If that takes longer than the timeout in `src/index.ts`, it forces
-the exit. Pressing Ctrl+C a second time exits immediately.
-
-### Endpoints
-
-| Method and path                  | Query parameters      | Returns                                                                       |
-| -------------------------------- | --------------------- | ----------------------------------------------------------------------------- |
-| `GET /news`                      | `startIndex`, `limit` | `{ "items": [...], "total": number }`, news items newest first                |
-| `GET /news/count`                |                       | `{ "total": number }`, without fetching any items                             |
-| `GET /gallery/:collection`       | `startIndex`, `limit` | `{ "items": [...], "total": number }`, images in a gallery collection         |
-| `GET /gallery/:collection/count` |                       | `{ "total": number }`, without fetching any images                            |
-| `GET /downloads`                 |                       | `[{ "name": string, "items": [...] }]` for every download collection, by name |
-| `GET /downloads/:collection`     |                       | Items in a download collection                                                |
-
-`startIndex` defaults to `0`. Omitting `limit` returns every item from
-`startIndex` onwards; `total` counts the whole collection. Use the `/count`
-endpoints when only the size is needed. Path and query parameters are validated
-with the Zod schemas in `src/routes/query-schemas.ts`.
-
-The exact response types are in `src/contract/api-responses.ts`, the contract
-with the website, which keeps a verbatim copy of that file. Every route sends
-its body through the matching schema in `src/routes/response-schemas.ts`. That
-drops fields outside the contract (such as MongoDB's `_id`), sends dates as ISO
-strings, and answers `500` if stored data is missing a required field. To change
-a response, edit the contract file first. The schemas then fail to compile until
-they match, and the website picks up the change with `npm run api:sync`.
-
-See the website README's "API contract" section for details.
-
-Errors respond with `{ "error": string }`:
-
-- `400` when path or query parameters are missing or invalid, e.g. a collection
-  name MongoDB doesn't allow, or a negative or non-integer `startIndex`/`limit`.
-- `404` when the collection doesn't exist, or no endpoint matches the method and
-  path.
-- `500` when a query fails or stored data breaks the response contract. The
-  details are logged to the server console, not returned.
-
-### Data model
-
-Each content type lives in its own MongoDB database, with schemas in
-`src/models/`:
-
-| Database    | Collections                                              | Schema                           |
-| ----------- | -------------------------------------------------------- | -------------------------------- |
-| `news`      | `news-items`                                             | `src/models/news-schema.ts`      |
-| `gallery`   | One per gallery, named by the website                    | `src/models/gallery-schema.ts`   |
-| `downloads` | One per download group, all returned by `GET /downloads` | `src/models/downloads-schema.ts` |
-
-Collection names are used as-is (pluralization is off), and the server does not
-create collections, so a new gallery or download group is added by creating its
-collection in MongoDB.
 
 ## Troubleshooting
 
-### Endpoints return empty lists
+| Problem                      | Check                                                         |
+| ---------------------------- | ------------------------------------------------------------- |
+| Exits on startup             | The listed variables in `.env`, and that MongoDB is reachable |
+| `404` for a gallery/download | The collection exists in the right database                   |
+| `500` errors                 | The server console, which logs the request and the error      |
 
-Unknown collections return an empty list rather than an error. Confirm that the
-database and collection names match the [data model](#data-model).
+## Claude Code
 
-### Endpoints return 500 errors
-
-The query failed. The server console logs the request and the underlying error.
+The repo ships shared [Claude Code](https://claude.com/claude-code) setup:
+[`CLAUDE.md`](./CLAUDE.md) and [`.claude/`](./.claude/). Put personal overrides
+in `.claude/settings.local.json`.
