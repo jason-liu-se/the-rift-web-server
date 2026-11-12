@@ -6,6 +6,7 @@ import { NotFoundError } from "./errors/not-found-error.ts";
 import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";
 import { galleryRouter } from "./routes/gallery.ts";
+import { healthRouter } from "./routes/health.ts";
 
 export const app = express();
 
@@ -19,6 +20,7 @@ app.use((req, res, next) => {
 		next();
 	}
 });
+app.use("/health", healthRouter);
 app.use("/news", newsRouter);
 app.use("/downloads", downloadsRouter);
 app.use("/gallery", galleryRouter);

@@ -50,9 +50,9 @@ status check on `main` (GitHub branch protection) so only passing code merges.
 
 ## Endpoints
 
-All `GET`, all JSON. Errors are `{ "error": string }` with `400` (invalid
-parameters), `404` (unknown collection or path), or `500` (details logged, not
-returned).
+All endspoints use `GET` and return JSON (except `/health`'s empty body). Errors
+are `{ "error": string }` with `400` (invalid parameters), `404` (unknown
+collection or path), or `500` (details logged, not returned).
 
 | Path                         | Query                 | Returns                                      |
 | ---------------------------- | --------------------- | -------------------------------------------- |
@@ -62,6 +62,7 @@ returned).
 | `/gallery/:collection/count` |                       | `{ total }`                                  |
 | `/downloads`                 |                       | `[{ name, items }]` for every download group |
 | `/downloads/:collection`     |                       | The group's items                            |
+| `/health`                    |                       | `200` with an empty body                     |
 
 `startIndex` defaults to `0`; omitting `limit` returns everything after it.
 Response types are in
