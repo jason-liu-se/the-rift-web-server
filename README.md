@@ -7,7 +7,9 @@ content from MongoDB (versions in [`package.json`](./package.json)).
 
 ## Requirements
 
-- **Node.js** at the version in [`.nvmrc`](./.nvmrc) and **npm 11+**
+- **Node.js** at the version in [`.nvmrc`](./.nvmrc) and **npm 11+**. Keep
+  `engines.node` in [`package.json`](./package.json) on the same major: hosts
+  like Koyeb pick their Node version from it, not `.nvmrc`.
 - A **MongoDB** instance (local or hosted)
 
 ## Getting started
