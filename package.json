@@ -9,7 +9,7 @@
 		"build": "tsc -p tsconfig.build.json",
 		"start": "node --env-file-if-exists=.env dist/index.js",
 		"docker:build": "docker build -t the-rift-web-server .",
-		"docker:start": "docker run --rm -p 4000:4000 --env-file .env the-rift-web-server",
+		"docker:start": "docker run --rm -p 4000:4000 --env-file .env -e PORT=4000 --add-host=host.docker.internal:host-gateway the-rift-web-server",
 		"typecheck": "tsc",
 		"test": "vitest run",
 		"test:watch": "vitest",

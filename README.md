@@ -57,8 +57,9 @@ npm run docker:build   # build the image
 npm run docker:start   # run it on port 4000 with the variables from .env
 ```
 
-From inside the container, `localhost` is the container itself: reach a MongoDB
-running on your machine at `host.docker.internal`.
+`docker:start` always uses port 4000 and ignores `PORT` in `.env`. From inside
+the container, `localhost` is the container itself: reach a MongoDB running on
+your machine at `host.docker.internal`.
 
 ## CI
 
