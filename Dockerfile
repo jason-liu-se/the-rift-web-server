@@ -26,4 +26,5 @@ COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 4000
 # Run node directly, not npm, so SIGTERM reaches the graceful shutdown in index.ts.
-CMD ["node", "dist/index.js"]
+# Source maps make stack traces point at src/*.ts instead of the compiled output.
+CMD ["node", "--enable-source-maps", "dist/index.js"]
