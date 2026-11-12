@@ -42,6 +42,12 @@ are invalid.
 Tests run against an in-memory MongoDB; the first run downloads its binary.
 Details: [testing.md](./.claude/docs/testing.md).
 
+## CI
+
+`.github/workflows/ci.yml` runs lint, the format check, the type check, and the
+tests on every pull request and push to `main`. Make its `check` job a required
+status check on `main` (GitHub branch protection) so only passing code merges.
+
 ## Endpoints
 
 All `GET`, all JSON. Errors are `{ "error": string }` with `400` (invalid
