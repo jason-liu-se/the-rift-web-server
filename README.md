@@ -7,7 +7,9 @@ content from MongoDB (versions in [`package.json`](./package.json)).
 
 ## Requirements
 
-- **Node.js** at the version in [`.nvmrc`](./.nvmrc) and **npm 11+**
+- **Node.js** at the version in [`.nvmrc`](./.nvmrc) and **npm 11+**. Keep the
+  base image in the [`Dockerfile`](./Dockerfile) on the same major: hosts that
+  build from it use its Node version, not `.nvmrc`'s.
 - A **MongoDB** instance (local or hosted)
 
 ## Getting started
@@ -35,12 +37,29 @@ are invalid.
 | ------------------------- | ---------------------------------------------- |
 | `npm run dev`             | Run the source directly, restarting on changes |
 | `npm run build` / `start` | Compile to `dist/` / run the build             |
+| `npm run docker:build`    | Build the Docker image (see [Docker](#docker)) |
+| `npm run docker:start`    | Run the image with the variables from `.env`   |
 | `npm test` / `test:watch` | Tests (no `.env` or database needed)           |
 | `npm run typecheck`       | Type-check source, tests, and configs          |
 | `npm run lint` / `format` | ESLint / Prettier (`lint:fix`, `format:check`) |
 
 Tests run against an in-memory MongoDB; the first run downloads its binary.
 Details: [testing.md](./.claude/docs/testing.md).
+
+## Docker
+
+The [`Dockerfile`](./Dockerfile) builds a production image that runs the
+compiled server as a non-root user. `.env` isn't copied into the image; pass the
+environment variables at run time.
+
+```bash
+npm run docker:build   # build the image
+npm run docker:start   # run it on port 4000 with the variables from .env
+```
+
+`docker:start` always uses port 4000 and ignores `PORT` in `.env`. From inside
+the container, `localhost` is the container itself: reach a MongoDB running on
+your machine at `host.docker.internal`.
 
 ## CI
 
