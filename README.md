@@ -8,8 +8,8 @@ content from MongoDB (versions in [`package.json`](./package.json)).
 ## Requirements
 
 - **Node.js** at the version in [`.nvmrc`](./.nvmrc) and **npm 11+**. Keep the
-  base image in the [`Dockerfile`](./Dockerfile) on the same version: hosts pick
-  their Node version from those, not `.nvmrc`.
+  base image in the [`Dockerfile`](./Dockerfile) on the same major: hosts that
+  build from it use its Node version, not `.nvmrc`'s.
 - A **MongoDB** instance (local or hosted)
 
 ## Getting started
