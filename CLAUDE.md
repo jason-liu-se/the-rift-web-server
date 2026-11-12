@@ -10,6 +10,7 @@ environment variables are in `README.md`; library versions in `package.json`.
 ```bash
 npm run dev                            # run src/index.ts, restart on change
 npm run build / start                  # compile to dist/ / run the build
+npm run docker:build / docker:start    # build the image / run it with .env
 npm run typecheck                      # tsc over src, test, and configs
 npm test                               # Vitest (needs no .env or database)
 npm test -- <path/to/file.test.ts>     # one test file

@@ -7,9 +7,9 @@ content from MongoDB (versions in [`package.json`](./package.json)).
 
 ## Requirements
 
-- **Node.js** at the version in [`.nvmrc`](./.nvmrc) and **npm 11+**. Keep
-  `engines.node` in [`package.json`](./package.json) on the same major: hosts
-  like Koyeb pick their Node version from it, not `.nvmrc`.
+- **Node.js** at the version in [`.nvmrc`](./.nvmrc) and **npm 11+**. Keep the
+  base image in the [`Dockerfile`](./Dockerfile) on the same version: hosts pick
+  their Node version from those, not `.nvmrc`.
 - A **MongoDB** instance (local or hosted)
 
 ## Getting started
@@ -37,12 +37,28 @@ are invalid.
 | ------------------------- | ---------------------------------------------- |
 | `npm run dev`             | Run the source directly, restarting on changes |
 | `npm run build` / `start` | Compile to `dist/` / run the build             |
+| `npm run docker:build`    | Build the Docker image (see [Docker](#docker)) |
+| `npm run docker:start`    | Run the image with the variables from `.env`   |
 | `npm test` / `test:watch` | Tests (no `.env` or database needed)           |
 | `npm run typecheck`       | Type-check source, tests, and configs          |
 | `npm run lint` / `format` | ESLint / Prettier (`lint:fix`, `format:check`) |
 
 Tests run against an in-memory MongoDB; the first run downloads its binary.
 Details: [testing.md](./.claude/docs/testing.md).
+
+## Docker
+
+The [`Dockerfile`](./Dockerfile) builds a production image that runs the
+compiled server as a non-root user. `.env` isn't copied into the image; pass the
+environment variables at run time.
+
+```bash
+npm run docker:build   # build the image
+npm run docker:start   # run it on port 4000 with the variables from .env
+```
+
+From inside the container, `localhost` is the container itself: reach a MongoDB
+running on your machine at `host.docker.internal`.
 
 ## CI
 
