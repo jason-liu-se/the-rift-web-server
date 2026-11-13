@@ -2,21 +2,19 @@ import type { Server } from "node:http";
 import { createApp } from "./app.ts";
 import { loadEnv } from "./config/env.ts";
 import * as mongoManager from "./helpers/mongo-manager.ts";
+import * as redisManager from "./helpers/redis-manager.ts";
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 const SHUTDOWN_SIGNALS: NodeJS.Signals[] = ["SIGTERM", "SIGINT"];
 
 async function start() {
 	const env = loadEnv();
-	const { MONGODB_CONNECTION_STRING, PORT } = env;
+	const { MONGODB_CONNECTION_STRING, REDIS_URL, PORT } = env;
 
-	try {
-		await mongoManager.connect(MONGODB_CONNECTION_STRING);
-	} catch (error) {
-		const reason = error instanceof Error ? error.message : error;
-		console.error(`Could not connect to MongoDB: ${reason}`);
-		process.exit(1);
-	}
+	await connectOrExit("MongoDB", () =>
+		mongoManager.connect(MONGODB_CONNECTION_STRING)
+	);
+	await connectOrExit("Redis", () => redisManager.connect(REDIS_URL));
 
 	const server = createApp(env).listen(PORT, (error) => {
 		// Express 5 passes startup errors (e.g. port in use) here instead of throwing.
@@ -34,10 +32,23 @@ async function start() {
 	}
 }
 
+async function connectOrExit(
+	name: string,
+	connect: () => Promise<void>
+): Promise<void> {
+	try {
+		await connect();
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : error;
+		console.error(`Could not connect to ${name}: ${reason}`);
+		process.exit(1);
+	}
+}
+
 let isShuttingDown = false;
 
 // Stops accepting connections, lets in-flight requests finish, then closes the
-// database connection so the process can exit on its own.
+// database connections so the process can exit on its own.
 async function shutDown(server: Server, signal: NodeJS.Signals) {
 	if (isShuttingDown) {
 		return;
@@ -55,7 +66,10 @@ async function shutDown(server: Server, signal: NodeJS.Signals) {
 		await new Promise<void>((resolve, reject) => {
 			server.close((error) => (error ? reject(error) : resolve()));
 		});
-		await mongoManager.disconnect();
+		await Promise.all([
+			mongoManager.disconnect(),
+			redisManager.disconnect()
+		]);
 	} catch (error) {
 		console.error("ERROR: shutdown failed:", error);
 		process.exit(1);

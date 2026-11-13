@@ -1,10 +1,10 @@
 # CLAUDE.md
 
 REST API (TypeScript, Express, Mongoose, Zod) serving news, gallery, and
-download content from MongoDB, with Discord login for editors, to The Rift
-website ([`../website`](../website), Angular, its only client). Setup,
-endpoints, and environment variables are in `README.md`; library versions in
-`package.json`.
+download content from MongoDB, with Discord login for editors (refresh tokens in
+Redis), to The Rift website ([`../website`](../website), Angular, its only
+client). Setup, endpoints, and environment variables are in `README.md`; library
+versions in `package.json`.
 
 ## Commands
 
@@ -13,7 +13,7 @@ npm run dev                            # run src/index.ts, restart on change
 npm run build / start                  # compile to dist/ / run the build
 npm run docker:build / docker:start    # build the image / run it with .env
 npm run typecheck                      # tsc over src, test, and configs
-npm test                               # Vitest (needs no .env or database)
+npm test                               # Vitest (needs no .env, database, or Redis)
 npm test -- <path/to/file.test.ts>     # one test file
 npm run lint / format                  # ESLint / Prettier (lint:fix, format:check)
 ```
@@ -33,13 +33,14 @@ edited.
 ## Architecture
 
 - **`createApp` (`src/app.ts`) builds the app; `src/index.ts` runs it**
-  (validates the environment, connects to MongoDB, listens, shuts down
+  (validates the environment, connects to MongoDB and Redis, listens, shuts down
   gracefully).
 - **Routers** (`src/routes/`) validate input with Zod, call `mongo-manager`, and
   send bodies through the response schemas. They don't catch errors; the handler
   in `app.ts` maps them to status codes.
-- **`src/helpers/mongo-manager.ts` owns all database access.** Routers never
-  touch models.
+- **`src/helpers/mongo-manager.ts` owns all database access**, and
+  `src/helpers/redis-manager.ts` all Redis access. Routers never touch models or
+  the Redis client.
 - **`src/contract/api-responses.ts` is the contract with the website**, which
   keeps a verbatim copy. Endpoint paths, parameters, and response shapes must be
   changed conservatively since the frontend must be updated to maintain

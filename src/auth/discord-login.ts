@@ -15,7 +15,8 @@ import {
 	getIdentity
 } from "../helpers/discord.ts";
 import * as mongoManager from "../helpers/mongo-manager.ts";
-import { baseCookieOptions, setSessionCookie } from "./session-cookie.ts";
+import { issueRefreshToken } from "./refresh-tokens.ts";
+import { baseCookieOptions, setSessionCookies } from "./session-cookie.ts";
 
 const LOGIN_STATE_COOKIE = "login_state";
 /** How long a started login can take to come back from Discord, in ms. */
@@ -130,7 +131,13 @@ async function logIn(
 		);
 	}
 
-	await setSessionCookie(res, { user, loginAt: Date.now() }, config);
+	const session = { user, loginAt: Date.now() };
+	await setSessionCookies(
+		res,
+		session,
+		await issueRefreshToken(session),
+		config
+	);
 }
 
 function isExpectedState(state: string, req: Request): boolean {

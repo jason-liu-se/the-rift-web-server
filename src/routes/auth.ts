@@ -1,7 +1,16 @@
-import express, { type Router } from "express";
+import express, { type Request, type Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { finishLogin, startLogin } from "../auth/discord-login.ts";
-import { clearSessionCookie } from "../auth/session-cookie.ts";
+import {
+	issueRefreshToken,
+	redeemRefreshToken,
+	revokeRefreshToken
+} from "../auth/refresh-tokens.ts";
+import {
+	REFRESH_COOKIE,
+	clearSessionCookies,
+	setSessionCookies
+} from "../auth/session-cookie.ts";
 import type { AppConfig } from "../config/env.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import { parseResponse, sessionUser } from "./response-schemas.ts";
@@ -51,11 +60,40 @@ export function authRouter(config: AppConfig): Router {
 		res.json(parseResponse(sessionUser, user));
 	});
 
+	// Trades the refresh token for a new access token and a new refresh token
+	// (the old one can't be used again), while the session lasts.
+	router.post("/refresh", async (req, res) => {
+		const refreshToken = refreshTokenCookie(req);
+		const session =
+			refreshToken && (await redeemRefreshToken(refreshToken));
+		if (!session) {
+			clearSessionCookies(res, config);
+			throw new UnauthorizedError();
+		}
+
+		await setSessionCookies(
+			res,
+			session,
+			await issueRefreshToken(session),
+			config
+		);
+		res.sendStatus(204);
+	});
+
 	// Idempotent: logging out without a session still succeeds.
-	router.post("/logout", (_req, res) => {
-		clearSessionCookie(res, config);
+	router.post("/logout", async (req, res) => {
+		const refreshToken = refreshTokenCookie(req);
+		if (refreshToken) {
+			await revokeRefreshToken(refreshToken);
+		}
+		clearSessionCookies(res, config);
 		res.sendStatus(204);
 	});
 
 	return router;
+}
+
+function refreshTokenCookie(req: Request): string | undefined {
+	const token: unknown = req.cookies[REFRESH_COOKIE];
+	return typeof token === "string" && token !== "" ? token : undefined;
 }

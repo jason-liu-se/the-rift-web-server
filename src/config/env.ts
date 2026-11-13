@@ -14,6 +14,8 @@ const emptyAsUnset = (value: unknown) => (value === "" ? undefined : value);
 
 const envSchema = z.object({
 	MONGODB_CONNECTION_STRING: z.string().min(1),
+	// Where refresh tokens are stored (README "Sessions and access").
+	REDIS_URL: z.url({ protocol: /^rediss?$/ }),
 	PORT: z.preprocess(
 		emptyAsUnset,
 		z.coerce.number().int().min(0).max(MAX_PORT).default(DEFAULT_PORT)
@@ -43,7 +45,10 @@ const envSchema = z.object({
 export type Env = z.infer<typeof envSchema>;
 
 // What createApp needs; the rest of Env is for connecting and listening.
-export type AppConfig = Omit<Env, "MONGODB_CONNECTION_STRING" | "PORT">;
+export type AppConfig = Omit<
+	Env,
+	"MONGODB_CONNECTION_STRING" | "REDIS_URL" | "PORT"
+>;
 
 // Exits listing every invalid variable, so a misconfigured server never starts.
 export function loadEnv(): Env {

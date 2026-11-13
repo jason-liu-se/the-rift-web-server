@@ -3,8 +3,8 @@
 The REST API behind
 [The Rift website](https://github.com/jason-liu-se/the-rift-website): an
 Express + Mongoose app in TypeScript that serves news, gallery, and download
-content from MongoDB, and logs editors in through Discord (versions in
-[`package.json`](./package.json)).
+content from MongoDB, and logs editors in through Discord, with refresh tokens
+in Redis (versions in [`package.json`](./package.json)).
 
 ## Requirements
 
@@ -12,6 +12,7 @@ content from MongoDB, and logs editors in through Discord (versions in
   base image in the [`Dockerfile`](./Dockerfile) on the same major: hosts that
   build from it use its Node version, not `.nvmrc`'s.
 - A **MongoDB** instance (local or hosted)
+- A **Redis** instance (local or hosted), for refresh tokens
 
 ## Getting started
 
@@ -30,6 +31,7 @@ are invalid.
 | Variable                    | Required | Sets                                                                        |
 | --------------------------- | -------- | --------------------------------------------------------------------------- |
 | `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                                      |
+| `REDIS_URL`                 | Yes      | Redis connection URL (`redis://` or `rediss://`), for refresh tokens        |
 | `PORT`                      | No       | Port to listen on (default `4000`, the website expects)                     |
 | `FRONTEND_URL`              | Yes      | The website's origin, the only one CORS allows                              |
 | `JWT_SECRET`                | Yes      | Signs sessions; 64+ characters (see [Sessions](#sessions-and-access))       |
@@ -51,8 +53,9 @@ are invalid.
 | `npm run typecheck`       | Type-check source, tests, and configs          |
 | `npm run lint` / `format` | ESLint / Prettier (`lint:fix`, `format:check`) |
 
-Tests run against an in-memory MongoDB; the first run downloads its binary.
-Details: [testing.md](./.claude/rules/testing.md).
+Tests run against an in-memory MongoDB (the first run downloads its binary) and
+an in-memory stand-in for Redis. Details:
+[testing.md](./.claude/rules/testing.md).
 
 ## Docker
 
@@ -67,7 +70,7 @@ npm run docker:start   # run it on port 4000 with the variables from .env
 
 `docker:start` always uses port 4000 and ignores `PORT` in `.env`. From inside
 the container, `localhost` is the container itself: reach a MongoDB running on
-your machine at `host.docker.internal`.
+your machine at `host.docker.internal`; the same goes for Redis.
 
 ## CI
 
@@ -95,7 +98,8 @@ returned).
 | `/auth/discord`              |                       | Starts a Discord login (`302`)               |
 | `/auth/discord/callback`     | From Discord          | `302` to the website (see below)             |
 | `/auth/me`                   |                       | The logged-in user, or `401`                 |
-| `POST /auth/logout`          |                       | `204`; clears the session cookie             |
+| `POST /auth/refresh`         |                       | `204` with new session cookies, or `401`     |
+| `POST /auth/logout`          |                       | `204`; ends the session, clears its cookies  |
 
 All paths are `GET` unless a method is shown.
 
@@ -107,16 +111,29 @@ work: [api.md](./.claude/docs/api.md).
 
 ## Sessions and access
 
-A session is a signed JWT (HS512) in an httpOnly cookie, so there's no session
-store and restarts don't log anyone out. Each token is short-lived and silently
-re-issued until the session ends 30 days after the Discord login (constants in
-[`src/auth/session.ts`](./src/auth/session.ts)).
+A session is two httpOnly cookies, set by the Discord login:
+
+- **`session`**: a short-lived access token, a signed JWT (HS512) holding the
+  user. Every request reads it; nothing is looked up.
+- **`refresh_token`**: a random, single-use token, sent only to `/auth`. When
+  the access token expires (`/auth/me` and other routes answer `401`), the
+  website calls `POST /auth/refresh`, which trades it for a new access token and
+  a new refresh token. The old one stops working.
+
+A session ends 30 days after the Discord login, however often it's refreshed
+(constants in [`src/auth/session.ts`](./src/auth/session.ts)). Redis holds each
+refresh token's record under `refresh-token:<SHA-256 of the token>` (never the
+token itself) with the Discord user ID and profile, when it was issued
+(`createdAt`), and when the user logged in (`loginAt`); it expires when the
+session does. See [`src/auth/refresh-tokens.ts`](./src/auth/refresh-tokens.ts).
 
 - **Generate `JWT_SECRET`** once per environment:
   `node -e "console.log(require('node:crypto').randomBytes(64).toString('base64url'))"`
-- **Log everyone out** by replacing `JWT_SECRET` with a new one and restarting.
+- **Log everyone out** by deleting the `refresh-token:*` keys in Redis; access
+  tokens already issued still work until they expire (minutes). To end those
+  too, also replace `JWT_SECRET` and restart.
 - **Same site required:** the API and the website must share a site (e.g.
-  `api.example.com` and `example.com`). The cookie is `SameSite=Lax`, which
+  `api.example.com` and `example.com`). The cookies are `SameSite=Lax`, which
   browsers don't send between different sites.
 
 **Who can log in** is set by documents in the `access-grants` collection of the
@@ -135,9 +152,9 @@ nobody can log in. Add one in MongoDB, with IDs as strings:
 
 `subjectType` is `user` or `role`. There's deliberately no grant for a whole
 server, and entries of any other type are ignored. **Access is only checked at
-login**: re-issuing a token doesn't re-check it, so removing a grant or role
-takes effect at that user's next login (at most 30 days later). To cut someone
-off now, remove their grant and rotate `JWT_SECRET`.
+login**: a refresh doesn't re-check it, so removing a grant or role takes effect
+at that user's next login (at most 30 days later). To cut someone off now,
+remove their grant and log everyone out (above).
 
 A login ends with a redirect to the website's `/admin`, or to
 `/admin/login?error=<code>`. The code says who stopped it: `access-denied` (the
@@ -159,7 +176,8 @@ src/
 ├── config/env.ts      Environment variable schema
 ├── contract/          Response types shared with the website
 ├── errors/            Errors the handler maps to status codes
-├── helpers/           mongo-manager: connection and all queries
+├── helpers/           mongo-manager and redis-manager: connections and all
+│                      queries; discord: Discord's API
 ├── models/            Mongoose schemas, one file per database
 ├── routes/            Routers and request/response schemas
 ├── app.ts             Express app (CORS, routers, error handler)
@@ -169,11 +187,11 @@ test/                  Shared test helpers
 
 ## Troubleshooting
 
-| Problem                      | Check                                                         |
-| ---------------------------- | ------------------------------------------------------------- |
-| Exits on startup             | The listed variables in `.env`, and that MongoDB is reachable |
-| `404` for a gallery/download | The collection exists in the right database                   |
-| `500` errors                 | The server console, which logs the request and the error      |
+| Problem                      | Check                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| Exits on startup             | The listed variables in `.env`, and that MongoDB and Redis are reachable |
+| `404` for a gallery/download | The collection exists in the right database                              |
+| `500` errors                 | The server console, which logs the request and the error                 |
 
 ## Claude Code
 

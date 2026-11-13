@@ -9,7 +9,8 @@ import {
 	vi
 } from "vitest";
 import request from "supertest";
-import { SESSION_COOKIE } from "../auth/session-cookie.ts";
+import { SESSION_MAX_AGE_MS } from "../auth/session.ts";
+import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
 import { app, testConfig } from "../../test/app.ts";
 import {
 	clearDatabase,
@@ -17,9 +18,16 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../test/database.ts";
+import { clearRedis, storedRefreshTokens } from "../../test/redis.ts";
+
+vi.mock(
+	import("../helpers/redis-manager.ts"),
+	() => import("../../test/redis.ts")
+);
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);
+afterEach(clearRedis);
 afterAll(stopDatabase);
 
 const USER_ID = "3000000000000000003";
@@ -106,6 +114,8 @@ async function expectLoginError(
 	expect(res.status).toBe(302);
 	expect(res.headers["location"]).toBe(`${LOGIN_PAGE_URL}?error=${code}`);
 	expect(findCookie(res, SESSION_COOKIE)).toBeUndefined();
+	expect(findCookie(res, REFRESH_COOKIE)).toBeUndefined();
+	expect(storedRefreshTokens()).toEqual([]);
 }
 
 beforeEach(() => {
@@ -114,6 +124,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.restoreAllMocks();
 });
 
@@ -158,6 +169,8 @@ describe("GET /auth/discord/callback", () => {
 		async (subjectType, subjectId) => {
 			stubDiscord();
 			await grant(subjectType, subjectId);
+			const loginAt = Date.parse("2026-01-01T00:00:00Z");
+			vi.useFakeTimers({ toFake: ["Date"], now: loginAt });
 
 			const res = await successfulCallback().expect(302);
 
@@ -179,6 +192,23 @@ describe("GET /auth/discord/callback", () => {
 				username: "editor",
 				avatarUrl: `https://cdn.discordapp.com/avatars/${USER_ID}/abc.png`
 			});
+
+			// A refresh token is stored for the new session.
+			expect(findCookie(res, REFRESH_COOKIE)).toMatch(
+				/Path=\/auth;.*HttpOnly/
+			);
+			expect(storedRefreshTokens()).toEqual([
+				{
+					value: {
+						discordUserId: USER_ID,
+						username: "editor",
+						avatarUrl: `https://cdn.discordapp.com/avatars/${USER_ID}/abc.png`,
+						createdAt: new Date(loginAt).toISOString(),
+						loginAt: new Date(loginAt).toISOString()
+					},
+					expiresAt: loginAt + SESSION_MAX_AGE_MS
+				}
+			]);
 		}
 	);
 

@@ -23,7 +23,9 @@ per file in `src/models/`:
 | `auth`      | `access-grants`        | `src/models/access-grant-schema.ts` |
 
 Content and access grants are added to MongoDB directly; the server never
-writes. Discord IDs are stored as strings (numbers lose precision).
+writes. Refresh tokens live in Redis instead (`src/helpers/redis-manager.ts`,
+keys `refresh-token:<hash>`); see `.claude/docs/api.md` "Sessions". Discord IDs
+are stored as strings (numbers lose precision).
 
 - Collection names are used as given: pluralization and auto-creation are off. A
   new gallery or download group is just a new collection.

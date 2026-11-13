@@ -15,7 +15,11 @@
 //   GET /gallery/:collection/count  CountResponse
 //   GET /downloads               DownloadCollection[], sorted by name
 //   GET /downloads/:collection   DownloadItem[]
-//   GET /auth/me                 SessionUser (401 when nobody is logged in)
+//   GET /auth/me                 SessionUser (401 when nobody is logged in,
+//                                including when the access token expired)
+//   POST /auth/refresh           204, no body, with new session cookies (401
+//                                when the refresh token is missing, used, or
+//                                its session is over: log in again)
 //   POST /auth/logout            204, no body
 //   GET /auth/discord            302 to Discord; Discord's callback then
 //                                redirects to the website's /admin, or to
