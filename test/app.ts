@@ -3,7 +3,9 @@ import { createApp } from "../src/app.ts";
 import type { AppConfig } from "../src/config/env.ts";
 
 export const testConfig: AppConfig = {
-	FRONTEND_URL: "http://localhost:4200"
+	FRONTEND_URL: "http://localhost:4200",
+	JWT_SECRET:
+		"test-secret-that-is-at-least-sixty-four-characters-long-0123456789"
 };
 
 export const app = createApp(testConfig);

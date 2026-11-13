@@ -26,11 +26,12 @@ npm run dev   # http://localhost:4000
 Validated at startup by `src/config/env.ts`; the server exits listing any that
 are invalid.
 
-| Variable                    | Required | Sets                                                    |
-| --------------------------- | -------- | ------------------------------------------------------- |
-| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                  |
-| `PORT`                      | No       | Port to listen on (default `4000`, the website expects) |
-| `FRONTEND_URL`              | Yes      | The website's origin, the only one CORS allows          |
+| Variable                    | Required | Sets                                                                  |
+| --------------------------- | -------- | --------------------------------------------------------------------- |
+| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                                |
+| `PORT`                      | No       | Port to listen on (default `4000`, the website expects)               |
+| `FRONTEND_URL`              | Yes      | The website's origin, the only one CORS allows                        |
+| `JWT_SECRET`                | Yes      | Signs sessions; 64+ characters (see [Sessions](#sessions-and-access)) |
 
 ## Commands
 
@@ -70,9 +71,9 @@ status check on `main` (GitHub branch protection) so only passing code merges.
 
 ## Endpoints
 
-All endspoints use `GET` and return JSON (except `/health`'s empty body). Errors
-are `{ "error": string }` with `400` (invalid parameters), `404` (unknown
-collection or path), or `500` (details logged, not returned).
+Endpoints return JSON unless noted. Errors are `{ "error": string }` with `400`
+(invalid parameters), `401` (not logged in), `404` (unknown collection or path),
+or `500` (details logged, not returned).
 
 | Path                         | Query                 | Returns                                      |
 | ---------------------------- | --------------------- | -------------------------------------------- |
@@ -83,12 +84,30 @@ collection or path), or `500` (details logged, not returned).
 | `/downloads`                 |                       | `[{ name, items }]` for every download group |
 | `/downloads/:collection`     |                       | The group's items                            |
 | `/health`                    |                       | `200` with an empty body                     |
+| `/auth/me`                   |                       | The logged-in user, or `401`                 |
+| `POST /auth/logout`          |                       | `204`; clears the session cookie             |
+
+All paths are `GET` unless a method is shown.
 
 `startIndex` defaults to `0`; omitting `limit` returns everything after it.
 Response types are in
 [`src/contract/api-responses.ts`](./src/contract/api-responses.ts), which the
 website copies (see its README's "API contract"). How routes and the contract
 work: [api.md](./.claude/docs/api.md).
+
+## Sessions and access
+
+A session is a signed JWT (HS256) in an httpOnly cookie, so there's no session
+store and restarts don't log anyone out. Each token is short-lived and silently
+re-issued until the session ends 30 days after the Discord login (constants in
+[`src/auth/session.ts`](./src/auth/session.ts)).
+
+- **Generate `JWT_SECRET`** once per environment:
+  `node -e "console.log(require('node:crypto').randomBytes(64).toString('base64url'))"`
+- **Log everyone out** by replacing `JWT_SECRET` with a new one and restarting.
+- **Same site required:** the API and the website must share a site (e.g.
+  `api.example.com` and `example.com`). The cookie is `SameSite=Lax`, which
+  browsers don't send between different sites.
 
 ## Data
 

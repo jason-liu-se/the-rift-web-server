@@ -5,9 +5,13 @@ import express, {
 	type Express,
 	type RequestHandler
 } from "express";
+import cookieParser from "cookie-parser";
 import * as z from "zod";
+import { sessionMiddleware } from "./auth/session-middleware.ts";
 import type { AppConfig } from "./config/env.ts";
 import { NotFoundError } from "./errors/not-found-error.ts";
+import { UnauthorizedError } from "./errors/unauthorized-error.ts";
+import { authRouter } from "./routes/auth.ts";
 import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";
 import { galleryRouter } from "./routes/gallery.ts";
@@ -17,7 +21,10 @@ export function createApp(config: AppConfig): Express {
 	const app = express();
 
 	app.use(allowFrontendOrigin(config.FRONTEND_URL));
+	app.use(cookieParser());
+	app.use(sessionMiddleware(config));
 	app.use("/health", healthRouter);
+	app.use("/auth", authRouter(config));
 	app.use("/news", newsRouter);
 	app.use("/downloads", downloadsRouter);
 	app.use("/gallery", galleryRouter);
@@ -55,8 +62,8 @@ function allowFrontendOrigin(frontendOrigin: string): RequestHandler {
 
 // Express 5 sends errors thrown by any route (including rejected promises)
 // here. Zod errors come from routes parsing their path and query parameters, so they're
-// the caller's mistake (400); NotFoundError means the resource doesn't exist
-// (404). Anything else is logged but not exposed (500).
+// the caller's mistake (400); UnauthorizedError means nobody is logged in
+// (401); NotFoundError means the resource doesn't exist (404). Anything else is logged but not exposed (500).
 const handleError: ErrorRequestHandler = (error, req, res, next) => {
 	if (res.headersSent) {
 		// Too late to send a JSON error; let Express close the connection.
@@ -71,6 +78,11 @@ const handleError: ErrorRequestHandler = (error, req, res, next) => {
 		res.status(400).json({
 			error: `ERROR: invalid request parameters (${problems.join("; ")})`
 		});
+		return;
+	}
+
+	if (error instanceof UnauthorizedError) {
+		res.status(401).json({ error: `ERROR: ${error.message}` });
 		return;
 	}
 

@@ -13,7 +13,8 @@ import type {
 	DownloadItem,
 	GalleryImage,
 	NewsItem,
-	PaginatedResponse
+	PaginatedResponse,
+	SessionUser
 } from "../contract/api-responses.ts";
 
 const newsItem = z.toZod<NewsItem>()(
@@ -54,6 +55,14 @@ export const newsPage = z.toZod<PaginatedResponse<NewsItem>>()(
 
 export const galleryPage = z.toZod<PaginatedResponse<GalleryImage>>()(
 	countResponse.extend({ items: z.array(galleryImage) })
+);
+
+export const sessionUser = z.toZod<SessionUser>()(
+	z.object({
+		id: z.string(),
+		username: z.string(),
+		avatarUrl: z.string().optional()
+	})
 );
 
 // Throws a plain Error, not a ZodError, so the error handler answers 500 (our

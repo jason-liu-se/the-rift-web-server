@@ -15,7 +15,9 @@
 //   GET /gallery/:collection/count  CountResponse
 //   GET /downloads               DownloadCollection[], sorted by name
 //   GET /downloads/:collection   DownloadItem[]
-//   any error (400, 404, 500)    ErrorResponse
+//   GET /auth/me                 SessionUser (401 when nobody is logged in)
+//   POST /auth/logout            204, no body
+//   any error (400, 401, 404, 500)  ErrorResponse
 
 export interface NewsItem {
 	title: string;
@@ -49,6 +51,14 @@ export interface CountResponse {
 
 export interface PaginatedResponse<T> extends CountResponse {
 	items: T[];
+}
+
+/** A logged-in editor, identified by their Discord account. */
+export interface SessionUser {
+	/** Discord user ID */
+	id: string;
+	username: string;
+	avatarUrl?: string;
 }
 
 export interface ErrorResponse {

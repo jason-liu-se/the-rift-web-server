@@ -2,6 +2,7 @@ import * as z from "zod";
 
 const DEFAULT_PORT = 4000;
 const MAX_PORT = 65_535;
+const MIN_JWT_SECRET_LENGTH = 64;
 
 // `PORT=` in .env sets an empty string, which would coerce to 0 (a random
 // port); treat it as unset instead.
@@ -16,7 +17,10 @@ const envSchema = z.object({
 	// The website's origin: the only one CORS allows, and where logins redirect.
 	FRONTEND_URL: z
 		.url({ protocol: /^https?$/ })
-		.transform((url) => new URL(url).origin)
+		.transform((url) => new URL(url).origin),
+	// Signs session tokens; rotating it logs everyone out (README "Sessions
+	// and access").
+	JWT_SECRET: z.string().min(MIN_JWT_SECRET_LENGTH)
 });
 
 export type Env = z.infer<typeof envSchema>;
