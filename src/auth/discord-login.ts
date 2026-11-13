@@ -5,7 +5,9 @@
 // matching access grant. Discord's access token is dropped after the login.
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { CookieOptions, Request, Response } from "express";
+import { LOGIN_STATE_MAX_AGE_MS } from "../config/auth.ts";
 import type { AppConfig } from "../config/env.ts";
+import { ADMIN_PATH, LOGIN_PAGE_PATH } from "../config/website.ts";
 import type { LoginErrorCode } from "../contract/api-responses.ts";
 import {
 	DiscordApiError,
@@ -19,12 +21,7 @@ import { startSession } from "./refresh-tokens.ts";
 import { baseCookieOptions, setSessionCookies } from "./session-cookie.ts";
 
 const LOGIN_STATE_COOKIE = "login_state";
-/** How long a started login can take to come back from Discord, in ms. */
-const LOGIN_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 const LOGIN_STATE_BYTES = 32;
-
-const ADMIN_PATH = "/admin";
-const LOGIN_PAGE_PATH = "/admin/login";
 
 class LoginRejected extends Error {
 	readonly code: LoginErrorCode;

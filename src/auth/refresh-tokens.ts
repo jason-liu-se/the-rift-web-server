@@ -22,6 +22,7 @@
 // so it can't be refreshed past that.
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import * as z from "zod";
+import { REFRESH_GRACE_MS } from "../config/auth.ts";
 import * as redisManager from "../helpers/redis-manager.ts";
 import { sessionEndsAt, type Session } from "./session.ts";
 
@@ -29,9 +30,6 @@ const SESSION_ID_BYTES = 16;
 const SECRET_BYTES = 32;
 // base64url without padding: 16 bytes are 22 characters, 32 bytes are 43.
 const REFRESH_TOKEN_FORMAT = /^([\w-]{22})\.([\w-]{43})$/;
-
-/** How long after a rotation the previous refresh token still works, in ms. */
-export const REFRESH_GRACE_MS = 30 * 1000;
 
 // What Redis holds for a session, all strings. The profile lets a refresh sign
 // a new access token without asking Discord again.
@@ -45,7 +43,7 @@ const storedSession = z.object({
 	createdAt: z.iso.datetime(),
 	/** Until when (ms) the previous token is accepted again; unset before the first refresh. */
 	graceEndsAt: z.string().optional(),
-	/** When the user logged in through Discord; the session ends 30 days on. */
+	/** When the user logged in through Discord; the session ends SESSION_MAX_AGE_MS on. */
 	loginAt: z.iso.datetime()
 });
 

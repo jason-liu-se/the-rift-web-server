@@ -9,7 +9,7 @@ import {
 	vi
 } from "vitest";
 import request from "supertest";
-import { SESSION_MAX_AGE_MS } from "../auth/session.ts";
+import { SESSION_MAX_AGE_MS } from "../config/auth.ts";
 import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
 import { app, testConfig } from "../../test/app.ts";
 import {

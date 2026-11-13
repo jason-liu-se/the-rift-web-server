@@ -55,6 +55,10 @@ edited.
   `noUncheckedIndexedAccess`.
 - Read configuration through `loadEnv()` (`src/config/env.ts`), never
   `process.env`.
+- A value that's the same in every deployment but may need tuning (a lifetime,
+  limit, timeout, or website path) is an exported constant in
+  `src/config/<area>.ts`, not buried in the module using it. Fixed values
+  (protocol details, crypto sizes, names clients depend on) stay local.
 
 ## Engineering standards
 
