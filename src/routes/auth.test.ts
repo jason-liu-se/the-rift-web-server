@@ -1,8 +1,9 @@
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignJWT, UnsecuredJWT } from "jose";
 import request from "supertest";
 import { createApp } from "../app.ts";
-import { issueRefreshToken } from "../auth/refresh-tokens.ts";
+import { startSession } from "../auth/refresh-tokens.ts";
 import {
 	SESSION_MAX_AGE_MS,
 	SESSION_TOKEN_TTL_SECONDS,
@@ -11,7 +12,7 @@ import {
 import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
 import * as redisManager from "../helpers/redis-manager.ts";
 import { app, testConfig } from "../../test/app.ts";
-import { clearRedis, storedRefreshTokens } from "../../test/redis.ts";
+import { clearRedis, storedSessions } from "../../test/redis.ts";
 
 vi.mock(
 	import("../helpers/redis-manager.ts"),
@@ -25,14 +26,22 @@ const SESSION_ENDS_AT = LOGIN_AT + SESSION_MAX_AGE_MS;
 const MS_PER_SECOND = 1000;
 const TOKEN_TTL_MS = SESSION_TOKEN_TTL_SECONDS * MS_PER_SECOND;
 const CLEARED = /Expires=Thu, 01 Jan 1970/;
+// A refresh token is `<session ID>.<secret>`, both base64url.
+const SESSION_ID_LENGTH = 22;
+const SECRET_LENGTH = 43;
 
 async function accessToken(secret = testConfig.JWT_SECRET) {
 	return (await signSession(SESSION, secret)).token;
 }
 
-// A refresh token as the Discord login issues it, stored at the current time.
-function refreshToken() {
-	return issueRefreshToken(SESSION);
+// Starts a session as the Discord login does, at the current time; returns its
+// refresh token.
+function logIn() {
+	return startSession(SESSION);
+}
+
+function sha256(text: string) {
+	return createHash("sha256").update(text).digest("base64url");
 }
 
 function setCookie(res: request.Response, name: string): string | undefined {
@@ -151,7 +160,7 @@ describe("GET /auth/me", () => {
 
 describe("POST /auth/refresh", () => {
 	it("issues a new access token and rotates the refresh token", async () => {
-		const oldRefreshToken = await refreshToken();
+		const oldRefreshToken = await logIn();
 		const now = LOGIN_AT + TOKEN_TTL_MS + 1;
 		setNow(now);
 
@@ -175,44 +184,79 @@ describe("POST /auth/refresh", () => {
 		const newAccessToken = cookieValue(res, SESSION_COOKIE);
 		expect((await getMe(newAccessToken).expect(200)).body).toEqual(USER);
 
-		// Only the new refresh token is stored; it keeps the login date.
-		expect(storedRefreshTokens()).toEqual([
-			{
-				value: {
-					discordUserId: USER.id,
-					username: USER.username,
-					avatarUrl: USER.avatarUrl,
-					createdAt: new Date(now).toISOString(),
-					loginAt: new Date(LOGIN_AT).toISOString()
-				},
-				expiresAt: SESSION_ENDS_AT
-			}
-		]);
+		// Same session; only the token hash and its createdAt change.
 		const newRefreshToken = cookieValue(res, REFRESH_COOKIE);
+		const [sessionId, secret] = newRefreshToken.split(".");
+		expect(oldRefreshToken.startsWith(`${sessionId}.`)).toBe(true);
 		expect(newRefreshToken).not.toBe(oldRefreshToken);
+		expect([...storedSessions()]).toEqual([
+			[
+				sessionId,
+				{
+					fields: {
+						discordUserId: USER.id,
+						username: USER.username,
+						avatarUrl: USER.avatarUrl,
+						refreshTokenHash: sha256(secret ?? ""),
+						createdAt: new Date(now).toISOString(),
+						loginAt: new Date(LOGIN_AT).toISOString()
+					},
+					expiresAt: SESSION_ENDS_AT
+				}
+			]
+		]);
 		await refresh(newRefreshToken).expect(204);
 	});
 
-	it("doesn't store the token itself", async () => {
-		const token = await refreshToken();
+	it("stores only a hash of the token", async () => {
+		const token = await logIn();
 
-		expect(JSON.stringify(storedRefreshTokens())).not.toContain(token);
+		const stored = JSON.stringify([...storedSessions()]);
+		expect(stored).not.toContain(token.split(".")[1]);
 	});
 
-	it("answers 401 for a refresh token that was already used", async () => {
-		const token = await refreshToken();
-		await refresh(token).expect(204);
+	it("ends the whole session when a used refresh token comes back", async () => {
+		const warn = vi
+			.spyOn(console, "warn")
+			.mockImplementation(() => undefined);
+		const stolenToken = await logIn();
+		// The user refreshes first; the thief then replays the old token.
+		const userToken = cookieValue(
+			await refresh(stolenToken).expect(204),
+			REFRESH_COOKIE
+		);
 
-		const res = await refresh(token).expect(401);
+		const res = await refresh(stolenToken).expect(401);
 
 		expect(res.body).toEqual({ error: "ERROR: not logged in" });
 		expect(setCookie(res, SESSION_COOKIE)).toMatch(CLEARED);
 		expect(setCookie(res, REFRESH_COOKIE)).toMatch(CLEARED);
+		expect(storedSessions().size).toBe(0);
+		// The latest token is revoked too, whoever holds it.
+		await refresh(userToken).expect(401);
+		expect(String(warn.mock.calls[0])).toContain(`Discord user ${USER.id}`);
+	});
+
+	it("keeps a user's sessions separate", async () => {
+		vi.spyOn(console, "warn").mockImplementation(() => undefined);
+		const laptop = await logIn();
+		const phone = await logIn();
+		await refresh(laptop).expect(204);
+
+		// Replaying the laptop's old token ends only the laptop's session.
+		await refresh(laptop).expect(401);
+
+		expect(storedSessions().size).toBe(1);
+		await refresh(phone).expect(204);
 	});
 
 	it.each([
 		["no refresh token", undefined],
-		["an unknown refresh token", "unknown-token"]
+		["a malformed refresh token", "not-a-refresh-token"],
+		[
+			"an unknown session",
+			`${"a".repeat(SESSION_ID_LENGTH)}.${"b".repeat(SECRET_LENGTH)}`
+		]
 	])("answers 401 and clears the cookies for %s", async (_, token) => {
 		const res = await refresh(token).expect(401);
 
@@ -222,7 +266,7 @@ describe("POST /auth/refresh", () => {
 	});
 
 	it("ends the session 30 days after the login, however often it's refreshed", async () => {
-		let token = await refreshToken();
+		let token = await logIn();
 		setNow(SESSION_ENDS_AT - 1);
 		token = cookieValue(await refresh(token).expect(204), REFRESH_COOKIE);
 		setNow(SESSION_ENDS_AT);
@@ -232,7 +276,7 @@ describe("POST /auth/refresh", () => {
 
 	it("doesn't let an access token outlast the session", async () => {
 		const secondsLeft = 60;
-		const token = await refreshToken();
+		const token = await logIn();
 		setNow(SESSION_ENDS_AT - secondsLeft * MS_PER_SECOND);
 
 		const res = await refresh(token).expect(204);
@@ -244,13 +288,14 @@ describe("POST /auth/refresh", () => {
 		await getMe(cookieValue(res, SESSION_COOKIE)).expect(401);
 	});
 
-	it("answers 500 for a malformed stored refresh token", async () => {
+	it("answers 500 for a malformed stored session", async () => {
 		vi.spyOn(console, "error").mockImplementation(() => undefined);
-		vi.spyOn(redisManager, "takeRefreshToken").mockResolvedValue(
-			JSON.stringify({ discordUserId: USER.id })
-		);
+		const token = await logIn();
+		vi.spyOn(redisManager, "getSession").mockResolvedValue({
+			discordUserId: USER.id
+		});
 
-		const res = await refresh("some-token").expect(500);
+		const res = await refresh(token).expect(500);
 
 		expect(res.body).toEqual({
 			error: "ERROR: an unexpected server error occurred"
@@ -259,8 +304,9 @@ describe("POST /auth/refresh", () => {
 });
 
 describe("POST /auth/logout", () => {
-	it("clears the cookies and revokes the refresh token", async () => {
-		const token = await refreshToken();
+	it("clears the cookies and ends only this session", async () => {
+		const token = await logIn();
+		const otherDevice = await logIn();
 
 		const res = await request(app)
 			.post("/auth/logout")
@@ -276,12 +322,18 @@ describe("POST /auth/logout", () => {
 		expect(setCookie(res, REFRESH_COOKIE)).toMatch(
 			/^refresh_token=;.*Path=\/auth;.*Expires=Thu, 01 Jan 1970.*HttpOnly/
 		);
-		expect(storedRefreshTokens()).toEqual([]);
 		await refresh(token).expect(401);
+		await refresh(otherDevice).expect(204);
 	});
 
-	it("succeeds without a session", async () => {
-		await request(app).post("/auth/logout").expect(204);
+	it.each([
+		["without a session", undefined],
+		["with a malformed refresh token", "not-a-refresh-token"]
+	])("succeeds %s", async (_, token) => {
+		const req = request(app).post("/auth/logout");
+		await (
+			token ? req.set("Cookie", `${REFRESH_COOKIE}=${token}`) : req
+		).expect(204);
 	});
 });
 

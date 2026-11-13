@@ -18,11 +18,12 @@ database, or Redis is needed; the first run downloads a MongoDB binary.
   seeding raw documents. It bypasses the models, so tests can also seed data
   that breaks the contract.
 - `test/redis.ts`: an in-memory stand-in for `src/helpers/redis-manager.ts`
-  (same exports, expiry by `Date.now()` so fake timers apply). Tests that log
-  in, refresh, or log out mock the module with
+  (same exports and behaviour, expiry by `Date.now()` so fake timers apply).
+  Tests that log in, refresh, or log out mock the module with
   `vi.mock(import("../helpers/redis-manager.ts"), () => import("../../test/redis.ts"))`,
-  call `clearRedis` in `afterEach`, and inspect `storedRefreshTokens()`.
-  Changing `redis-manager` means changing the stand-in to match.
+  call `clearRedis` in `afterEach`, and inspect `storedSessions()`. Changing
+  `redis-manager` means changing the stand-in to match; its Lua script isn't
+  covered by the tests, so check changes to it against a real Redis.
 - `test/responses.ts`: `expectContractError(path)` asserts a `500` with the
   generic body when stored data breaks the contract.
 - Assert status codes, full response bodies, and errors. Cover the `400`

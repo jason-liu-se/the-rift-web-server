@@ -1,11 +1,7 @@
 import express, { type Request, type Router } from "express";
 import { rateLimit } from "express-rate-limit";
 import { finishLogin, startLogin } from "../auth/discord-login.ts";
-import {
-	issueRefreshToken,
-	redeemRefreshToken,
-	revokeRefreshToken
-} from "../auth/refresh-tokens.ts";
+import { endSession, refreshSession } from "../auth/refresh-tokens.ts";
 import {
 	REFRESH_COOKIE,
 	clearSessionCookies,
@@ -61,30 +57,31 @@ export function authRouter(config: AppConfig): Router {
 	});
 
 	// Trades the refresh token for a new access token and a new refresh token
-	// (the old one can't be used again), while the session lasts.
+	// (the old one can't be used again), while the session lasts. A reused
+	// token ends its session (src/auth/refresh-tokens.ts).
 	router.post("/refresh", async (req, res) => {
 		const refreshToken = refreshTokenCookie(req);
-		const session =
-			refreshToken && (await redeemRefreshToken(refreshToken));
-		if (!session) {
+		const refreshed = refreshToken && (await refreshSession(refreshToken));
+		if (!refreshed) {
 			clearSessionCookies(res, config);
 			throw new UnauthorizedError();
 		}
 
 		await setSessionCookies(
 			res,
-			session,
-			await issueRefreshToken(session),
+			refreshed.session,
+			refreshed.refreshToken,
 			config
 		);
 		res.sendStatus(204);
 	});
 
-	// Idempotent: logging out without a session still succeeds.
+	// Ends this session only; the user's other sessions go on. Idempotent:
+	// logging out without a session still succeeds.
 	router.post("/logout", async (req, res) => {
 		const refreshToken = refreshTokenCookie(req);
 		if (refreshToken) {
-			await revokeRefreshToken(refreshToken);
+			await endSession(refreshToken);
 		}
 		clearSessionCookies(res, config);
 		res.sendStatus(204);

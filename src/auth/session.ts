@@ -2,7 +2,7 @@
 // so routes need no lookup. Rotating JWT_SECRET invalidates every access token
 // at once.
 //
-// When one expires, the website calls POST /auth/refresh, which redeems the
+// When one expires, the website calls POST /auth/refresh, which trades the
 // refresh token (refresh-tokens.ts) for a new access token. A session ends
 // SESSION_MAX_AGE_MS after the Discord login, however often it's refreshed.
 // Access isn't re-checked with Discord on a refresh: a removed role or access

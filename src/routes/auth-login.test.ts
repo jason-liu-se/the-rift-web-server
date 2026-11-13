@@ -18,7 +18,7 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../test/database.ts";
-import { clearRedis, storedRefreshTokens } from "../../test/redis.ts";
+import { clearRedis, storedSessions } from "../../test/redis.ts";
 
 vi.mock(
 	import("../helpers/redis-manager.ts"),
@@ -115,7 +115,7 @@ async function expectLoginError(
 	expect(res.headers["location"]).toBe(`${LOGIN_PAGE_URL}?error=${code}`);
 	expect(findCookie(res, SESSION_COOKIE)).toBeUndefined();
 	expect(findCookie(res, REFRESH_COOKIE)).toBeUndefined();
-	expect(storedRefreshTokens()).toEqual([]);
+	expect(storedSessions().size).toBe(0);
 }
 
 beforeEach(() => {
@@ -193,21 +193,27 @@ describe("GET /auth/discord/callback", () => {
 				avatarUrl: `https://cdn.discordapp.com/avatars/${USER_ID}/abc.png`
 			});
 
-			// A refresh token is stored for the new session.
-			expect(findCookie(res, REFRESH_COOKIE)).toMatch(
-				/Path=\/auth;.*HttpOnly/
-			);
-			expect(storedRefreshTokens()).toEqual([
-				{
-					value: {
-						discordUserId: USER_ID,
-						username: "editor",
-						avatarUrl: `https://cdn.discordapp.com/avatars/${USER_ID}/abc.png`,
-						createdAt: new Date(loginAt).toISOString(),
-						loginAt: new Date(loginAt).toISOString()
-					},
-					expiresAt: loginAt + SESSION_MAX_AGE_MS
-				}
+			// A session is stored under the refresh token's session ID.
+			const refreshCookie = findCookie(res, REFRESH_COOKIE);
+			expect(refreshCookie).toMatch(/Path=\/auth;.*HttpOnly/);
+			const sessionId = /^refresh_token=([\w-]+)\./.exec(
+				refreshCookie ?? ""
+			)?.[1];
+			expect([...storedSessions()]).toEqual([
+				[
+					sessionId,
+					{
+						fields: {
+							discordUserId: USER_ID,
+							username: "editor",
+							avatarUrl: `https://cdn.discordapp.com/avatars/${USER_ID}/abc.png`,
+							refreshTokenHash: expect.any(String),
+							createdAt: new Date(loginAt).toISOString(),
+							loginAt: new Date(loginAt).toISOString()
+						},
+						expiresAt: loginAt + SESSION_MAX_AGE_MS
+					}
+				]
 			]);
 		}
 	);

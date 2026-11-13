@@ -47,10 +47,12 @@ user throws `UnauthorizedError` when `res.locals.user` is unset. Set and clear
 the cookies only through `src/auth/session-cookie.ts`, so their options always
 match.
 
-Refresh tokens (`src/auth/refresh-tokens.ts`) are single-use and rotated on
-every refresh; Redis holds them by hash until the session ends, 30 days after
-the Discord login. Every Redis command goes through
-`src/helpers/redis-manager.ts`, as every MongoDB query goes through
+Refresh tokens (`src/auth/refresh-tokens.ts`) are `<session ID>.<secret>`,
+single-use, and rotated on every refresh. Each login is a session: one Redis
+hash holding the current secret's hash, until 30 days after the login. A user
+may have many. Presenting an already-used token ends its whole session (reuse
+detection), and the rotation is an atomic compare-and-swap. Every Redis command
+goes through `src/helpers/redis-manager.ts`, as every MongoDB query goes through
 `mongo-manager`.
 
 The Discord login lives in `src/auth/discord-login.ts`, and every call to

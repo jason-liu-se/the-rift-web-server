@@ -1,19 +1,20 @@
 // An in-memory stand-in for src/helpers/redis-manager.ts, so tests need no
-// Redis. It keeps the same contract: values expire at their time (by Date.now(),
-// so fake timers apply) and a take reads and deletes. Use it with
+// Redis. It keeps the same contract: sessions expire at their time (by
+// Date.now(), so fake timers apply) and rotation is a compare-and-swap. Use it
+// with
 //   vi.mock(import("<path to>/helpers/redis-manager.ts"), () => import("<path to>/test/redis.ts"))
 // and clearRedis in afterEach.
 import type * as RedisManager from "../src/helpers/redis-manager.ts";
 
 interface Entry {
-	readonly value: string;
+	readonly fields: RedisManager.SessionFields;
 	readonly expiresAt: number;
 }
 
-const entries = new Map<string, Entry>();
+const sessions = new Map<string, Entry>();
 
-function live(tokenHash: string): Entry | undefined {
-	const entry = entries.get(tokenHash);
+function live(sessionId: string): Entry | undefined {
+	const entry = sessions.get(sessionId);
 	return entry && entry.expiresAt > Date.now() ? entry : undefined;
 }
 
@@ -21,38 +22,51 @@ export const connect: typeof RedisManager.connect = async () => undefined;
 
 export const disconnect: typeof RedisManager.disconnect = async () => undefined;
 
-export const saveRefreshToken: typeof RedisManager.saveRefreshToken = async (
-	tokenHash,
-	value,
+export const createSession: typeof RedisManager.createSession = async (
+	sessionId,
+	fields,
 	expiresAt
 ) => {
-	entries.set(tokenHash, { value, expiresAt });
+	sessions.set(sessionId, { fields: { ...fields }, expiresAt });
 };
 
-export const takeRefreshToken: typeof RedisManager.takeRefreshToken = async (
-	tokenHash
-) => {
-	const entry = live(tokenHash);
-	entries.delete(tokenHash);
-	return entry?.value;
+export const getSession: typeof RedisManager.getSession = async (sessionId) => {
+	const entry = live(sessionId);
+	return entry && { ...entry.fields };
 };
 
-export const deleteRefreshToken: typeof RedisManager.deleteRefreshToken =
-	async (tokenHash) => {
-		entries.delete(tokenHash);
+export const rotateRefreshToken: typeof RedisManager.rotateRefreshToken =
+	async (sessionId, expectedHash, newHash, createdAt) => {
+		const entry = live(sessionId);
+		if (!entry) {
+			return "missing";
+		}
+		if (entry.fields["refreshTokenHash"] !== expectedHash) {
+			return "mismatch";
+		}
+		sessions.set(sessionId, {
+			...entry,
+			fields: { ...entry.fields, refreshTokenHash: newHash, createdAt }
+		});
+		return "rotated";
 	};
 
+export const deleteSession: typeof RedisManager.deleteSession = async (
+	sessionId
+) => {
+	sessions.delete(sessionId);
+};
+
 export function clearRedis(): void {
-	entries.clear();
+	sessions.clear();
 }
 
-/** The unexpired stored values, parsed, with their expiry. */
-export function storedRefreshTokens(): { value: unknown; expiresAt: number }[] {
-	return [...entries.keys()]
-		.map((tokenHash) => live(tokenHash))
-		.filter((entry) => entry !== undefined)
-		.map(({ value, expiresAt }) => ({
-			value: JSON.parse(value),
-			expiresAt
-		}));
+/** The unexpired sessions, by ID. */
+export function storedSessions(): Map<string, Entry> {
+	return new Map(
+		[...sessions.keys()].flatMap((sessionId) => {
+			const entry = live(sessionId);
+			return entry ? [[sessionId, entry] as const] : [];
+		})
+	);
 }

@@ -120,18 +120,28 @@ A session is two httpOnly cookies, set by the Discord login:
   website calls `POST /auth/refresh`, which trades it for a new access token and
   a new refresh token. The old one stops working.
 
-A session ends 30 days after the Discord login, however often it's refreshed
-(constants in [`src/auth/session.ts`](./src/auth/session.ts)). Redis holds each
-refresh token's record under `refresh-token:<SHA-256 of the token>` (never the
-token itself) with the Discord user ID and profile, when it was issued
-(`createdAt`), and when the user logged in (`loginAt`); it expires when the
-session does. See [`src/auth/refresh-tokens.ts`](./src/auth/refresh-tokens.ts).
+Each login is its own session, so a user can be logged in on several devices,
+and logging out ends only that one. A session ends 30 days after its Discord
+login, however often it's refreshed (constants in
+[`src/auth/session.ts`](./src/auth/session.ts)).
+
+**Stolen tokens:** if a refresh token that was already used comes back, someone
+else holds a copy, so the whole session ends and whoever has it must log in
+again (a warning is logged). For the same reason, two refreshes with the same
+token at once end the session: the website must send one refresh at a time,
+across tabs.
+
+Redis holds one hash per session under `session:<session ID>`: the Discord user
+ID and profile, the current refresh token's SHA-256 hash (never the token
+itself), when that token was issued (`createdAt`), and when the user logged in
+(`loginAt`). It expires when the session does. See
+[`src/auth/refresh-tokens.ts`](./src/auth/refresh-tokens.ts).
 
 - **Generate `JWT_SECRET`** once per environment:
   `node -e "console.log(require('node:crypto').randomBytes(64).toString('base64url'))"`
-- **Log everyone out** by deleting the `refresh-token:*` keys in Redis; access
-  tokens already issued still work until they expire (minutes). To end those
-  too, also replace `JWT_SECRET` and restart.
+- **Log everyone out** by deleting the `session:*` keys in Redis; access tokens
+  already issued still work until they expire (minutes). To end those too, also
+  replace `JWT_SECRET` and restart.
 - **Same site required:** the API and the website must share a site (e.g.
   `api.example.com` and `example.com`). The cookies are `SameSite=Lax`, which
   browsers don't send between different sites.

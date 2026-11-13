@@ -15,7 +15,7 @@ import {
 	getIdentity
 } from "../helpers/discord.ts";
 import * as mongoManager from "../helpers/mongo-manager.ts";
-import { issueRefreshToken } from "./refresh-tokens.ts";
+import { startSession } from "./refresh-tokens.ts";
 import { baseCookieOptions, setSessionCookies } from "./session-cookie.ts";
 
 const LOGIN_STATE_COOKIE = "login_state";
@@ -132,12 +132,7 @@ async function logIn(
 	}
 
 	const session = { user, loginAt: Date.now() };
-	await setSessionCookies(
-		res,
-		session,
-		await issueRefreshToken(session),
-		config
-	);
+	await setSessionCookies(res, session, await startSession(session), config);
 }
 
 function isExpectedState(state: string, req: Request): boolean {
