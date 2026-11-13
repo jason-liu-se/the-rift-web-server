@@ -5,7 +5,6 @@
 // matching access grant. Discord's access token is dropped after the login.
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { CookieOptions, Request, Response } from "express";
-import * as z from "zod";
 import type { AppConfig } from "../config/env.ts";
 import type { LoginErrorCode } from "../contract/api-responses.ts";
 import {
@@ -15,6 +14,7 @@ import {
 	getIdentity
 } from "../helpers/discord.ts";
 import * as mongoManager from "../helpers/mongo-manager.ts";
+import { cookieValue, discordCallbackQuery } from "../routes/query-schemas.ts";
 import { startSession } from "./refresh-tokens.ts";
 import { baseCookieOptions, setSessionCookies } from "./session-cookie.ts";
 
@@ -25,14 +25,6 @@ const LOGIN_STATE_BYTES = 32;
 
 const ADMIN_PATH = "/admin";
 const LOGIN_PAGE_PATH = "/admin/login";
-
-// Discord adds `error` (e.g. access_denied) instead of `code` when the user
-// cancels or the request was invalid.
-const callbackQuery = z.object({
-	code: z.string().min(1).optional(),
-	state: z.string().min(1).optional(),
-	error: z.string().optional()
-});
 
 class LoginRejected extends Error {
 	readonly code: LoginErrorCode;
@@ -76,10 +68,19 @@ export async function finishLogin(
 	} catch (error) {
 		const code = loginErrorCode(error);
 		console.error(`Discord login failed (${code}):`, error);
-		res.redirect(
-			`${config.FRONTEND_URL}${LOGIN_PAGE_PATH}?${new URLSearchParams({ error: code })}`
-		);
+		redirectToLoginPage(res, config, code);
 	}
+}
+
+// Sends the browser to the website's login page, which shows `code`.
+export function redirectToLoginPage(
+	res: Response,
+	config: AppConfig,
+	code: LoginErrorCode
+): void {
+	res.redirect(
+		`${config.FRONTEND_URL}${LOGIN_PAGE_PATH}?${new URLSearchParams({ error: code })}`
+	);
 }
 
 async function logIn(
@@ -87,7 +88,7 @@ async function logIn(
 	res: Response,
 	config: AppConfig
 ): Promise<void> {
-	const query = callbackQuery.safeParse(req.query);
+	const query = discordCallbackQuery.safeParse(req.query);
 	if (!query.success) {
 		throw new LoginRejected("invalid-request", "malformed callback query");
 	}
@@ -136,8 +137,8 @@ async function logIn(
 }
 
 function isExpectedState(state: string, req: Request): boolean {
-	const expected: unknown = req.cookies[LOGIN_STATE_COOKIE];
-	if (typeof expected !== "string") {
+	const expected = cookieValue.parse(req.cookies[LOGIN_STATE_COOKIE]);
+	if (!expected) {
 		return false;
 	}
 

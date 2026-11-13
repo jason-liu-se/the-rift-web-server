@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignJWT, UnsecuredJWT } from "jose";
 import request from "supertest";
 import { createApp } from "../app.ts";
-import { startSession } from "../auth/refresh-tokens.ts";
+import { REFRESH_GRACE_MS, startSession } from "../auth/refresh-tokens.ts";
 import {
 	SESSION_MAX_AGE_MS,
 	SESSION_TOKEN_TTL_SECONDS,
@@ -123,11 +123,12 @@ describe("GET /auth/me", () => {
 					.encode()
 		],
 		["garbage", () => "not-a-jwt"]
-	])("answers 401 and clears the cookie for %s", async (_, makeToken) => {
+	])("answers 401 for %s", async (_, makeToken) => {
 		const res = await getMe(await makeToken()).expect(401);
 
 		expect(res.body).toEqual({ error: "ERROR: not logged in" });
-		expect(setCookie(res, SESSION_COOKIE)).toMatch(CLEARED);
+		// The cookie is left to expire, so it never clashes with a refresh.
+		expect(setCookie(res, SESSION_COOKIE)).toBeUndefined();
 	});
 
 	it("answers 401 once the token expires, without re-issuing it", async () => {
@@ -136,7 +137,7 @@ describe("GET /auth/me", () => {
 
 		const res = await getMe(token).expect(401);
 
-		expect(setCookie(res, SESSION_COOKIE)).toMatch(CLEARED);
+		expect(setCookie(res, SESSION_COOKIE)).toBeUndefined();
 	});
 
 	it("accepts a token from before a restart (same secret)", async () => {
@@ -199,6 +200,7 @@ describe("POST /auth/refresh", () => {
 						avatarUrl: USER.avatarUrl,
 						refreshTokenHash: sha256(secret ?? ""),
 						createdAt: new Date(now).toISOString(),
+						graceEndsAt: String(now + REFRESH_GRACE_MS),
 						loginAt: new Date(LOGIN_AT).toISOString()
 					},
 					expiresAt: SESSION_ENDS_AT
@@ -220,11 +222,12 @@ describe("POST /auth/refresh", () => {
 			.spyOn(console, "warn")
 			.mockImplementation(() => undefined);
 		const stolenToken = await logIn();
-		// The user refreshes first; the thief then replays the old token.
+		// The user refreshes first; the thief replays the old token later.
 		const userToken = cookieValue(
 			await refresh(stolenToken).expect(204),
 			REFRESH_COOKIE
 		);
+		setNow(LOGIN_AT + REFRESH_GRACE_MS);
 
 		const res = await refresh(stolenToken).expect(401);
 
@@ -242,12 +245,64 @@ describe("POST /auth/refresh", () => {
 		const laptop = await logIn();
 		const phone = await logIn();
 		await refresh(laptop).expect(204);
+		setNow(LOGIN_AT + REFRESH_GRACE_MS);
 
 		// Replaying the laptop's old token ends only the laptop's session.
 		await refresh(laptop).expect(401);
 
 		expect(storedSessions().size).toBe(1);
 		await refresh(phone).expect(204);
+	});
+
+	describe("within the grace window", () => {
+		it("answers concurrent refreshes with the same new token", async () => {
+			const token = await logIn();
+
+			const responses = await Promise.all([
+				refresh(token),
+				refresh(token)
+			]);
+
+			const [first, second] = responses.map((res) => {
+				expect(res.status).toBe(204);
+				return cookieValue(res, REFRESH_COOKIE);
+			});
+			expect(second).toBe(first);
+			// Whichever response the browser applies last, its cookie works.
+			await refresh(first).expect(204);
+		});
+
+		it("lets a refresh whose response was lost be retried", async () => {
+			const token = await logIn();
+			const lost = cookieValue(
+				await refresh(token).expect(204),
+				REFRESH_COOKIE
+			);
+			setNow(LOGIN_AT + REFRESH_GRACE_MS - 1);
+
+			const retry = await refresh(token).expect(204);
+
+			expect(cookieValue(retry, REFRESH_COOKIE)).toBe(lost);
+			const accessCookie = cookieValue(retry, SESSION_COOKIE);
+			expect((await getMe(accessCookie).expect(200)).body).toEqual(USER);
+			// A retry doesn't extend the window.
+			setNow(LOGIN_AT + REFRESH_GRACE_MS);
+			vi.spyOn(console, "warn").mockImplementation(() => undefined);
+			await refresh(token).expect(401);
+		});
+
+		it("only accepts the previous token, not older ones", async () => {
+			vi.spyOn(console, "warn").mockImplementation(() => undefined);
+			const first = await logIn();
+			const second = cookieValue(
+				await refresh(first).expect(204),
+				REFRESH_COOKIE
+			);
+			await refresh(second).expect(204);
+
+			await refresh(first).expect(401);
+			expect(storedSessions().size).toBe(0);
+		});
 	});
 
 	it.each([
@@ -291,8 +346,9 @@ describe("POST /auth/refresh", () => {
 	it("answers 500 for a malformed stored session", async () => {
 		vi.spyOn(console, "error").mockImplementation(() => undefined);
 		const token = await logIn();
-		vi.spyOn(redisManager, "getSession").mockResolvedValue({
-			discordUserId: USER.id
+		vi.spyOn(redisManager, "rotateRefreshToken").mockResolvedValue({
+			outcome: "rotated",
+			fields: { discordUserId: USER.id }
 		});
 
 		const res = await refresh(token).expect(500);
@@ -341,7 +397,7 @@ describe("rate limiting", () => {
 	it("answers 429 once a client exceeds the limit on /auth", async () => {
 		// A fresh app, so other tests' requests don't count.
 		const limitedApp = createApp(testConfig);
-		const AUTH_RATE_LIMIT = 100;
+		const AUTH_RATE_LIMIT = 60;
 
 		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
 			await request(limitedApp).post("/auth/logout").expect(204);
@@ -354,5 +410,12 @@ describe("rate limiting", () => {
 		expect(res.headers).toHaveProperty("retry-after");
 		// Other routes aren't limited.
 		await request(limitedApp).get("/health").expect(200);
+		// Discord's redirect back still lands on the website's login page.
+		const callback = await request(limitedApp)
+			.get("/auth/discord/callback?code=abc&state=xyz")
+			.expect(302);
+		expect(callback.headers["location"]).toBe(
+			`${testConfig.FRONTEND_URL}/admin/login?error=rate-limited`
+		);
 	});
 });

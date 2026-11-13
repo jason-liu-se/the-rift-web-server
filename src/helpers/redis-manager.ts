@@ -9,27 +9,50 @@ const SESSION_PREFIX = "session:";
 /** A session's stored fields, as Redis returns them. */
 export type SessionFields = Record<string, string>;
 
-export type RotateResult = "rotated" | "mismatch" | "missing";
+export interface RotateRequest {
+	/** Hash of the presented refresh token's secret. */
+	readonly presentedHash: string;
+	/** Hash of the secret that follows it (the same for every retry). */
+	readonly nextHash: string;
+	/** ISO date-time; becomes `createdAt` on a rotation. */
+	readonly createdAt: string;
+	/** In ms since the epoch. */
+	readonly now: number;
+	/** Until when (ms since the epoch) a rotation accepts the presented token again. */
+	readonly graceEndsAt: number;
+}
 
-// Compare-and-swap on the session's refresh token hash, atomically, so two
-// requests can't both rotate the same token. KEYS[1]: the session; ARGV: the
-// presented token's hash, the new token's hash, the new token's createdAt.
+export type RotateResult =
+	/** The presented token was current; `nextHash` now is. */
+	| { readonly outcome: "rotated"; readonly fields: SessionFields }
+	/** The presented token was just rotated, within its grace window. */
+	| { readonly outcome: "repeated"; readonly fields: SessionFields }
+	/** The presented token was used before; the session is deleted. */
+	| { readonly outcome: "reused"; readonly discordUserId: string }
+	| { readonly outcome: "missing" };
+
+// One atomic step, so concurrent refreshes can't interleave: rotate when the
+// presented hash is current; accept it again within the grace window (the
+// current hash is then its successor's); otherwise delete the session.
+// Returns the outcome, then the session's fields (flattened) or its user ID.
+// KEYS[1]: the session. ARGV: presentedHash, nextHash, createdAt, now,
+// graceEndsAt.
 const ROTATE_SCRIPT = `
 local current = redis.call("HGET", KEYS[1], "refreshTokenHash")
-if not current then return "missing" end
-if current ~= ARGV[1] then return "mismatch" end
-redis.call("HSET", KEYS[1], "refreshTokenHash", ARGV[2], "createdAt", ARGV[3])
-return "rotated"
+if not current then return {"missing"} end
+if current == ARGV[1] then
+	redis.call("HSET", KEYS[1], "refreshTokenHash", ARGV[2], "createdAt", ARGV[3], "graceEndsAt", ARGV[5])
+	return {"rotated", unpack(redis.call("HGETALL", KEYS[1]))}
+end
+local graceEndsAt = tonumber(redis.call("HGET", KEYS[1], "graceEndsAt"))
+if current == ARGV[2] and graceEndsAt and tonumber(ARGV[4]) < graceEndsAt then
+	return {"repeated", unpack(redis.call("HGETALL", KEYS[1]))}
+end
+local discordUserId = redis.call("HGET", KEYS[1], "discordUserId") or ""
+redis.call("DEL", KEYS[1])
+return {"reused", discordUserId}
 `;
-const ROTATE_RESULTS = new Set<unknown>([
-	"rotated",
-	"mismatch",
-	"missing"
-] satisfies RotateResult[]);
 
-function isRotateResult(value: unknown): value is RotateResult {
-	return ROTATE_RESULTS.has(value);
-}
 const RECONNECT_BASE_DELAY_MS = 50;
 const MAX_RECONNECT_DELAY_MS = 2000;
 
@@ -93,30 +116,51 @@ export async function createSession(
 		.exec();
 }
 
-// Undefined once the session is deleted or expired.
-export async function getSession(
-	sessionId: string
-): Promise<SessionFields | undefined> {
-	const fields = await connectedClient().hGetAll(sessionKey(sessionId));
-	return Object.keys(fields).length > 0 ? fields : undefined;
-}
-
-// Replaces the session's refresh token hash with `newHash`, but only if it's
-// still `expectedHash`. The session keeps its expiry.
 export async function rotateRefreshToken(
 	sessionId: string,
-	expectedHash: string,
-	newHash: string,
-	createdAt: string
+	{ presentedHash, nextHash, createdAt, now, graceEndsAt }: RotateRequest
 ): Promise<RotateResult> {
-	const result = await connectedClient().eval(ROTATE_SCRIPT, {
+	const reply = await connectedClient().eval(ROTATE_SCRIPT, {
 		keys: [sessionKey(sessionId)],
-		arguments: [expectedHash, newHash, createdAt]
+		arguments: [
+			presentedHash,
+			nextHash,
+			createdAt,
+			String(now),
+			String(graceEndsAt)
+		]
 	});
-	if (!isRotateResult(result)) {
-		throw new Error(`unexpected rotate script reply: ${String(result)}`);
+	return parseRotateReply(reply);
+}
+
+function parseRotateReply(reply: unknown): RotateResult {
+	const isStrings =
+		Array.isArray(reply) &&
+		reply.every((item): item is string => typeof item === "string");
+	if (!isStrings) {
+		throw new Error(`unexpected rotate script reply: ${String(reply)}`);
 	}
-	return result;
+
+	const [outcome, ...rest] = reply;
+	if (outcome === "missing") {
+		return { outcome };
+	}
+	if (outcome === "reused") {
+		return { outcome, discordUserId: rest[0] ?? "" };
+	}
+	if (outcome === "rotated" || outcome === "repeated") {
+		return { outcome, fields: pairsToFields(rest) };
+	}
+	throw new Error(`unexpected rotate script outcome: ${String(outcome)}`);
+}
+
+// HGETALL's flat [field, value, field, value, ...] reply as an object.
+function pairsToFields(pairs: string[]): SessionFields {
+	const fields: SessionFields = {};
+	for (let i = 0; i + 1 < pairs.length; i += 2) {
+		fields[pairs[i] ?? ""] = pairs[i + 1] ?? "";
+	}
+	return fields;
 }
 
 export async function deleteSession(sessionId: string): Promise<void> {

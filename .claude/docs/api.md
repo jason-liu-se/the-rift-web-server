@@ -12,7 +12,7 @@ doesn't connect or listen, so tests can drive it directly.
 
 A route:
 
-1. parses `req.params` and `req.query` with the schemas in
+1. parses `req.params`, `req.query`, and cookies with the schemas in
    `src/routes/query-schemas.ts` (never passes raw values on),
 2. for a `:collection` route, verifies inputs and throws `NotFoundError` if it's
    missing (an unknown collection would otherwise return an empty list),
@@ -32,7 +32,7 @@ The handler in `src/app.ts` answers `{ "error": string }`:
 | `ZodError` (bad params or query)        | `400`  | Which parameters are wrong           |
 | `UnauthorizedError` (`src/errors/`)     | `401`  | Nobody is logged in, or bad refresh  |
 | `NotFoundError` (`src/errors/`)         | `404`  | What wasn't found; also no route     |
-| Rate limit on `/auth/*` (`routes/auth`) | `429`  | Try again later                      |
+| Rate limit on `/auth/*` (`routes/auth`) | `429`  | Try again later (callback: redirect) |
 | Anything else, incl. a broken contract  | `500`  | Generic message; details only logged |
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
@@ -42,18 +42,20 @@ Never reveal internals (stack traces, queries, connection strings) in a body.
 `sessionMiddleware` (`src/auth/`) runs before every route. It verifies the
 access token in the `session` cookie and sets `res.locals.user`; it never
 rejects a request, and never re-issues a token: an expired one means nobody is
-logged in until the website calls `POST /auth/refresh`. A route that needs a
-user throws `UnauthorizedError` when `res.locals.user` is unset. Set and clear
-the cookies only through `src/auth/session-cookie.ts`, so their options always
-match.
+logged in until the website calls `POST /auth/refresh`. It never sets or clears
+a cookie, so it can't clash with the refresh's. A route that needs a user throws
+`UnauthorizedError` when `res.locals.user` is unset. Set and clear the cookies
+only through `src/auth/session-cookie.ts`, so their options always match.
 
 Refresh tokens (`src/auth/refresh-tokens.ts`) are `<session ID>.<secret>`,
 single-use, and rotated on every refresh. Each login is a session: one Redis
 hash holding the current secret's hash, until 30 days after the login. A user
 may have many. Presenting an already-used token ends its whole session (reuse
-detection), and the rotation is an atomic compare-and-swap. Every Redis command
-goes through `src/helpers/redis-manager.ts`, as every MongoDB query goes through
-`mongo-manager`.
+detection), except the previous token within a short grace window, which gets
+the same new token again (so the next secret is an HMAC of the previous one, not
+random). Rotation, grace, and reuse are one atomic Redis script. Every Redis
+command goes through `src/helpers/redis-manager.ts`, as every MongoDB query goes
+through `mongo-manager`.
 
 The Discord login lives in `src/auth/discord-login.ts`, and every call to
 Discord in `src/helpers/discord.ts`, which throws `DiscordApiError` for any

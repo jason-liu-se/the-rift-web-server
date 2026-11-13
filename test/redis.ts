@@ -30,25 +30,36 @@ export const createSession: typeof RedisManager.createSession = async (
 	sessions.set(sessionId, { fields: { ...fields }, expiresAt });
 };
 
-export const getSession: typeof RedisManager.getSession = async (sessionId) => {
-	const entry = live(sessionId);
-	return entry && { ...entry.fields };
-};
-
+// Mirrors ROTATE_SCRIPT in redis-manager.ts.
 export const rotateRefreshToken: typeof RedisManager.rotateRefreshToken =
-	async (sessionId, expectedHash, newHash, createdAt) => {
+	async (
+		sessionId,
+		{ presentedHash, nextHash, createdAt, now, graceEndsAt }
+	) => {
 		const entry = live(sessionId);
 		if (!entry) {
-			return "missing";
+			return { outcome: "missing" };
 		}
-		if (entry.fields["refreshTokenHash"] !== expectedHash) {
-			return "mismatch";
+
+		const { refreshTokenHash, discordUserId } = entry.fields;
+		if (refreshTokenHash === presentedHash) {
+			const fields = {
+				...entry.fields,
+				refreshTokenHash: nextHash,
+				createdAt,
+				graceEndsAt: String(graceEndsAt)
+			};
+			sessions.set(sessionId, { ...entry, fields });
+			return { outcome: "rotated", fields: { ...fields } };
 		}
-		sessions.set(sessionId, {
-			...entry,
-			fields: { ...entry.fields, refreshTokenHash: newHash, createdAt }
-		});
-		return "rotated";
+		if (
+			refreshTokenHash === nextHash &&
+			now < Number(entry.fields["graceEndsAt"])
+		) {
+			return { outcome: "repeated", fields: { ...entry.fields } };
+		}
+		sessions.delete(sessionId);
+		return { outcome: "reused", discordUserId: discordUserId ?? "" };
 	};
 
 export const deleteSession: typeof RedisManager.deleteSession = async (

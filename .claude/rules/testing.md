@@ -22,8 +22,9 @@ database, or Redis is needed; the first run downloads a MongoDB binary.
   Tests that log in, refresh, or log out mock the module with
   `vi.mock(import("../helpers/redis-manager.ts"), () => import("../../test/redis.ts"))`,
   call `clearRedis` in `afterEach`, and inspect `storedSessions()`. Changing
-  `redis-manager` means changing the stand-in to match; its Lua script isn't
-  covered by the tests, so check changes to it against a real Redis.
+  `redis-manager` means changing the stand-in to match (its `rotateRefreshToken`
+  mirrors the Lua script); the script itself isn't covered by the tests, so
+  check changes to it against a real Redis.
 - `test/responses.ts`: `expectContractError(path)` asserts a `500` with the
   generic body when stored data breaks the contract.
 - Assert status codes, full response bodies, and errors. Cover the `400`

@@ -75,6 +75,8 @@ export interface SessionUser {
  * - `invalid-request`: rejected by the server: a missing, expired, or
  *   mismatched login attempt (try again)
  * - `not-authorized`: rejected by the server: no access grant matches the user
+ * - `rate-limited`: rejected by the server: too many requests from this
+ *   address (try again in a minute)
  * - `discord-unavailable`: Discord's API failed
  * - `server-error`: this server failed
  */
@@ -82,6 +84,7 @@ export type LoginErrorCode =
 	| "access-denied"
 	| "invalid-request"
 	| "not-authorized"
+	| "rate-limited"
 	| "discord-unavailable"
 	| "server-error";
 

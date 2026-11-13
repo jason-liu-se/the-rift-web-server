@@ -53,11 +53,7 @@ export async function setSessionCookies(
 }
 
 // Browsers only delete a cookie when the options match the ones it was set with.
-export function clearAccessCookie(res: Response, config: AppConfig): void {
-	res.clearCookie(SESSION_COOKIE, sessionCookieOptions(config));
-}
-
 export function clearSessionCookies(res: Response, config: AppConfig): void {
-	clearAccessCookie(res, config);
+	res.clearCookie(SESSION_COOKIE, sessionCookieOptions(config));
 	res.clearCookie(REFRESH_COOKIE, refreshCookieOptions(config));
 }

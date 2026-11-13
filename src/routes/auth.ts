@@ -1,6 +1,10 @@
 import express, { type Request, type Router } from "express";
 import { rateLimit } from "express-rate-limit";
-import { finishLogin, startLogin } from "../auth/discord-login.ts";
+import {
+	finishLogin,
+	redirectToLoginPage,
+	startLogin
+} from "../auth/discord-login.ts";
 import { endSession, refreshSession } from "../auth/refresh-tokens.ts";
 import {
 	REFRESH_COOKIE,
@@ -9,12 +13,14 @@ import {
 } from "../auth/session-cookie.ts";
 import type { AppConfig } from "../config/env.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
+import { cookieValue } from "./query-schemas.ts";
 import { parseResponse, sessionUser } from "./response-schemas.ts";
 
 /** The window auth rate limits are counted over, in milliseconds. */
-const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 /** Requests to /auth/* each client IP may make per window. */
-const AUTH_RATE_LIMIT = 100;
+const AUTH_RATE_LIMIT = 60;
+const CALLBACK_PATH = "/discord/callback";
 
 export function authRouter(config: AppConfig): Router {
 	const router = express.Router();
@@ -26,14 +32,23 @@ export function authRouter(config: AppConfig): Router {
 	});
 
 	// Slows down login abuse and token guessing; counts are per app instance,
-	// in memory.
+	// in memory. A browser coming back from Discord is redirected to the login
+	// page instead, like any other failed login.
 	router.use(
 		rateLimit({
 			windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
 			limit: AUTH_RATE_LIMIT,
 			standardHeaders: "draft-8",
 			legacyHeaders: false,
-			message: { error: "ERROR: too many requests; try again later" }
+			handler: (req, res, _next, options) => {
+				if (req.path === CALLBACK_PATH) {
+					redirectToLoginPage(res, config, "rate-limited");
+					return;
+				}
+				res.status(options.statusCode).json({
+					error: "ERROR: too many requests; try again later"
+				});
+			}
 		})
 	);
 
@@ -43,7 +58,7 @@ export function authRouter(config: AppConfig): Router {
 	});
 
 	// Discord redirects here; this redirects on to the website either way.
-	router.get("/discord/callback", async (req, res) => {
+	router.get(CALLBACK_PATH, async (req, res) => {
 		await finishLogin(req, res, config);
 	});
 
@@ -61,7 +76,9 @@ export function authRouter(config: AppConfig): Router {
 	// token ends its session (src/auth/refresh-tokens.ts).
 	router.post("/refresh", async (req, res) => {
 		const refreshToken = refreshTokenCookie(req);
-		const refreshed = refreshToken && (await refreshSession(refreshToken));
+		const refreshed =
+			refreshToken &&
+			(await refreshSession(refreshToken, config.JWT_SECRET));
 		if (!refreshed) {
 			clearSessionCookies(res, config);
 			throw new UnauthorizedError();
@@ -91,6 +108,5 @@ export function authRouter(config: AppConfig): Router {
 }
 
 function refreshTokenCookie(req: Request): string | undefined {
-	const token: unknown = req.cookies[REFRESH_COOKIE];
-	return typeof token === "string" && token !== "" ? token : undefined;
+	return cookieValue.parse(req.cookies[REFRESH_COOKIE]);
 }

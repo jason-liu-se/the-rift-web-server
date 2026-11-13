@@ -355,7 +355,20 @@ describe("GET /auth/discord/callback", () => {
 			],
 			["rate limited", { member: json({ retry_after: 1 }, 429) }],
 			["an unexpected body", { member: json({ roles: "not a list" }) }],
-			["invalid JSON", { user: new Response("<html>", { status: 200 }) }]
+			["invalid JSON", { user: new Response("<html>", { status: 200 }) }],
+			[
+				"an error whose body can't be read",
+				{
+					token: new Response(
+						new ReadableStream({
+							pull(controller) {
+								controller.error(new TypeError("socket reset"));
+							}
+						}),
+						{ status: 502 }
+					)
+				}
+			]
 		])("discord-unavailable when %s", async (_, overrides) => {
 			stubDiscord(overrides);
 			await grant("user", USER_ID);

@@ -156,8 +156,10 @@ async function request(
 	}
 
 	if (!response.ok && !allowedStatuses.includes(response.status)) {
+		// Reading the body can fail too (timeout, reset); it's still Discord's fault.
+		const body = await response.text().catch(() => "(unreadable body)");
 		throw new DiscordApiError(
-			`${url} answered ${response.status}: ${await response.text()}`
+			`${url} answered ${response.status}: ${body}`
 		);
 	}
 	return response;

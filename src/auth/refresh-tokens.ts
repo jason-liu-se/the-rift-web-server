@@ -9,10 +9,18 @@
 // parties hold the session's tokens (one stole them), and there's no telling
 // which is the user, so the whole session is ended: both must log in again.
 //
+// Except within REFRESH_GRACE_MS of its rotation: then the old token is
+// accepted again and answers with the same new token, so two tabs refreshing
+// at once, or a retry after a lost response, don't end the session. That's why
+// the next secret is derived from the old one (an HMAC keyed by JWT_SECRET)
+// rather than random: every retry computes the same token, and the browser
+// ends up with the right cookie whichever response it applies last, without
+// the database ever holding a usable token.
+//
 // Only the secret's SHA-256 hash is stored, so a leaked database holds no
 // usable tokens. A session's record expires SESSION_MAX_AGE_MS after its login,
 // so it can't be refreshed past that.
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import * as z from "zod";
 import * as redisManager from "../helpers/redis-manager.ts";
 import { sessionEndsAt, type Session } from "./session.ts";
@@ -21,6 +29,9 @@ const SESSION_ID_BYTES = 16;
 const SECRET_BYTES = 32;
 // base64url without padding: 16 bytes are 22 characters, 32 bytes are 43.
 const REFRESH_TOKEN_FORMAT = /^([\w-]{22})\.([\w-]{43})$/;
+
+/** How long after a rotation the previous refresh token still works, in ms. */
+export const REFRESH_GRACE_MS = 30 * 1000;
 
 // What Redis holds for a session, all strings. The profile lets a refresh sign
 // a new access token without asking Discord again.
@@ -32,6 +43,8 @@ const storedSession = z.object({
 	refreshTokenHash: z.string().min(1),
 	/** When the current refresh token was issued (at login or a refresh). */
 	createdAt: z.iso.datetime(),
+	/** Until when (ms) the previous token is accepted again; unset before the first refresh. */
+	graceEndsAt: z.string().optional(),
 	/** When the user logged in through Discord; the session ends 30 days on. */
 	loginAt: z.iso.datetime()
 });
@@ -49,6 +62,14 @@ function randomToken(bytes: number): string {
 
 function hash(secret: string): string {
 	return createHash("sha256").update(secret).digest("base64url");
+}
+
+// 32 bytes, like a random secret. Labelled, so the key's other use (signing
+// access tokens) can never produce the same value.
+function nextSecret(secret: string, key: string): string {
+	return createHmac("sha256", key)
+		.update(`refresh-token:${secret}`)
+		.digest("base64url");
 }
 
 function parseRefreshToken(
@@ -80,9 +101,10 @@ export async function startSession({
 
 // Rotates the token, returning its session and the new token; undefined if
 // the token is malformed, its session is over, or it was already used (which
-// ends its session).
+// ends its session). `key` is JWT_SECRET.
 export async function refreshSession(
-	token: string
+	token: string,
+	key: string
 ): Promise<RefreshedSession | undefined> {
 	const parsed = parseRefreshToken(token);
 	if (!parsed) {
@@ -90,31 +112,32 @@ export async function refreshSession(
 	}
 
 	const { sessionId, secret } = parsed;
-	const newSecret = randomToken(SECRET_BYTES);
-	const result = await redisManager.rotateRefreshToken(
-		sessionId,
-		hash(secret),
-		hash(newSecret),
-		new Date().toISOString()
-	);
+	const newSecret = nextSecret(secret, key);
+	const now = Date.now();
+	const result = await redisManager.rotateRefreshToken(sessionId, {
+		presentedHash: hash(secret),
+		nextHash: hash(newSecret),
+		createdAt: new Date(now).toISOString(),
+		now,
+		graceEndsAt: now + REFRESH_GRACE_MS
+	});
 
-	if (result === "missing") {
-		return undefined;
+	switch (result.outcome) {
+		case "missing":
+			return undefined;
+		case "reused":
+			console.warn(
+				`A used refresh token was presented again; ended session ${sessionId}` +
+					` of Discord user ${result.discordUserId || "(unknown)"}`
+			);
+			return undefined;
+		case "rotated":
+		case "repeated":
+			return {
+				session: toSession(parseStoredSession(result.fields)),
+				refreshToken: `${sessionId}.${newSecret}`
+			};
 	}
-	if (result === "mismatch") {
-		await endStolenSession(sessionId);
-		return undefined;
-	}
-
-	const stored = await redisManager.getSession(sessionId);
-	if (!stored) {
-		// Ended (logged out) between the rotation and this read.
-		return undefined;
-	}
-	return {
-		session: toSession(parseStoredSession(stored)),
-		refreshToken: `${sessionId}.${newSecret}`
-	};
 }
 
 // Idempotent: an unknown or malformed token has no session to end.
@@ -123,15 +146,6 @@ export async function endSession(token: string): Promise<void> {
 	if (parsed) {
 		await redisManager.deleteSession(parsed.sessionId);
 	}
-}
-
-async function endStolenSession(sessionId: string): Promise<void> {
-	const stored = await redisManager.getSession(sessionId);
-	await redisManager.deleteSession(sessionId);
-	console.warn(
-		`A used refresh token was presented again; ended session ${sessionId}` +
-			` of Discord user ${stored?.["discordUserId"] ?? "(unknown)"}`
-	);
 }
 
 // Written by us, but a malformed record shouldn't become a session.

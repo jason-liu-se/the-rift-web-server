@@ -127,9 +127,11 @@ login, however often it's refreshed (constants in
 
 **Stolen tokens:** if a refresh token that was already used comes back, someone
 else holds a copy, so the whole session ends and whoever has it must log in
-again (a warning is logged). For the same reason, two refreshes with the same
-token at once end the session: the website must send one refresh at a time,
-across tabs.
+again (a warning is logged). The exception is a short grace window after each
+refresh (`REFRESH_GRACE_MS` in `src/auth/refresh-tokens.ts`): the previous token
+still works and gets the same new token, so tabs refreshing at once, or a retry
+after a lost response, don't log anyone out. Each new token is derived from the
+previous one with `JWT_SECRET`, which is what lets every retry get the same one.
 
 Redis holds one hash per session under `session:<session ID>`: the Discord user
 ID and profile, the current refresh token's SHA-256 hash (never the token
@@ -137,7 +139,8 @@ itself), when that token was issued (`createdAt`), and when the user logged in
 (`loginAt`). It expires when the session does. See
 [`src/auth/refresh-tokens.ts`](./src/auth/refresh-tokens.ts).
 
-- **Generate `JWT_SECRET`** once per environment:
+- **Generate `JWT_SECRET`** (signs access tokens, derives refresh tokens) once
+  per environment:
   `node -e "console.log(require('node:crypto').randomBytes(64).toString('base64url'))"`
 - **Log everyone out** by deleting the `session:*` keys in Redis; access tokens
   already issued still work until they expire (minutes). To end those too, also
@@ -168,9 +171,10 @@ remove their grant and log everyone out (above).
 
 A login ends with a redirect to the website's `/admin`, or to
 `/admin/login?error=<code>`. The code says who stopped it: `access-denied` (the
-user cancelled), `invalid-request` or `not-authorized` (this server rejected
-it), `discord-unavailable` (Discord's API failed), or `server-error` (this
-server failed). Details are only logged. See `LoginErrorCode` in the contract.
+user cancelled), `invalid-request`, `not-authorized`, or `rate-limited` (this
+server rejected it), `discord-unavailable` (Discord's API failed), or
+`server-error` (this server failed). Details are only logged. See
+`LoginErrorCode` in the contract.
 
 ## Data
 
