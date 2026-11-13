@@ -107,7 +107,7 @@ work: [api.md](./.claude/docs/api.md).
 
 ## Sessions and access
 
-A session is a signed JWT (HS256) in an httpOnly cookie, so there's no session
+A session is a signed JWT (HS512) in an httpOnly cookie, so there's no session
 store and restarts don't log anyone out. Each token is short-lived and silently
 re-issued until the session ends 30 days after the Discord login (constants in
 [`src/auth/session.ts`](./src/auth/session.ts)).

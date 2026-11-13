@@ -1,4 +1,4 @@
-// Stateless sessions: a signed JWT (HS256) holds the logged-in user, so there's
+// Stateless sessions: a signed JWT (HS512) holds the logged-in user, so there's
 // no session store and restarts don't log anyone out. Rotating JWT_SECRET
 // invalidates every session at once.
 //
@@ -10,7 +10,7 @@ import { SignJWT, errors, jwtVerify } from "jose";
 import * as z from "zod";
 import type { SessionUser } from "../contract/api-responses.ts";
 
-const ALGORITHM = "HS256";
+const ALGORITHM = "HS512";
 
 /** How long one token is valid before it must be re-issued, in seconds. */
 export const SESSION_TOKEN_TTL_SECONDS = 15 * 60;

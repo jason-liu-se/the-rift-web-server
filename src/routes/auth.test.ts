@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { UnsecuredJWT } from "jose";
+import { SignJWT, UnsecuredJWT } from "jose";
 import request from "supertest";
 import { createApp } from "../app.ts";
 import {
@@ -63,6 +63,16 @@ describe("GET /auth/me", () => {
 		[
 			"a token signed with another secret",
 			() => sessionToken("x".repeat(64))
+		],
+		[
+			"an HS256 token with the right secret",
+			() =>
+				new SignJWT({ username: USER.username, loginAt: LOGIN_AT })
+					.setProtectedHeader({ alg: "HS256" })
+					.setSubject(USER.id)
+					.setIssuedAt()
+					.setExpirationTime("15m")
+					.sign(new TextEncoder().encode(testConfig.JWT_SECRET))
 		],
 		[
 			"an unsigned (alg: none) token",
