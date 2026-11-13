@@ -5,10 +5,12 @@ and the rules for changing them. To add one, use the `add-endpoint` skill.
 
 ## Routes
 
-`createApp(config)` in `src/app.ts` sets the CORS headers (only for
-`FRONTEND_URL`, with credentials, so the website's cookies are sent), mounts one
-router per URL prefix from `src/routes/`, and installs the error handler. It
-doesn't connect or listen, so tests can drive it directly.
+`createApp(config)` in `src/app.ts` wires the app together: the app-wide
+middleware from `src/middleware/` (CORS headers only for `FRONTEND_URL`, with
+credentials, so the website's cookies are sent; the session; the error handler),
+and one router per URL prefix from `src/routes/`. Router-specific middleware,
+like the `/auth` rate limit, stays in its router. It doesn't connect or listen,
+so tests can drive it directly.
 
 A route:
 
@@ -25,7 +27,7 @@ promises to the handler.
 
 ## Errors
 
-The handler in `src/app.ts` answers `{ "error": string }`:
+The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 
 | Error                                  | Status | Body                                 |
 | -------------------------------------- | ------ | ------------------------------------ |
@@ -39,13 +41,14 @@ Never reveal internals (stack traces, queries, connection strings) in a body.
 
 ## Sessions
 
-`sessionMiddleware` (`src/auth/`) runs before every route. It verifies the
-access token in the `session` cookie and sets `res.locals.user`; it never
-rejects a request, and never re-issues a token: an expired one means nobody is
-logged in until the website calls `POST /auth/refresh`. It never sets or clears
-a cookie, so it can't clash with the refresh's. A route that needs a user throws
-`UnauthorizedError` when `res.locals.user` is unset. Set and clear the cookies
-only through `src/auth/session-cookie.ts`, so their options always match.
+`sessionMiddleware` (`src/middleware/session.ts`) runs before every route. It
+verifies the access token in the `session` cookie and sets `res.locals.user`; it
+never rejects a request, and never re-issues a token: an expired one means
+nobody is logged in until the website calls `POST /auth/refresh`. It never sets
+or clears a cookie, so it can't clash with the refresh's. A route that needs a
+user throws `UnauthorizedError` when `res.locals.user` is unset. Set and clear
+the cookies only through `src/auth/session-cookie.ts`, so their options always
+match.
 
 Refresh tokens (`src/auth/refresh-tokens.ts`) are `<session ID>.<secret>`,
 single-use, and rotated on every refresh. Each login is a session: one Redis

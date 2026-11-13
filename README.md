@@ -187,14 +187,16 @@ a new collection. Details: [database.md](./.claude/rules/database.md).
 
 ```text
 src/
+├── auth/              Discord login, access tokens, refresh tokens, cookies
 ├── config/env.ts      Environment variable schema
 ├── contract/          Response types shared with the website
 ├── errors/            Errors the handler maps to status codes
 ├── helpers/           mongo-manager and redis-manager: connections and all
 │                      queries; discord: Discord's API
+├── middleware/        App-wide middleware: CORS, sessions, error handler
 ├── models/            Mongoose schemas, one file per database
 ├── routes/            Routers and request/response schemas
-├── app.ts             Express app (CORS, routers, error handler)
+├── app.ts             Express app: wires middleware and routers
 └── index.ts           Entry point: connect, listen, shut down
 test/                  Shared test helpers
 ```

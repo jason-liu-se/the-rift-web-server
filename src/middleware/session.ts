@@ -1,8 +1,8 @@
 import type { RequestHandler } from "express";
 import type { AppConfig } from "../config/env.ts";
 import { cookieValue } from "../routes/query-schemas.ts";
-import { verifySession } from "./session.ts";
-import { SESSION_COOKIE } from "./session-cookie.ts";
+import { verifySession } from "../auth/session.ts";
+import { SESSION_COOKIE } from "../auth/session-cookie.ts";
 
 // Sets res.locals.user from the access token cookie. Never rejects a request:
 // a missing, invalid, or expired token just means nobody is logged in, and the
