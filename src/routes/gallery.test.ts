@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
+import { Types } from "mongoose";
 import { app } from "../../test/app.ts";
 import { galleryDb } from "../models/gallery-schema.ts";
 import {
@@ -8,18 +9,20 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../test/database.ts";
-import { expectContractError } from "../../test/responses.ts";
+import { expectContractError, withId } from "../../test/responses.ts";
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);
 afterAll(stopDatabase);
 
+const IMAGES = [
+	{ _id: new Types.ObjectId(), caption: "First", url: "1.png" },
+	{ _id: new Types.ObjectId(), caption: "Second", url: "2.png" },
+	{ _id: new Types.ObjectId(), caption: "Third", url: "3.png" }
+];
+
 function seedGallery() {
-	return collection("gallery", "builds").insertMany([
-		{ caption: "First", url: "1.png" },
-		{ caption: "Second", url: "2.png" },
-		{ caption: "Third", url: "3.png" }
-	]);
+	return collection("gallery", "builds").insertMany(IMAGES);
 }
 
 describe("GET /gallery/:collection", () => {
@@ -29,12 +32,8 @@ describe("GET /gallery/:collection", () => {
 		const res = await request(app).get("/gallery/builds").expect(200);
 
 		expect(res.body.total).toBe(3);
-		// toEqual: only the contract's fields, no MongoDB _id or __v
-		expect(res.body.items).toEqual([
-			{ caption: "First", url: "1.png" },
-			{ caption: "Second", url: "2.png" },
-			{ caption: "Third", url: "3.png" }
-		]);
+		// toEqual: only the contract's fields, with _id as id and no __v
+		expect(res.body.items).toEqual(IMAGES.map(withId));
 	});
 
 	it("returns the page selected by startIndex and limit", async () => {

@@ -19,6 +19,7 @@ import type {
 
 const newsItem = z.toZod<NewsItem>()(
 	z.object({
+		id: z.string(),
 		title: z.string(),
 		date: z.date().transform((date) => date.toISOString()),
 		content: z.string(),
@@ -27,12 +28,13 @@ const newsItem = z.toZod<NewsItem>()(
 );
 
 const galleryImage = z.toZod<GalleryImage>()(
-	z.object({ url: z.string(), caption: z.string() })
+	z.object({ id: z.string(), url: z.string(), caption: z.string() })
 );
 
 export const downloadItems = z.toZod<DownloadItem[]>()(
 	z.array(
 		z.object({
+			id: z.string(),
 			title: z.string(),
 			desc: z.string(),
 			downloadUrl: z.string(),

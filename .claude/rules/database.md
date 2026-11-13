@@ -40,3 +40,5 @@ lose precision).
 - Keep reads bounded and paginated where a collection can grow.
 - Let MongoDB filter, sort, and paginate, not JavaScript.
 - No query per item: one query, or `Promise.all` for independent ones.
+- Reads are `.lean()`, which skips Mongoose's `id` virtual, so content reads map
+  `_id` to the contract's hex-string `id` with `withId`.

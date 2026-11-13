@@ -1,7 +1,8 @@
 // Database access for the routers. Reads return plain objects (`.lean()`), not
-// Mongoose documents. Query errors propagate to the caller; the app's error
+// Mongoose documents, with MongoDB's `_id` as a hex string `id` (lean results
+// skip Mongoose's `id` virtual). Query errors propagate to the caller; the app's error
 // handler turns them into 500 responses.
-import mongoose, { type Connection } from "mongoose";
+import mongoose, { type Connection, type Types } from "mongoose";
 import { accessGrantModel } from "../models/access-grant-schema.ts";
 import {
 	downloadsDb,
@@ -18,9 +19,18 @@ import { newsItemModel, type NewsItem } from "../models/news-schema.ts";
 // MongoDB treats a limit of 0 as "no limit".
 const NO_LIMIT = 0;
 
+export type WithId<T> = T & { readonly id: string };
+
 export interface DownloadCollection {
 	readonly name: string;
-	readonly items: DownloadItem[];
+	readonly items: WithId<DownloadItem>[];
+}
+
+function withId<T extends { _id: Types.ObjectId }>({
+	_id,
+	...fields
+}: T): Omit<T, "_id"> & { readonly id: string } {
+	return { ...fields, id: _id.toHexString() };
 }
 
 // Resolves once MongoDB is reachable; rejects if it can't connect, so callers
@@ -65,12 +75,13 @@ export async function getGalleryCollection(
 	collectionName: string,
 	startIndex: number,
 	limit?: number
-): Promise<GalleryImage[]> {
-	return getGalleryModel(collectionName)
+): Promise<WithId<GalleryImage>[]> {
+	const images = await getGalleryModel(collectionName)
 		.find()
 		.skip(startIndex)
 		.limit(limit ?? NO_LIMIT)
 		.lean();
+	return images.map(withId);
 }
 
 export async function countGalleryCollectionItems(
@@ -84,13 +95,14 @@ export async function countGalleryCollectionItems(
 export async function getNewsItems(
 	startIndex: number,
 	limit?: number
-): Promise<NewsItem[]> {
-	return newsItemModel
+): Promise<WithId<NewsItem>[]> {
+	const items = await newsItemModel
 		.find()
 		.sort({ date: -1 })
 		.skip(startIndex)
 		.limit(limit ?? NO_LIMIT)
 		.lean();
+	return items.map(withId);
 }
 
 export async function countNewsItems(): Promise<number> {
@@ -99,8 +111,9 @@ export async function countNewsItems(): Promise<number> {
 
 export async function getDownloadCollection(
 	collectionName: string
-): Promise<DownloadItem[]> {
-	return getDownloadModel(collectionName).find().lean();
+): Promise<WithId<DownloadItem>[]> {
+	const items = await getDownloadModel(collectionName).find().lean();
+	return items.map(withId);
 }
 
 // Returns every collection in the downloads database with its items, sorted by
