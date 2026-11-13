@@ -107,7 +107,7 @@ async function logIn(
 	}
 
 	const accessToken = await exchangeCode(code, config);
-	const { user, roleIds, serverIds } = await getIdentity(
+	const { user, roleIds } = await getIdentity(
 		accessToken,
 		config.DISCORD_GUILD_ID
 	);
@@ -115,8 +115,7 @@ async function logIn(
 	if (
 		!(await mongoManager.hasAccessGrant({
 			userId: user.id,
-			roleIds,
-			serverIds
+			roleIds
 		}))
 	) {
 		throw new LoginRejected(

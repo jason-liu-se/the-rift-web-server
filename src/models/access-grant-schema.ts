@@ -1,8 +1,9 @@
 import mongoose from "mongoose";
 
-// What an access grant's subjectId identifies: one Discord user, a role in The
-// Rift's Discord server (DISCORD_GUILD_ID), or every member of a Discord server.
-export const ACCESS_GRANT_SUBJECT_TYPES = ["user", "role", "server"] as const;
+// What an access grant's subjectId identifies: one Discord user, or a role in
+// The Rift's Discord server (DISCORD_GUILD_ID). There's deliberately no grant
+// for a whole server: being in a server must never be enough to log in.
+export const ACCESS_GRANT_SUBJECT_TYPES = ["user", "role"] as const;
 
 export type AccessGrantSubjectType =
 	(typeof ACCESS_GRANT_SUBJECT_TYPES)[number];

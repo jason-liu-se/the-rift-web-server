@@ -24,7 +24,7 @@ afterAll(stopDatabase);
 
 const USER_ID = "3000000000000000003";
 const ROLE_ID = "4000000000000000004";
-const SERVER_ID = "5000000000000000005";
+const OTHER_SERVER_ID = "5000000000000000005";
 const STATE = "expected-state";
 const ADMIN_URL = `${testConfig.FRONTEND_URL}/admin`;
 const LOGIN_PAGE_URL = `${testConfig.FRONTEND_URL}/admin/login`;
@@ -34,7 +34,6 @@ type DiscordReply = Response | "network-error";
 interface DiscordReplies {
 	token: DiscordReply;
 	user: DiscordReply;
-	guilds: DiscordReply;
 	member: DiscordReply;
 }
 
@@ -49,7 +48,6 @@ function healthyDiscord(): DiscordReplies {
 	return {
 		token: json({ access_token: "discord-token", token_type: "Bearer" }),
 		user: json({ id: USER_ID, username: "editor", avatar: "abc" }),
-		guilds: json([{ id: SERVER_ID, name: "Some server" }]),
 		member: json({ roles: [ROLE_ID] })
 	};
 }
@@ -64,13 +62,9 @@ function stubDiscord(overrides: Partial<DiscordReplies> = {}) {
 			? replies.token
 			: url.endsWith("/users/@me")
 				? replies.user
-				: url.endsWith("/users/@me/guilds")
-					? replies.guilds
-					: url.endsWith(
-								`/guilds/${testConfig.DISCORD_GUILD_ID}/member`
-						  )
-						? replies.member
-						: json({ message: "unexpected URL" }, 500);
+				: url.endsWith(`/guilds/${testConfig.DISCORD_GUILD_ID}/member`)
+					? replies.member
+					: json({ message: "unexpected URL" }, 500);
 		if (reply === "network-error") {
 			throw new TypeError("fetch failed");
 		}
@@ -133,7 +127,7 @@ describe("GET /auth/discord", () => {
 		expect(Object.fromEntries(location.searchParams)).toMatchObject({
 			response_type: "code",
 			client_id: testConfig.DISCORD_CLIENT_ID,
-			scope: "identify guilds guilds.members.read",
+			scope: "identify guilds.members.read",
 			redirect_uri: testConfig.DISCORD_REDIRECT_URI
 		});
 
@@ -157,8 +151,7 @@ describe("GET /auth/discord", () => {
 describe("GET /auth/discord/callback", () => {
 	it.each([
 		["user", USER_ID],
-		["role", ROLE_ID],
-		["server", SERVER_ID]
+		["role", ROLE_ID]
 	])(
 		"logs in a user matched by a %s grant",
 		async (subjectType, subjectId) => {
@@ -240,7 +233,36 @@ describe("GET /auth/discord/callback", () => {
 			stubDiscord();
 			await grant("user", "7000000000000000007");
 			await grant("role", "7000000000000000008");
-			await grant("server", "7000000000000000009");
+
+			await expectLoginError(
+				await successfulCallback(),
+				"not-authorized"
+			);
+		});
+
+		// Server grants aren't supported: being in a server is never enough,
+		// even if such an entry is added to the database by hand.
+		it.each([
+			["The Rift", testConfig.DISCORD_GUILD_ID],
+			["another server", OTHER_SERVER_ID]
+		])(
+			"not-authorized for a server grant naming %s",
+			async (_, serverId) => {
+				stubDiscord();
+				await grant("server", serverId);
+
+				await expectLoginError(
+					await successfulCallback(),
+					"not-authorized"
+				);
+			}
+		);
+
+		it("not-authorized for a role grant naming @everyone (the server's ID)", async () => {
+			stubDiscord({
+				member: json({ roles: [testConfig.DISCORD_GUILD_ID] })
+			});
+			await grant("role", testConfig.DISCORD_GUILD_ID);
 
 			await expectLoginError(
 				await successfulCallback(),
@@ -286,7 +308,7 @@ describe("GET /auth/discord/callback", () => {
 			],
 			["a network error", { user: "network-error" }],
 			["rate limited", { member: json({ retry_after: 1 }, 429) }],
-			["an unexpected body", { guilds: json({ not: "a list" }) }],
+			["an unexpected body", { member: json({ roles: "not a list" }) }],
 			["invalid JSON", { user: new Response("<html>", { status: 200 }) }]
 		])("discord-unavailable when %s", async (_, overrides) => {
 			stubDiscord(overrides);

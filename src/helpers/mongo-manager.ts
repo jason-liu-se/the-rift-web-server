@@ -122,21 +122,19 @@ export async function getAllDownloadCollections(): Promise<
 export interface AccessGrantSubjects {
 	readonly userId: string;
 	readonly roleIds: string[];
-	readonly serverIds: string[];
 }
 
-// Whether any access grant matches the user, one of their roles, or one of
-// their servers. No grants (or no collection) means nobody can log in.
+// Whether an access grant matches the user or one of their roles. Entries of
+// any other type never match. No grants (or no collection) means nobody can
+// log in.
 export async function hasAccessGrant({
 	userId,
-	roleIds,
-	serverIds
+	roleIds
 }: AccessGrantSubjects): Promise<boolean> {
 	const grant = await accessGrantModel.exists({
 		$or: [
 			{ subjectType: "user", subjectId: userId },
-			{ subjectType: "role", subjectId: { $in: roleIds } },
-			{ subjectType: "server", subjectId: { $in: serverIds } }
+			{ subjectType: "role", subjectId: { $in: roleIds } }
 		]
 	});
 	return grant !== null;

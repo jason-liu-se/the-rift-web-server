@@ -10,9 +10,8 @@ const DISCORD_AUTHORIZE_URL = "https://discord.com/oauth2/authorize";
 const DISCORD_AVATAR_URL = "https://cdn.discordapp.com/avatars";
 const HTTP_NOT_FOUND = 404;
 
-// identify: the user; guilds: their servers; guilds.members.read: their roles
-// in The Rift's server.
-const SCOPES = "identify guilds guilds.members.read";
+// identify: the user; guilds.members.read: their roles in The Rift's server.
+const SCOPES = "identify guilds.members.read";
 
 export interface DiscordOAuthConfig {
 	readonly DISCORD_CLIENT_ID: string;
@@ -23,7 +22,6 @@ export interface DiscordOAuthConfig {
 // Who the user is and what an access grant can match them by.
 export interface DiscordIdentity {
 	readonly user: SessionUser;
-	readonly serverIds: string[];
 	/** Roles in the server passed to getIdentity; empty if not a member. */
 	readonly roleIds: string[];
 }
@@ -42,8 +40,6 @@ const userResponse = z.object({
 	username: z.string(),
 	avatar: z.string().nullish()
 });
-
-const guildsResponse = z.array(z.object({ id: z.string() }));
 
 const memberResponse = z.object({ roles: z.array(z.string()) });
 
@@ -83,14 +79,13 @@ export async function exchangeCode(
 	return access_token;
 }
 
-// The token's user, their servers, and their roles in `guildId`, in parallel.
+// The token's user and their roles in `guildId`, in parallel.
 export async function getIdentity(
 	accessToken: string,
 	guildId: string
 ): Promise<DiscordIdentity> {
-	const [user, guilds, roleIds] = await Promise.all([
+	const [user, roleIds] = await Promise.all([
 		getAsUser("/users/@me", accessToken, userResponse),
-		getAsUser("/users/@me/guilds", accessToken, guildsResponse),
 		getRoleIds(accessToken, guildId)
 	]);
 
@@ -102,12 +97,14 @@ export async function getIdentity(
 				avatarUrl: `${DISCORD_AVATAR_URL}/${user.id}/${user.avatar}.png`
 			})
 		},
-		serverIds: guilds.map(({ id }) => id),
 		roleIds
 	};
 }
 
 // Discord answers 404 when the user isn't a member of the server: no roles.
+// The server's @everyone role shares the server's ID and every member has it,
+// so it's dropped in case Discord ever lists it: a role grant must never let a
+// whole server in.
 async function getRoleIds(
 	accessToken: string,
 	guildId: string
@@ -121,7 +118,7 @@ async function getRoleIds(
 		return [];
 	}
 	const { roles } = await parseBody(response, memberResponse);
-	return roles;
+	return roles.filter((roleId) => roleId !== guildId);
 }
 
 async function getAsUser<T>(

@@ -120,10 +120,9 @@ re-issued until the session ends 30 days after the Discord login (constants in
   browsers don't send between different sites.
 
 **Who can log in** is set by documents in the `access-grants` collection of the
-`auth` database. A user may log in if any grant matches their Discord user ID,
-one of their roles in The Rift's server (`DISCORD_GUILD_ID`), or a server they
-belong to. With no grants, nobody can log in. Add one in MongoDB, with IDs as
-strings:
+`auth` database. A user may log in if a grant matches their Discord user ID or
+one of their roles in The Rift's server (`DISCORD_GUILD_ID`). With no grants,
+nobody can log in. Add one in MongoDB, with IDs as strings:
 
 ```json
 {
@@ -134,7 +133,8 @@ strings:
 }
 ```
 
-`subjectType` is `user`, `role`, or `server`. **Access is only checked at
+`subjectType` is `user` or `role`. There's deliberately no grant for a whole
+server, and entries of any other type are ignored. **Access is only checked at
 login**: re-issuing a token doesn't re-check it, so removing a grant or role
 takes effect at that user's next login (at most 30 days later). To cut someone
 off now, remove their grant and rotate `JWT_SECRET`.
