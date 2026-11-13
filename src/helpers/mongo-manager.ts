@@ -2,6 +2,7 @@
 // Mongoose documents. Query errors propagate to the caller; the app's error
 // handler turns them into 500 responses.
 import mongoose, { type Connection } from "mongoose";
+import { accessGrantModel } from "../models/access-grant-schema.ts";
 import {
 	downloadsDb,
 	getDownloadModel,
@@ -116,4 +117,27 @@ export async function getAllDownloadCollections(): Promise<
 			items: await getDownloadCollection(name)
 		}))
 	);
+}
+
+export interface AccessGrantSubjects {
+	readonly userId: string;
+	readonly roleIds: string[];
+	readonly serverIds: string[];
+}
+
+// Whether any access grant matches the user, one of their roles, or one of
+// their servers. No grants (or no collection) means nobody can log in.
+export async function hasAccessGrant({
+	userId,
+	roleIds,
+	serverIds
+}: AccessGrantSubjects): Promise<boolean> {
+	const grant = await accessGrantModel.exists({
+		$or: [
+			{ subjectType: "user", subjectId: userId },
+			{ subjectType: "role", subjectId: { $in: roleIds } },
+			{ subjectType: "server", subjectId: { $in: serverIds } }
+		]
+	});
+	return grant !== null;
 }

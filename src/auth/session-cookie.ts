@@ -7,15 +7,19 @@ import { SESSION_MAX_AGE_MS, signSession, type Session } from "./session.ts";
 
 export const SESSION_COOKIE = "session";
 
-function cookieOptions(config: AppConfig): CookieOptions {
+// For every cookie the API sets.
+export function baseCookieOptions(config: AppConfig): CookieOptions {
 	return {
 		httpOnly: true,
 		sameSite: "lax",
 		// Browsers refuse Secure cookies over plain http, except on localhost
 		// in some browsers; local development runs over http.
-		secure: config.FRONTEND_URL.startsWith("https:"),
-		path: "/"
+		secure: config.FRONTEND_URL.startsWith("https:")
 	};
+}
+
+function cookieOptions(config: AppConfig): CookieOptions {
+	return { ...baseCookieOptions(config), path: "/" };
 }
 
 // The cookie expires when the session does, not when the token does: an

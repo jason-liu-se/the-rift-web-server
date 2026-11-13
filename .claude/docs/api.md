@@ -44,6 +44,12 @@ cookie, re-issues an expired token while the session lasts, and sets
 `UnauthorizedError` when `res.locals.user` is unset. Set and clear the cookie
 only through `src/auth/session-cookie.ts`, so its options always match.
 
+The Discord login lives in `src/auth/discord-login.ts`, and every call to
+Discord in `src/helpers/discord.ts`, which throws `DiscordApiError` for any
+Discord failure. The callback never answers with an error status; it redirects
+to the website with a `LoginErrorCode`, so a failure is always attributed to the
+user, this server, or Discord.
+
 ## Response contract
 
 `src/contract/api-responses.ts` holds the response types. The website keeps a

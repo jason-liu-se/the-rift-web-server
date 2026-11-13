@@ -1,9 +1,10 @@
 # The Rift Web Server
 
-The read-only REST API behind
+The REST API behind
 [The Rift website](https://github.com/jason-liu-se/the-rift-website): an
 Express + Mongoose app in TypeScript that serves news, gallery, and download
-content from MongoDB (versions in [`package.json`](./package.json)).
+content from MongoDB, and logs editors in through Discord (versions in
+[`package.json`](./package.json)).
 
 ## Requirements
 
@@ -32,6 +33,10 @@ are invalid.
 | `PORT`                      | No       | Port to listen on (default `4000`, the website expects)               |
 | `FRONTEND_URL`              | Yes      | The website's origin, the only one CORS allows                        |
 | `JWT_SECRET`                | Yes      | Signs sessions; 64+ characters (see [Sessions](#sessions-and-access)) |
+| `DISCORD_CLIENT_ID`         | Yes      | Discord application's client ID                                       |
+| `DISCORD_CLIENT_SECRET`     | Yes      | Discord application's client secret                                   |
+| `DISCORD_REDIRECT_URI`      | Yes      | `<this API>/auth/discord/callback`, registered with Discord           |
+| `DISCORD_GUILD_ID`          | Yes      | The Rift's Discord server, for role grants                            |
 
 ## Commands
 
@@ -84,6 +89,8 @@ or `500` (details logged, not returned).
 | `/downloads`                 |                       | `[{ name, items }]` for every download group |
 | `/downloads/:collection`     |                       | The group's items                            |
 | `/health`                    |                       | `200` with an empty body                     |
+| `/auth/discord`              |                       | Starts a Discord login (`302`)               |
+| `/auth/discord/callback`     | From Discord          | `302` to the website (see below)             |
 | `/auth/me`                   |                       | The logged-in user, or `401`                 |
 | `POST /auth/logout`          |                       | `204`; clears the session cookie             |
 
@@ -108,6 +115,32 @@ re-issued until the session ends 30 days after the Discord login (constants in
 - **Same site required:** the API and the website must share a site (e.g.
   `api.example.com` and `example.com`). The cookie is `SameSite=Lax`, which
   browsers don't send between different sites.
+
+**Who can log in** is set by documents in the `access-grants` collection of the
+`auth` database. A user may log in if any grant matches their Discord user ID,
+one of their roles in The Rift's server (`DISCORD_GUILD_ID`), or a server they
+belong to. With no grants, nobody can log in. Add one in MongoDB, with IDs as
+strings:
+
+```json
+{
+	"subjectType": "user",
+	"subjectId": "<Discord user ID>",
+	"createdBy": "<your Discord user ID>",
+	"createdAt": { "$date": "2026-11-12T00:00:00Z" }
+}
+```
+
+`subjectType` is `user`, `role`, or `server`. **Access is only checked at
+login**: re-issuing a token doesn't re-check it, so removing a grant or role
+takes effect at that user's next login (at most 30 days later). To cut someone
+off now, remove their grant and rotate `JWT_SECRET`.
+
+A login ends with a redirect to the website's `/admin`, or to
+`/admin/login?error=<code>`. The code says who stopped it: `access-denied` (the
+user cancelled), `invalid-request` or `not-authorized` (this server rejected
+it), `discord-unavailable` (Discord's API failed), or `server-error` (this
+server failed). Details are only logged. See `LoginErrorCode` in the contract.
 
 ## Data
 

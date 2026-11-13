@@ -4,6 +4,9 @@ const DEFAULT_PORT = 4000;
 const MAX_PORT = 65_535;
 const MIN_JWT_SECRET_LENGTH = 64;
 
+// Discord IDs ("snowflakes") are 64-bit integers written as decimal strings.
+const discordId = z.string().regex(/^\d{1,20}$/, "must be a Discord ID");
+
 // `PORT=` in .env sets an empty string, which would coerce to 0 (a random
 // port); treat it as unset instead.
 const emptyAsUnset = (value: unknown) => (value === "" ? undefined : value);
@@ -20,7 +23,14 @@ const envSchema = z.object({
 		.transform((url) => new URL(url).origin),
 	// Signs session tokens; rotating it logs everyone out (README "Sessions
 	// and access").
-	JWT_SECRET: z.string().min(MIN_JWT_SECRET_LENGTH)
+	JWT_SECRET: z.string().min(MIN_JWT_SECRET_LENGTH),
+	// From the Discord application's OAuth2 page (README "Sessions and access").
+	DISCORD_CLIENT_ID: discordId,
+	DISCORD_CLIENT_SECRET: z.string().min(1),
+	// This API's /auth/discord/callback, as registered with Discord.
+	DISCORD_REDIRECT_URI: z.url({ protocol: /^https?$/ }),
+	// The Rift's Discord server, whose roles access grants can name.
+	DISCORD_GUILD_ID: discordId
 });
 
 export type Env = z.infer<typeof envSchema>;

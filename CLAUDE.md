@@ -1,9 +1,10 @@
 # CLAUDE.md
 
-Read-only REST API (TypeScript, Express, Mongoose, Zod) serving news, gallery,
-and download content from MongoDB to The Rift website
-([`../website`](../website), Angular, its only client). Setup, endpoints, and
-environment variables are in `README.md`; library versions in `package.json`.
+REST API (TypeScript, Express, Mongoose, Zod) serving news, gallery, and
+download content from MongoDB, with Discord login for editors, to The Rift
+website ([`../website`](../website), Angular, its only client). Setup,
+endpoints, and environment variables are in `README.md`; library versions in
+`package.json`.
 
 ## Commands
 

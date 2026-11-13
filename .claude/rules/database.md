@@ -15,13 +15,15 @@ plain results. Routers never import models.
 Each content type has its own MongoDB database, with one schema and interface
 per file in `src/models/`:
 
-| Database    | Collections            | Model                            |
-| ----------- | ---------------------- | -------------------------------- |
-| `news`      | `news-items`           | `src/models/news-schema.ts`      |
-| `gallery`   | One per gallery        | `src/models/gallery-schema.ts`   |
-| `downloads` | One per download group | `src/models/downloads-schema.ts` |
+| Database    | Collections            | Model                               |
+| ----------- | ---------------------- | ----------------------------------- |
+| `news`      | `news-items`           | `src/models/news-schema.ts`         |
+| `gallery`   | One per gallery        | `src/models/gallery-schema.ts`      |
+| `downloads` | One per download group | `src/models/downloads-schema.ts`    |
+| `auth`      | `access-grants`        | `src/models/access-grant-schema.ts` |
 
-Content is added to MongoDB directly; the server never writes.
+Content and access grants are added to MongoDB directly; the server never
+writes. Discord IDs are stored as strings (numbers lose precision).
 
 - Collection names are used as given: pluralization and auto-creation are off. A
   new gallery or download group is just a new collection.
