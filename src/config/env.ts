@@ -24,8 +24,8 @@ const envSchema = z.object({
 	FRONTEND_URL: z
 		.url({ protocol: /^https?$/ })
 		.transform((url) => new URL(url).origin),
-	// Signs session tokens; rotating it logs everyone out (README "Sessions
-	// and access").
+	// Signs access tokens and derives refresh tokens (README "Sessions and
+	// access").
 	JWT_SECRET: z.string().min(MIN_JWT_SECRET_LENGTH),
 	// From the Discord application's OAuth2 page (README "Sessions and access").
 	DISCORD_CLIENT_ID: discordId,

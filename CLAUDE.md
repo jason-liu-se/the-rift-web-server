@@ -90,3 +90,8 @@ edited.
   `CLAUDE.md` in the same change when what they describe changes. Point to code
   instead of copying values (versions, ports, limits), and don't list Claude
   tooling here.
+- **Keep docs brief.** The README holds only what's needed to set up, run, and
+  manage the project (requirements, environment, commands, operational tasks).
+  Describe a feature in a sentence and link to the code or `.claude/docs/` for
+  how it works; only major design rationale, trade-offs, or edge cases. Prefer
+  tables and short bullets, and cut any sentence a maintainer wouldn't miss.
