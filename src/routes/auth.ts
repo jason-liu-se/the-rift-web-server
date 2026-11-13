@@ -14,6 +14,12 @@ const AUTH_RATE_LIMIT = 100;
 export function authRouter(config: AppConfig): Router {
 	const router = express.Router();
 
+	// Auth responses are per user: never cache them.
+	router.use((_req, res, next) => {
+		res.set("Cache-Control", "no-store");
+		next();
+	});
+
 	// Slows down login abuse and token guessing; counts are per app instance,
 	// in memory.
 	router.use(

@@ -91,7 +91,16 @@ async function logIn(
 		throw new LoginRejected("invalid-request", "malformed callback query");
 	}
 
+	// Check the state before trusting anything else in the query, so a request
+	// that didn't come back from a login started here can't put its own text
+	// in the logs.
 	const { code, state, error } = query.data;
+	if (!state || !isExpectedState(state, req)) {
+		throw new LoginRejected(
+			"invalid-request",
+			"missing or mismatched state"
+		);
+	}
 	if (error === "access_denied") {
 		throw new LoginRejected("access-denied", "the user cancelled");
 	}
@@ -99,11 +108,8 @@ async function logIn(
 		// Any other OAuth2 error means our authorize request was wrong.
 		throw new Error(`Discord rejected the authorize request: ${error}`);
 	}
-	if (!code || !state || !isExpectedState(state, req)) {
-		throw new LoginRejected(
-			"invalid-request",
-			"missing code, or missing or mismatched state"
-		);
+	if (!code) {
+		throw new LoginRejected("invalid-request", "missing code");
 	}
 
 	const accessToken = await exchangeCode(code, config);

@@ -9,6 +9,8 @@ const DISCORD_API_URL = "https://discord.com/api/v10";
 const DISCORD_AUTHORIZE_URL = "https://discord.com/oauth2/authorize";
 const DISCORD_AVATAR_URL = "https://cdn.discordapp.com/avatars";
 const HTTP_NOT_FOUND = 404;
+/** How long one Discord request may take, response body included, in ms. */
+const DISCORD_TIMEOUT_MS = 10_000;
 
 // identify: the user; guilds.members.read: their roles in The Rift's server.
 const SCOPES = "identify guilds.members.read";
@@ -136,8 +138,8 @@ function bearer(accessToken: string): Record<string, string> {
 	return { Authorization: `Bearer ${accessToken}` };
 }
 
-// Throws DiscordApiError on a network failure or a non-2xx status that isn't
-// in `allowedStatuses`.
+// Throws DiscordApiError on a network failure, a timeout, or a non-2xx status
+// that isn't in `allowedStatuses`.
 async function request(
 	url: string,
 	init: RequestInit,
@@ -145,7 +147,10 @@ async function request(
 ): Promise<Response> {
 	let response: Response;
 	try {
-		response = await fetch(url, init);
+		response = await fetch(url, {
+			...init,
+			signal: AbortSignal.timeout(DISCORD_TIMEOUT_MS)
+		});
 	} catch (error) {
 		throw new DiscordApiError(`request to ${url} failed`, { cause: error });
 	}

@@ -48,6 +48,7 @@ describe("GET /auth/me", () => {
 			.expect(200);
 
 		expect(res.body).toEqual(USER);
+		expect(res.headers["cache-control"]).toBe("no-store");
 		// A valid token isn't re-issued on every request.
 		expect(sessionSetCookie(res)).toBeUndefined();
 	});

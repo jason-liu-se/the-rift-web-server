@@ -29,7 +29,8 @@ const STATE = "expected-state";
 const ADMIN_URL = `${testConfig.FRONTEND_URL}/admin`;
 const LOGIN_PAGE_URL = `${testConfig.FRONTEND_URL}/admin/login`;
 
-type DiscordReply = Response | "network-error";
+// An Error is thrown by fetch, as a network failure or timeout would be.
+type DiscordReply = Response | Error;
 
 interface DiscordReplies {
 	token: DiscordReply;
@@ -65,8 +66,8 @@ function stubDiscord(overrides: Partial<DiscordReplies> = {}) {
 				: url.endsWith(`/guilds/${testConfig.DISCORD_GUILD_ID}/member`)
 					? replies.member
 					: json({ message: "unexpected URL" }, 500);
-		if (reply === "network-error") {
-			throw new TypeError("fetch failed");
+		if (reply instanceof Error) {
+			throw reply;
 		}
 		return reply;
 	});
@@ -197,6 +198,8 @@ describe("GET /auth/discord/callback", () => {
 		const credentials = Buffer.from(
 			`${testConfig.DISCORD_CLIENT_ID}:${testConfig.DISCORD_CLIENT_SECRET}`
 		).toString("base64");
+		// Bounded by a timeout.
+		expect(init?.signal).toBeInstanceOf(AbortSignal);
 		expect(init?.headers).toEqual({
 			Authorization: `Basic ${credentials}`
 		});
@@ -219,7 +222,10 @@ describe("GET /auth/discord/callback", () => {
 			["a mismatched state", "code=abc&state=other-state", STATE],
 			["no state", "code=abc", STATE],
 			["no code", `state=${STATE}`, STATE],
-			["a repeated parameter", `code=a&code=b&state=${STATE}`, STATE]
+			["a repeated parameter", `code=a&code=b&state=${STATE}`, STATE],
+			// Not trusted (or logged as Discord's) without a login we started.
+			["an OAuth error without a state", "error=invalid_scope", STATE],
+			["access_denied without a state", "error=access_denied", STATE]
 		])("invalid-request for %s", async (_, query, stateCookie) => {
 			const fetch = stubDiscord();
 
@@ -306,7 +312,11 @@ describe("GET /auth/discord/callback", () => {
 				"an invalid code",
 				{ token: json({ error: "invalid_grant" }, 400) }
 			],
-			["a network error", { user: "network-error" }],
+			["a network error", { user: new TypeError("fetch failed") }],
+			[
+				"a timeout",
+				{ user: new DOMException("timed out", "TimeoutError") }
+			],
 			["rate limited", { member: json({ retry_after: 1 }, 429) }],
 			["an unexpected body", { member: json({ roles: "not a list" }) }],
 			["invalid JSON", { user: new Response("<html>", { status: 200 }) }]
