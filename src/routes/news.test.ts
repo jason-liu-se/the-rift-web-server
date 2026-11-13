@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
+import { Types } from "mongoose";
 import { app } from "../../test/app.ts";
 import {
 	clearDatabase,
@@ -13,16 +14,33 @@ beforeAll(startDatabase);
 afterEach(clearDatabase);
 afterAll(stopDatabase);
 
+const IDS = {
+	oldest: new Types.ObjectId(),
+	newest: new Types.ObjectId(),
+	middle: new Types.ObjectId()
+};
+
 function seedNews() {
 	return collection("news", "news-items").insertMany([
-		{ title: "Oldest", date: new Date("2024-01-01"), content: "a" },
 		{
+			_id: IDS.oldest,
+			title: "Oldest",
+			date: new Date("2024-01-01"),
+			content: "a"
+		},
+		{
+			_id: IDS.newest,
 			title: "Newest",
 			date: new Date("2025-01-01"),
 			content: "b",
 			bannerImg: "banner.png"
 		},
-		{ title: "Middle", date: new Date("2024-06-01"), content: "c" }
+		{
+			_id: IDS.middle,
+			title: "Middle",
+			date: new Date("2024-06-01"),
+			content: "c"
+		}
 	]);
 }
 
@@ -33,16 +51,27 @@ describe("GET /news", () => {
 		const res = await request(app).get("/news").expect(200);
 
 		expect(res.body.total).toBe(3);
-		// toEqual: only the contract's fields, no MongoDB _id or __v
+		// toEqual: only the contract's fields, with _id as id and no __v
 		expect(res.body.items).toEqual([
 			{
+				id: IDS.newest.toHexString(),
 				title: "Newest",
 				date: "2025-01-01T00:00:00.000Z",
 				content: "b",
 				bannerImg: "banner.png"
 			},
-			{ title: "Middle", date: "2024-06-01T00:00:00.000Z", content: "c" },
-			{ title: "Oldest", date: "2024-01-01T00:00:00.000Z", content: "a" }
+			{
+				id: IDS.middle.toHexString(),
+				title: "Middle",
+				date: "2024-06-01T00:00:00.000Z",
+				content: "c"
+			},
+			{
+				id: IDS.oldest.toHexString(),
+				title: "Oldest",
+				date: "2024-01-01T00:00:00.000Z",
+				content: "a"
+			}
 		]);
 	});
 

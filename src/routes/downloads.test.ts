@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
+import { Types } from "mongoose";
 import { app } from "../../test/app.ts";
 import {
 	clearDatabase,
@@ -7,19 +8,21 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../test/database.ts";
-import { expectContractError } from "../../test/responses.ts";
+import { expectContractError, withId } from "../../test/responses.ts";
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);
 afterAll(stopDatabase);
 
 const MAP = {
+	_id: new Types.ObjectId(),
 	title: "Map",
 	desc: "A map",
 	downloadUrl: "map.zip",
 	backgroundUrl: "map.png"
 };
 const PACK = {
+	_id: new Types.ObjectId(),
 	title: "Pack",
 	desc: "A pack",
 	downloadUrl: "pack.zip",
@@ -33,10 +36,10 @@ describe("GET /downloads", () => {
 
 		const res = await request(app).get("/downloads").expect(200);
 
-		// toEqual: only the contract's fields, no MongoDB _id or __v
+		// toEqual: only the contract's fields, with _id as id and no __v
 		expect(res.body).toEqual([
-			{ name: "maps", items: [MAP] },
-			{ name: "packs", items: [PACK] }
+			{ name: "maps", items: [withId(MAP)] },
+			{ name: "packs", items: [withId(PACK)] }
 		]);
 	});
 
@@ -53,7 +56,7 @@ describe("GET /downloads/:collection", () => {
 
 		const res = await request(app).get("/downloads/maps").expect(200);
 
-		expect(res.body).toEqual([MAP]);
+		expect(res.body).toEqual([withId(MAP)]);
 	});
 
 	it("answers 500 when a stored item breaks the contract", async () => {

@@ -28,6 +28,7 @@
 //   any error (400, 401, 404, 500)  ErrorResponse
 
 export interface NewsItem {
+	id: string;
 	title: string;
 	/** ISO 8601 date-time, e.g. 2025-01-01T00:00:00.000Z */
 	date: string;
@@ -36,11 +37,13 @@ export interface NewsItem {
 }
 
 export interface GalleryImage {
+	id: string;
 	url: string;
 	caption: string;
 }
 
 export interface DownloadItem {
+	id: string;
 	title: string;
 	desc: string;
 	downloadUrl: string;
