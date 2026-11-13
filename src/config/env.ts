@@ -12,10 +12,17 @@ const envSchema = z.object({
 	PORT: z.preprocess(
 		emptyAsUnset,
 		z.coerce.number().int().min(0).max(MAX_PORT).default(DEFAULT_PORT)
-	)
+	),
+	// The website's origin: the only one CORS allows, and where logins redirect.
+	FRONTEND_URL: z
+		.url({ protocol: /^https?$/ })
+		.transform((url) => new URL(url).origin)
 });
 
 export type Env = z.infer<typeof envSchema>;
+
+// What createApp needs; the rest of Env is for connecting and listening.
+export type AppConfig = Omit<Env, "MONGODB_CONNECTION_STRING" | "PORT">;
 
 // Exits listing every invalid variable, so a misconfigured server never starts.
 export function loadEnv(): Env {

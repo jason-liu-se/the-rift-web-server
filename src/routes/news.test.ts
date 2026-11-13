@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
-import { app } from "../app.ts";
+import { app } from "../../test/app.ts";
 import {
 	clearDatabase,
 	collection,

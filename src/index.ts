@@ -1,5 +1,5 @@
 import type { Server } from "node:http";
-import { app } from "./app.ts";
+import { createApp } from "./app.ts";
 import { loadEnv } from "./config/env.ts";
 import * as mongoManager from "./helpers/mongo-manager.ts";
 
@@ -7,7 +7,8 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 const SHUTDOWN_SIGNALS: NodeJS.Signals[] = ["SIGTERM", "SIGINT"];
 
 async function start() {
-	const { MONGODB_CONNECTION_STRING, PORT } = loadEnv();
+	const env = loadEnv();
+	const { MONGODB_CONNECTION_STRING, PORT } = env;
 
 	try {
 		await mongoManager.connect(MONGODB_CONNECTION_STRING);
@@ -17,7 +18,7 @@ async function start() {
 		process.exit(1);
 	}
 
-	const server = app.listen(PORT, (error) => {
+	const server = createApp(env).listen(PORT, (error) => {
 		// Express 5 passes startup errors (e.g. port in use) here instead of throwing.
 		if (error) {
 			console.error(`Could not listen on port ${PORT}: ${error.message}`);

@@ -7,9 +7,10 @@ paths:
 
 # Testing
 
-Vitest + Supertest integration tests: requests go to `app` from `src/app.ts`,
-backed by a throwaway in-memory MongoDB (mongodb-memory-server). No `.env` or
-running database is needed; the first run downloads a MongoDB binary.
+Vitest + Supertest integration tests: requests go to `app` from `test/app.ts`
+(`createApp` from `src/app.ts` with the fixed `testConfig`), backed by a
+throwaway in-memory MongoDB (mongodb-memory-server). No `.env` or running
+database is needed; the first run downloads a MongoDB binary.
 
 - Test files sit next to the code as `*.test.ts`.
 - `test/database.ts`: `startDatabase`, `stopDatabase`, `clearDatabase` (use as

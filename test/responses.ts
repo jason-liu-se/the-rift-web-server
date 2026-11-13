@@ -1,6 +1,6 @@
 import { expect, vi } from "vitest";
 import request from "supertest";
-import { app } from "../src/app.ts";
+import { app } from "./app.ts";
 
 // Stored data that breaks the response contract is a server fault: expects a
 // 500 with the generic error body, and the details logged rather than sent.

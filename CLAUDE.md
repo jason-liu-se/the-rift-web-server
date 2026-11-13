@@ -31,8 +31,9 @@ edited.
 
 ## Architecture
 
-- **`src/app.ts` builds the app; `src/index.ts` runs it** (validates the
-  environment, connects to MongoDB, listens, shuts down gracefully).
+- **`createApp` (`src/app.ts`) builds the app; `src/index.ts` runs it**
+  (validates the environment, connects to MongoDB, listens, shuts down
+  gracefully).
 - **Routers** (`src/routes/`) validate input with Zod, call `mongo-manager`, and
   send bodies through the response schemas. They don't catch errors; the handler
   in `app.ts` maps them to status codes.

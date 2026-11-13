@@ -30,6 +30,7 @@ are invalid.
 | --------------------------- | -------- | ------------------------------------------------------- |
 | `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                  |
 | `PORT`                      | No       | Port to listen on (default `4000`, the website expects) |
+| `FRONTEND_URL`              | Yes      | The website's origin, the only one CORS allows          |
 
 ## Commands
 

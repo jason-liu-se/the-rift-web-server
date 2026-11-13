@@ -1,34 +1,57 @@
 // Builds the Express app without connecting to MongoDB or listening, so tests
 // can drive it with Supertest. index.ts does both to run the real server.
-import express, { type ErrorRequestHandler } from "express";
+import express, {
+	type ErrorRequestHandler,
+	type Express,
+	type RequestHandler
+} from "express";
 import * as z from "zod";
+import type { AppConfig } from "./config/env.ts";
 import { NotFoundError } from "./errors/not-found-error.ts";
 import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";
 import { galleryRouter } from "./routes/gallery.ts";
 import { healthRouter } from "./routes/health.ts";
 
-export const app = express();
+export function createApp(config: AppConfig): Express {
+	const app = express();
 
-app.use((req, res, next) => {
-	res.header("Access-Control-Allow-Origin", "*");
-	res.header("Access-Control-Allow-Methods", "GET,OPTIONS");
-	res.header("Access-Control-Allow-Headers", "Content-Type");
-	if (req.method === "OPTIONS") {
-		res.sendStatus(204);
-	} else {
-		next();
-	}
-});
-app.use("/health", healthRouter);
-app.use("/news", newsRouter);
-app.use("/downloads", downloadsRouter);
-app.use("/gallery", galleryRouter);
+	app.use(allowFrontendOrigin(config.FRONTEND_URL));
+	app.use("/health", healthRouter);
+	app.use("/news", newsRouter);
+	app.use("/downloads", downloadsRouter);
+	app.use("/gallery", galleryRouter);
 
-// Nothing above matched, so answer with a JSON 404 instead of Express's HTML page.
-app.use((req) => {
-	throw new NotFoundError(`${req.method} ${req.path}`);
-});
+	// Nothing above matched, so answer with a JSON 404 instead of Express's HTML page.
+	app.use((req) => {
+		throw new NotFoundError(`${req.method} ${req.path}`);
+	});
+	app.use(handleError);
+
+	return app;
+}
+
+// CORS: only the website may call the API from a browser, with its cookies.
+// Other origins get no CORS headers, so browsers block their requests.
+// Server-to-server calls (e.g. the website's server rendering) send no Origin
+// and aren't affected.
+function allowFrontendOrigin(frontendOrigin: string): RequestHandler {
+	return (req, res, next) => {
+		// The answer depends on Origin, so caches mustn't share it between origins.
+		res.vary("Origin");
+		if (req.headers.origin === frontendOrigin) {
+			res.header("Access-Control-Allow-Origin", frontendOrigin);
+			res.header("Access-Control-Allow-Credentials", "true");
+			res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+			res.header("Access-Control-Allow-Headers", "Content-Type");
+		}
+		if (req.method === "OPTIONS") {
+			res.sendStatus(204);
+		} else {
+			next();
+		}
+	};
+}
 
 // Express 5 sends errors thrown by any route (including rejected promises)
 // here. Zod errors come from routes parsing their path and query parameters, so they're
@@ -61,4 +84,3 @@ const handleError: ErrorRequestHandler = (error, req, res, next) => {
 		error: "ERROR: an unexpected server error occurred"
 	});
 };
-app.use(handleError);

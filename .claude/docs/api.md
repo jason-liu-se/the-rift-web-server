@@ -5,9 +5,10 @@ and the rules for changing them. To add one, use the `add-endpoint` skill.
 
 ## Routes
 
-`src/app.ts` sets the CORS headers (any origin: the API is public and
-read-only), mounts one router per URL prefix from `src/routes/`, and installs
-the error handler. It doesn't connect or listen, so tests can drive it directly.
+`createApp(config)` in `src/app.ts` sets the CORS headers (only for
+`FRONTEND_URL`, with credentials, so the website's cookies are sent), mounts one
+router per URL prefix from `src/routes/`, and installs the error handler. It
+doesn't connect or listen, so tests can drive it directly.
 
 A route:
 
