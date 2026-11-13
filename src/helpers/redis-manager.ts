@@ -3,6 +3,10 @@
 // goes in it. Command errors propagate to the caller; the app's error handler
 // turns them into 500 responses.
 import { createClient } from "redis";
+import {
+	MAX_RECONNECT_DELAY_MS,
+	RECONNECT_BASE_DELAY_MS
+} from "../config/timeouts.ts";
 
 const SESSION_PREFIX = "session:";
 
@@ -52,9 +56,6 @@ local discordUserId = redis.call("HGET", KEYS[1], "discordUserId") or ""
 redis.call("DEL", KEYS[1])
 return {"reused", discordUserId}
 `;
-
-const RECONNECT_BASE_DELAY_MS = 50;
-const MAX_RECONNECT_DELAY_MS = 2000;
 
 let client: ReturnType<typeof createClient> | undefined;
 

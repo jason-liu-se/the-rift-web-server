@@ -9,15 +9,13 @@
 // grant only takes effect at the next login.
 import { SignJWT, jwtVerify } from "jose";
 import * as z from "zod";
+import {
+	SESSION_MAX_AGE_MS,
+	SESSION_TOKEN_TTL_SECONDS
+} from "../config/auth.ts";
 import type { SessionUser } from "../contract/api-responses.ts";
 
 const ALGORITHM = "HS512";
-
-/** How long one access token is valid, in seconds. */
-export const SESSION_TOKEN_TTL_SECONDS = 15 * 60;
-
-/** How long after the Discord login a session ends, in milliseconds. */
-export const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 const MS_PER_SECOND = 1000;
 

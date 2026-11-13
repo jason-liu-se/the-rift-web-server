@@ -3,14 +3,13 @@
 // an unexpected body) throws DiscordApiError, so the login can tell Discord's
 // faults apart from its own decisions.
 import * as z from "zod";
+import { DISCORD_TIMEOUT_MS } from "../config/timeouts.ts";
 import type { SessionUser } from "../contract/api-responses.ts";
 
 const DISCORD_API_URL = "https://discord.com/api/v10";
 const DISCORD_AUTHORIZE_URL = "https://discord.com/oauth2/authorize";
 const DISCORD_AVATAR_URL = "https://cdn.discordapp.com/avatars";
 const HTTP_NOT_FOUND = 404;
-/** How long one Discord request may take, response body included, in ms. */
-const DISCORD_TIMEOUT_MS = 10_000;
 
 // identify: the user; guilds.members.read: their roles in The Rift's server.
 const SCOPES = "identify guilds.members.read";

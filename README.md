@@ -24,7 +24,11 @@ npm run dev   # http://localhost:4000
 
 ## Environment variables
 
-Checked at startup by [`src/config/env.ts`](./src/config/env.ts).
+Checked at startup by [`src/config/env.ts`](./src/config/env.ts). These hold
+what differs per deployment, and secrets. Settings that are the same everywhere
+but may need tuning (session lifetimes, rate limits, timeouts, the website's
+login pages) are constants in the other files in [`src/config/`](./src/config/),
+meant to be edited directly.
 
 | Variable                    | Required | Sets                                                            |
 | --------------------------- | -------- | --------------------------------------------------------------- |
@@ -81,8 +85,9 @@ sessions work: [api.md](./.claude/docs/api.md).
 ## Sessions and access
 
 Logins use a short-lived JWT (`session`) plus a periodically rotating refresh
-token (`refresh_token`), used for generating JWTs, stored in Redis; sessions
-last 30 days ([`src/auth/`](./src/auth/)).
+token (`refresh_token`), used for generating JWTs, stored in Redis
+([`src/auth/`](./src/auth/)). Lifetimes and rate limits are in
+[`src/config/auth.ts`](./src/config/auth.ts).
 
 - **Generate `JWT_SECRET`:**
   `node -e "console.log(require('node:crypto').randomBytes(64).toString('base64url'))"`
@@ -122,7 +127,7 @@ the session; fields in
 ```text
 src/
 ├── auth/         Discord login, tokens, cookies
-├── config/       Environment variables
+├── config/       Environment variables and tunable settings
 ├── contract/     Response types shared with the website
 ├── errors/       Errors mapped to status codes
 ├── helpers/      MongoDB, Redis, and Discord access

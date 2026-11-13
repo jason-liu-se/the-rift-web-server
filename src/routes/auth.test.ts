@@ -3,12 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignJWT, UnsecuredJWT } from "jose";
 import request from "supertest";
 import { createApp } from "../app.ts";
-import { REFRESH_GRACE_MS, startSession } from "../auth/refresh-tokens.ts";
+import { startSession } from "../auth/refresh-tokens.ts";
+import { signSession } from "../auth/session.ts";
 import {
+	AUTH_RATE_LIMIT,
+	REFRESH_GRACE_MS,
 	SESSION_MAX_AGE_MS,
-	SESSION_TOKEN_TTL_SECONDS,
-	signSession
-} from "../auth/session.ts";
+	SESSION_TOKEN_TTL_SECONDS
+} from "../config/auth.ts";
 import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
 import * as redisManager from "../helpers/redis-manager.ts";
 import { app, testConfig } from "../../test/app.ts";
@@ -320,7 +322,7 @@ describe("POST /auth/refresh", () => {
 		expect(setCookie(res, REFRESH_COOKIE)).toMatch(CLEARED);
 	});
 
-	it("ends the session 30 days after the login, however often it's refreshed", async () => {
+	it("ends the session SESSION_MAX_AGE_MS after the login, however often it's refreshed", async () => {
 		let token = await logIn();
 		setNow(SESSION_ENDS_AT - 1);
 		token = cookieValue(await refresh(token).expect(204), REFRESH_COOKIE);
@@ -397,7 +399,6 @@ describe("rate limiting", () => {
 	it("answers 429 once a client exceeds the limit on /auth", async () => {
 		// A fresh app, so other tests' requests don't count.
 		const limitedApp = createApp(testConfig);
-		const AUTH_RATE_LIMIT = 60;
 
 		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
 			await request(limitedApp).post("/auth/logout").expect(204);

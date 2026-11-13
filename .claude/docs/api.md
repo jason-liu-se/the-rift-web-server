@@ -52,13 +52,14 @@ match.
 
 Refresh tokens (`src/auth/refresh-tokens.ts`) are `<session ID>.<secret>`,
 single-use, and rotated on every refresh. Each login is a session: one Redis
-hash holding the current secret's hash, until 30 days after the login. A user
-may have many. Presenting an already-used token ends its whole session (reuse
-detection), except the previous token within a short grace window, which gets
-the same new token again (so the next secret is an HMAC of the previous one, not
-random). Rotation, grace, and reuse are one atomic Redis script. Every Redis
-command goes through `src/helpers/redis-manager.ts`, as every MongoDB query goes
-through `mongo-manager`.
+hash holding the current secret's hash, until `SESSION_MAX_AGE_MS`
+(`src/config/auth.ts`) after the login. A user may have many. Presenting an
+already-used token ends its whole session (reuse detection), except the previous
+token within a short grace window, which gets the same new token again (so the
+next secret is an HMAC of the previous one, not random). Rotation, grace, and
+reuse are one atomic Redis script. Every Redis command goes through
+`src/helpers/redis-manager.ts`, as every MongoDB query goes through
+`mongo-manager`.
 
 The Discord login lives in `src/auth/discord-login.ts`, and every call to
 Discord in `src/helpers/discord.ts`, which throws `DiscordApiError` for any

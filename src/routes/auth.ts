@@ -11,15 +11,12 @@ import {
 	clearSessionCookies,
 	setSessionCookies
 } from "../auth/session-cookie.ts";
+import { AUTH_RATE_LIMIT, AUTH_RATE_LIMIT_WINDOW_MS } from "../config/auth.ts";
 import type { AppConfig } from "../config/env.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import { cookieValue } from "./query-schemas.ts";
 import { parseResponse, sessionUser } from "./response-schemas.ts";
 
-/** The window auth rate limits are counted over, in milliseconds. */
-const AUTH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
-/** Requests to /auth/* each client IP may make per window. */
-const AUTH_RATE_LIMIT = 60;
 const CALLBACK_PATH = "/discord/callback";
 
 export function authRouter(config: AppConfig): Router {
