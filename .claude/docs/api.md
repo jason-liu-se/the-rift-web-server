@@ -27,13 +27,13 @@ promises to the handler.
 
 The handler in `src/app.ts` answers `{ "error": string }`:
 
-| Error                                   | Status | Body                                 |
-| --------------------------------------- | ------ | ------------------------------------ |
-| `ZodError` (bad params or query)        | `400`  | Which parameters are wrong           |
-| `UnauthorizedError` (`src/errors/`)     | `401`  | Nobody is logged in, or bad refresh  |
-| `NotFoundError` (`src/errors/`)         | `404`  | What wasn't found; also no route     |
-| Rate limit on `/auth/*` (`routes/auth`) | `429`  | Try again later (callback: redirect) |
-| Anything else, incl. a broken contract  | `500`  | Generic message; details only logged |
+| Error                                  | Status | Body                                 |
+| -------------------------------------- | ------ | ------------------------------------ |
+| `ZodError` (bad params or query)       | `400`  | Which parameters are wrong           |
+| `UnauthorizedError` (`src/errors/`)    | `401`  | Nobody is logged in, or bad refresh  |
+| `NotFoundError` (`src/errors/`)        | `404`  | What wasn't found; also no route     |
+| Rate limit                             | `429`  | Try again later (callback: redirect) |
+| Anything else, incl. a broken contract | `500`  | Generic message; details only logged |
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
 
