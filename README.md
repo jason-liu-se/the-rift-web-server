@@ -27,16 +27,17 @@ npm run dev   # http://localhost:4000
 Validated at startup by `src/config/env.ts`; the server exits listing any that
 are invalid.
 
-| Variable                    | Required | Sets                                                                  |
-| --------------------------- | -------- | --------------------------------------------------------------------- |
-| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                                |
-| `PORT`                      | No       | Port to listen on (default `4000`, the website expects)               |
-| `FRONTEND_URL`              | Yes      | The website's origin, the only one CORS allows                        |
-| `JWT_SECRET`                | Yes      | Signs sessions; 64+ characters (see [Sessions](#sessions-and-access)) |
-| `DISCORD_CLIENT_ID`         | Yes      | Discord application's client ID                                       |
-| `DISCORD_CLIENT_SECRET`     | Yes      | Discord application's client secret                                   |
-| `DISCORD_REDIRECT_URI`      | Yes      | `<this API>/auth/discord/callback`, registered with Discord           |
-| `DISCORD_GUILD_ID`          | Yes      | The Rift's Discord server, for role grants                            |
+| Variable                    | Required | Sets                                                                        |
+| --------------------------- | -------- | --------------------------------------------------------------------------- |
+| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                                      |
+| `PORT`                      | No       | Port to listen on (default `4000`, the website expects)                     |
+| `FRONTEND_URL`              | Yes      | The website's origin, the only one CORS allows                              |
+| `JWT_SECRET`                | Yes      | Signs sessions; 64+ characters (see [Sessions](#sessions-and-access))       |
+| `DISCORD_CLIENT_ID`         | Yes      | Discord application's client ID                                             |
+| `DISCORD_CLIENT_SECRET`     | Yes      | Discord application's client secret                                         |
+| `DISCORD_REDIRECT_URI`      | Yes      | `<this API>/auth/discord/callback`, registered with Discord                 |
+| `DISCORD_GUILD_ID`          | Yes      | The Rift's Discord server, for role grants                                  |
+| `TRUST_PROXY_HOPS`          | No       | Proxies in front of the server (default `0`), so rate limits see client IPs |
 
 ## Commands
 
@@ -78,7 +79,9 @@ status check on `main` (GitHub branch protection) so only passing code merges.
 
 Endpoints return JSON unless noted. Errors are `{ "error": string }` with `400`
 (invalid parameters), `401` (not logged in), `404` (unknown collection or path),
-or `500` (details logged, not returned).
+`429` (too many `/auth` requests from one IP; limits in
+[`src/routes/auth.ts`](./src/routes/auth.ts)), or `500` (details logged, not
+returned).
 
 | Path                         | Query                 | Returns                                      |
 | ---------------------------- | --------------------- | -------------------------------------------- |

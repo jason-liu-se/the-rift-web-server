@@ -8,6 +8,7 @@ export const testConfig: AppConfig = {
 	DISCORD_CLIENT_SECRET: "test-client-secret",
 	DISCORD_REDIRECT_URI: "http://localhost:4000/auth/discord/callback",
 	DISCORD_GUILD_ID: "2000000000000000002",
+	TRUST_PROXY_HOPS: 0,
 	JWT_SECRET:
 		"test-secret-that-is-at-least-sixty-four-characters-long-0123456789"
 };

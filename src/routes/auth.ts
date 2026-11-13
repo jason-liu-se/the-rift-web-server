@@ -1,12 +1,30 @@
 import express, { type Router } from "express";
+import { rateLimit } from "express-rate-limit";
 import { finishLogin, startLogin } from "../auth/discord-login.ts";
 import { clearSessionCookie } from "../auth/session-cookie.ts";
 import type { AppConfig } from "../config/env.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import { parseResponse, sessionUser } from "./response-schemas.ts";
 
+/** The window auth rate limits are counted over, in milliseconds. */
+const AUTH_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+/** Requests to /auth/* each client IP may make per window. */
+const AUTH_RATE_LIMIT = 100;
+
 export function authRouter(config: AppConfig): Router {
 	const router = express.Router();
+
+	// Slows down login abuse and token guessing; counts are per app instance,
+	// in memory.
+	router.use(
+		rateLimit({
+			windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
+			limit: AUTH_RATE_LIMIT,
+			standardHeaders: "draft-8",
+			legacyHeaders: false,
+			message: { error: "ERROR: too many requests; try again later" }
+		})
+	);
 
 	// The website links here (a navigation, not a fetch) to start a login.
 	router.get("/discord", (_req, res) => {

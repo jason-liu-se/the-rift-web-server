@@ -19,6 +19,7 @@ import { healthRouter } from "./routes/health.ts";
 
 export function createApp(config: AppConfig): Express {
 	const app = express();
+	app.set("trust proxy", config.TRUST_PROXY_HOPS);
 
 	app.use(allowFrontendOrigin(config.FRONTEND_URL));
 	app.use(cookieParser());

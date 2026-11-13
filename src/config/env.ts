@@ -1,6 +1,7 @@
 import * as z from "zod";
 
 const DEFAULT_PORT = 4000;
+const DEFAULT_TRUST_PROXY_HOPS = 0;
 const MAX_PORT = 65_535;
 const MIN_JWT_SECRET_LENGTH = 64;
 
@@ -30,7 +31,13 @@ const envSchema = z.object({
 	// This API's /auth/discord/callback, as registered with Discord.
 	DISCORD_REDIRECT_URI: z.url({ protocol: /^https?$/ }),
 	// The Rift's Discord server, whose roles access grants can name.
-	DISCORD_GUILD_ID: discordId
+	DISCORD_GUILD_ID: discordId,
+	// How many proxies (e.g. the host's load balancer) sit in front of the
+	// server, so req.ip, and so rate limiting, sees the client's address.
+	TRUST_PROXY_HOPS: z.preprocess(
+		emptyAsUnset,
+		z.coerce.number().int().min(0).default(DEFAULT_TRUST_PROXY_HOPS)
+	)
 });
 
 export type Env = z.infer<typeof envSchema>;

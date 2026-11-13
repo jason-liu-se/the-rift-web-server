@@ -171,3 +171,23 @@ describe("POST /auth/logout", () => {
 		await request(app).post("/auth/logout").expect(204);
 	});
 });
+
+describe("rate limiting", () => {
+	it("answers 429 once a client exceeds the limit on /auth", async () => {
+		// A fresh app, so other tests' requests don't count.
+		const limitedApp = createApp(testConfig);
+		const AUTH_RATE_LIMIT = 100;
+
+		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
+			await request(limitedApp).post("/auth/logout").expect(204);
+		}
+		const res = await request(limitedApp).get("/auth/me").expect(429);
+
+		expect(res.body).toEqual({
+			error: "ERROR: too many requests; try again later"
+		});
+		expect(res.headers).toHaveProperty("retry-after");
+		// Other routes aren't limited.
+		await request(limitedApp).get("/health").expect(200);
+	});
+});
