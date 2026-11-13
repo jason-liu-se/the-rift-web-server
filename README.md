@@ -86,22 +86,20 @@ Endpoints return JSON unless noted. Errors are `{ "error": string }` with `400`
 [`src/routes/auth.ts`](./src/routes/auth.ts)), or `500` (details logged, not
 returned).
 
-| Path                         | Query                 | Returns                                      |
-| ---------------------------- | --------------------- | -------------------------------------------- |
-| `/news`                      | `startIndex`, `limit` | `{ items, total }`, newest first             |
-| `/news/count`                |                       | `{ total }`                                  |
-| `/gallery/:collection`       | `startIndex`, `limit` | `{ items, total }`                           |
-| `/gallery/:collection/count` |                       | `{ total }`                                  |
-| `/downloads`                 |                       | `[{ name, items }]` for every download group |
-| `/downloads/:collection`     |                       | The group's items                            |
-| `/health`                    |                       | `200` with an empty body                     |
-| `/auth/discord`              |                       | Starts a Discord login (`302`)               |
-| `/auth/discord/callback`     | From Discord          | `302` to the website (see below)             |
-| `/auth/me`                   |                       | The logged-in user, or `401`                 |
-| `POST /auth/refresh`         |                       | `204` with new session cookies, or `401`     |
-| `POST /auth/logout`          |                       | `204`; ends the session, clears its cookies  |
-
-All paths are `GET` unless a method is shown.
+| Endpoint                         | Query                 | Returns                                      |
+| -------------------------------- | --------------------- | -------------------------------------------- |
+| `GET /news`                      | `startIndex`, `limit` | `{ items, total }`, newest first             |
+| `GET /news/count`                |                       | `{ total }`                                  |
+| `GET /gallery/:collection`       | `startIndex`, `limit` | `{ items, total }`                           |
+| `GET /gallery/:collection/count` |                       | `{ total }`                                  |
+| `GET /downloads`                 |                       | `[{ name, items }]` for every download group |
+| `GET /downloads/:collection`     |                       | The group's items                            |
+| `GET /health`                    |                       | `200` with an empty body                     |
+| `GET /auth/discord`              |                       | Starts a Discord login (`302`)               |
+| `GET /auth/discord/callback`     | From Discord          | `302` to the website (see below)             |
+| `GET /auth/me`                   |                       | The logged-in user, or `401`                 |
+| `POST /auth/refresh`             |                       | `204` with new session cookies, or `401`     |
+| `POST /auth/logout`              |                       | `204`; ends the session, clears its cookies  |
 
 `startIndex` defaults to `0`; omitting `limit` returns everything after it.
 Response types are in
