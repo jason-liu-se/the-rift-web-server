@@ -15,7 +15,17 @@
 //   GET /gallery/:collection/count  CountResponse
 //   GET /downloads               DownloadCollection[], sorted by name
 //   GET /downloads/:collection   DownloadItem[]
-//   any error (400, 404, 500)    ErrorResponse
+//   GET /auth/me                 SessionUser (401 when nobody is logged in,
+//                                including when the access token expired)
+//   POST /auth/refresh           204, no body, with new session cookies (401
+//                                when the refresh token is missing, already
+//                                used (which ends its session), or its
+//                                session is over: log in again)
+//   POST /auth/logout            204, no body
+//   GET /auth/discord            302 to Discord; Discord's callback then
+//                                redirects to the website's /admin, or to
+//                                /admin/login?error=LoginErrorCode
+//   any error (400, 401, 404, 500)  ErrorResponse
 
 export interface NewsItem {
 	title: string;
@@ -50,6 +60,33 @@ export interface CountResponse {
 export interface PaginatedResponse<T> extends CountResponse {
 	items: T[];
 }
+
+/** A logged-in editor, identified by their Discord account. */
+export interface SessionUser {
+	/** Discord user ID */
+	id: string;
+	username: string;
+	avatarUrl?: string;
+}
+
+/**
+ * Why a login failed, sent as `/admin/login?error=<code>`.
+ * - `access-denied`: the user cancelled on Discord
+ * - `invalid-request`: rejected by the server: a missing, expired, or
+ *   mismatched login attempt (try again)
+ * - `not-authorized`: rejected by the server: no access grant matches the user
+ * - `rate-limited`: rejected by the server: too many requests from this
+ *   address (try again in a minute)
+ * - `discord-unavailable`: Discord's API failed
+ * - `server-error`: this server failed
+ */
+export type LoginErrorCode =
+	| "access-denied"
+	| "invalid-request"
+	| "not-authorized"
+	| "rate-limited"
+	| "discord-unavailable"
+	| "server-error";
 
 export interface ErrorResponse {
 	error: string;

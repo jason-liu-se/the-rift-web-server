@@ -5,13 +5,16 @@ and the rules for changing them. To add one, use the `add-endpoint` skill.
 
 ## Routes
 
-`src/app.ts` sets the CORS headers (any origin: the API is public and
-read-only), mounts one router per URL prefix from `src/routes/`, and installs
-the error handler. It doesn't connect or listen, so tests can drive it directly.
+`createApp(config)` in `src/app.ts` wires the app together: the app-wide
+middleware from `src/middleware/` (CORS headers only for `FRONTEND_URL`, with
+credentials, so the website's cookies are sent; the session; the error handler),
+and one router per URL prefix from `src/routes/`. Router-specific middleware,
+like the `/auth` rate limit, stays in its router. It doesn't connect or listen,
+so tests can drive it directly.
 
 A route:
 
-1. parses `req.params` and `req.query` with the schemas in
+1. parses `req.params`, `req.query`, and cookies with the schemas in
    `src/routes/query-schemas.ts` (never passes raw values on),
 2. for a `:collection` route, verifies inputs and throws `NotFoundError` if it's
    missing (an unknown collection would otherwise return an empty list),
@@ -24,15 +27,44 @@ promises to the handler.
 
 ## Errors
 
-The handler in `src/app.ts` answers `{ "error": string }`:
+The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 
 | Error                                  | Status | Body                                 |
 | -------------------------------------- | ------ | ------------------------------------ |
 | `ZodError` (bad params or query)       | `400`  | Which parameters are wrong           |
+| `UnauthorizedError` (`src/errors/`)    | `401`  | Nobody is logged in, or bad refresh  |
 | `NotFoundError` (`src/errors/`)        | `404`  | What wasn't found; also no route     |
+| Rate limit                             | `429`  | Try again later (callback: redirect) |
 | Anything else, incl. a broken contract | `500`  | Generic message; details only logged |
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
+
+## Sessions
+
+`sessionMiddleware` (`src/middleware/session.ts`) runs before every route. It
+verifies the access token in the `session` cookie and sets `res.locals.user`; it
+never rejects a request, and never re-issues a token: an expired one means
+nobody is logged in until the website calls `POST /auth/refresh`. It never sets
+or clears a cookie, so it can't clash with the refresh's. A route that needs a
+user throws `UnauthorizedError` when `res.locals.user` is unset. Set and clear
+the cookies only through `src/auth/session-cookie.ts`, so their options always
+match.
+
+Refresh tokens (`src/auth/refresh-tokens.ts`) are `<session ID>.<secret>`,
+single-use, and rotated on every refresh. Each login is a session: one Redis
+hash holding the current secret's hash, until 30 days after the login. A user
+may have many. Presenting an already-used token ends its whole session (reuse
+detection), except the previous token within a short grace window, which gets
+the same new token again (so the next secret is an HMAC of the previous one, not
+random). Rotation, grace, and reuse are one atomic Redis script. Every Redis
+command goes through `src/helpers/redis-manager.ts`, as every MongoDB query goes
+through `mongo-manager`.
+
+The Discord login lives in `src/auth/discord-login.ts`, and every call to
+Discord in `src/helpers/discord.ts`, which throws `DiscordApiError` for any
+Discord failure. The callback never answers with an error status; it redirects
+to the website with a `LoginErrorCode`, so a failure is always attributed to the
+user, this server, or Discord.
 
 ## Response contract
 

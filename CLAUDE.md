@@ -1,9 +1,10 @@
 # CLAUDE.md
 
-Read-only REST API (TypeScript, Express, Mongoose, Zod) serving news, gallery,
-and download content from MongoDB to The Rift website
-([`../website`](../website), Angular, its only client). Setup, endpoints, and
-environment variables are in `README.md`; library versions in `package.json`.
+REST API (TypeScript, Express, Mongoose, Zod) serving news, gallery, and
+download content from MongoDB, with Discord login for editors (refresh tokens in
+Redis), to The Rift website ([`../website`](../website), Angular, its only
+client). Setup, endpoints, and environment variables are in `README.md`; library
+versions in `package.json`.
 
 ## Commands
 
@@ -12,7 +13,7 @@ npm run dev                            # run src/index.ts, restart on change
 npm run build / start                  # compile to dist/ / run the build
 npm run docker:build / docker:start    # build the image / run it with .env
 npm run typecheck                      # tsc over src, test, and configs
-npm test                               # Vitest (needs no .env or database)
+npm test                               # Vitest (needs no .env, database, or Redis)
 npm test -- <path/to/file.test.ts>     # one test file
 npm run lint / format                  # ESLint / Prettier (lint:fix, format:check)
 ```
@@ -31,13 +32,15 @@ edited.
 
 ## Architecture
 
-- **`src/app.ts` builds the app; `src/index.ts` runs it** (validates the
-  environment, connects to MongoDB, listens, shuts down gracefully).
+- **`createApp` (`src/app.ts`) builds the app; `src/index.ts` runs it**
+  (validates the environment, connects to MongoDB and Redis, listens, shuts down
+  gracefully).
 - **Routers** (`src/routes/`) validate input with Zod, call `mongo-manager`, and
   send bodies through the response schemas. They don't catch errors; the handler
-  in `app.ts` maps them to status codes.
-- **`src/helpers/mongo-manager.ts` owns all database access.** Routers never
-  touch models.
+  in `src/middleware/error-handler.ts` maps them to status codes.
+- **`src/helpers/mongo-manager.ts` owns all database access**, and
+  `src/helpers/redis-manager.ts` all Redis access. Routers never touch models or
+  the Redis client.
 - **`src/contract/api-responses.ts` is the contract with the website**, which
   keeps a verbatim copy. Endpoint paths, parameters, and response shapes must be
   changed conservatively since the frontend must be updated to maintain
@@ -87,3 +90,8 @@ edited.
   `CLAUDE.md` in the same change when what they describe changes. Point to code
   instead of copying values (versions, ports, limits), and don't list Claude
   tooling here.
+- **Keep docs brief.** The README holds only what's needed to set up, run, and
+  manage the project (requirements, environment, commands, operational tasks).
+  Describe a feature in a sentence and link to the code or `.claude/docs/` for
+  how it works; only major design rationale, trade-offs, or edge cases. Prefer
+  tables and short bullets, and cut any sentence a maintainer wouldn't miss.

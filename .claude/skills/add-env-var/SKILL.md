@@ -12,7 +12,9 @@ Add the variable described in: $ARGUMENTS
    `.default()` with a named constant. Number variables need `z.coerce` (and
    `emptyAsUnset`, so `NAME=` counts as unset).
 2. Read it from the `loadEnv()` result in `src/index.ts` and pass it where it's
-   needed. Never read `process.env` directly.
+   needed; `createApp` receives everything in `AppConfig`, so the app reads it
+   from its `config`. Never read `process.env` directly. If the app needs it,
+   add a test value to `testConfig` in `test/app.ts`.
 3. Add it to the README's environment variable table.
 4. Ask the user to add it to their `.env` and the production environment. Don't
    edit `.env` yourself.

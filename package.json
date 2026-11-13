@@ -30,12 +30,17 @@
 	},
 	"homepage": "https://github.com/Jason-Liu-SE/rift-website-web-server#readme",
 	"dependencies": {
+		"cookie-parser": "^1.4.7",
 		"express": "^5.3.0",
+		"express-rate-limit": "^8.7.4",
+		"jose": "^6.2.17",
 		"mongoose": "^9.12.0",
+		"redis": "^6.3.1",
 		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
+		"@types/cookie-parser": "^1.4.10",
 		"@types/express": "^5.0.6",
 		"@types/node": "^24.19.2",
 		"@types/supertest": "^7.2.1",
