@@ -17,7 +17,7 @@ export const WRITE_RATE_LIMIT = 30;
 export const READ_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
 /** Read limiter: reads per editor (or client IP, logged out) per window. */
-export const READ_RATE_LIMIT = 100;
+export const READ_RATE_LIMIT = 200;
 
 /**
  * Read limiter, without the Cloudflare Tunnel: the default for
