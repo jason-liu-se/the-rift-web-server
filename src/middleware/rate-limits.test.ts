@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Express } from "express";
 import request from "supertest";
 import { createApp } from "../app.ts";
-import { AUTH_RATE_LIMIT, WRITE_RATE_LIMIT } from "../config/rate-limits.ts";
+import {
+	AUTH_RATE_LIMIT,
+	READ_RATE_LIMIT,
+	WRITE_RATE_LIMIT
+} from "../config/rate-limits.ts";
 import { testConfig } from "../../test/app.ts";
 import { EDITOR, sessionCookie } from "../../test/session.ts";
 
@@ -51,7 +55,7 @@ describe("auth rate limit on private routes", () => {
 		await request(app).get("/auth/me").expect(429);
 	});
 
-	it("never counts a logged-in editor's private requests", async () => {
+	it("never counts a logged-in editor's private requests against it", async () => {
 		const app = freshApp();
 		const cookie = await sessionCookie(EDITOR);
 
@@ -60,13 +64,6 @@ describe("auth rate limit on private routes", () => {
 				.get("/news/drafts")
 				.set("Cookie", cookie)
 				.expect(404);
-		}
-	});
-
-	it("leaves public reads unlimited", async () => {
-		const app = freshApp();
-		for (let i = 0; i <= AUTH_RATE_LIMIT; i++) {
-			await request(app).get("/health").expect(200);
 		}
 	});
 });
@@ -134,6 +131,64 @@ describe("write rate limit", () => {
 
 		// ...and the writes didn't touch the auth budget.
 		await request(app).get("/auth/me").set("Cookie", cookie).expect(200);
+	});
+});
+
+describe("read rate limit", () => {
+	function read(target: Express, cookie?: string) {
+		const req = request(target).get("/news/drafts");
+		return cookie ? req.set("Cookie", cookie) : req;
+	}
+
+	async function useUpReadBudget(target: Express, cookie: string) {
+		for (let i = 0; i < READ_RATE_LIMIT; i++) {
+			expect((await read(target, cookie)).status).toBe(404);
+		}
+	}
+
+	it("answers 429 once a client exceeds the limit on public reads", async () => {
+		const app = freshApp();
+		for (let i = 0; i < READ_RATE_LIMIT; i++) {
+			await request(app).get("/health").expect(200);
+		}
+
+		const res = await request(app).get("/health").expect(429);
+
+		expect(res.body).toEqual(TOO_MANY_REQUESTS);
+		expect(res.headers).toHaveProperty("retry-after");
+	});
+
+	it("counts a logged-in editor by user, not by IP", async () => {
+		const app = freshApp();
+		const cookie = await sessionCookie(EDITOR);
+		await useUpReadBudget(app, cookie);
+
+		await read(app, cookie).expect(429);
+		await request(app).get("/health").expect(200);
+	});
+
+	it("counts each visitor separately behind the Cloudflare Tunnel", async () => {
+		const app = createApp({
+			...testConfig,
+			BEHIND_CLOUDFLARE_TUNNEL: true
+		});
+		const health = (ip: string) =>
+			request(app).get("/health").set("CF-Connecting-IP", ip);
+		for (let i = 0; i < READ_RATE_LIMIT; i++) {
+			await health("203.0.113.1").expect(200);
+		}
+
+		await health("203.0.113.1").expect(429);
+		await health("203.0.113.2").expect(200);
+	});
+
+	it("leaves /auth to the auth limiter, and writes to the write limiter", async () => {
+		const app = freshApp();
+		const cookie = await sessionCookie(EDITOR);
+		await useUpReadBudget(app, cookie);
+
+		await request(app).get("/auth/me").set("Cookie", cookie).expect(200);
+		expect((await write(app, cookie)).status).toBe(404);
 	});
 });
 

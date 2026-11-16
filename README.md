@@ -94,10 +94,12 @@ sessions work: [api.md](./.claude/docs/api.md).
 Logins use a short-lived JWT (`session`) plus a periodically rotating refresh
 token (`refresh_token`), used for generating JWTs, stored in Redis
 ([`src/auth/`](./src/auth/)). Lifetimes are in
-[`src/config/auth.ts`](./src/config/auth.ts). Two rate limiters, tuned in
+[`src/config/auth.ts`](./src/config/auth.ts). Three rate limiters, tuned in
 [`src/config/rate-limits.ts`](./src/config/rate-limits.ts): the **auth limiter**
-(per client IP, on `/auth/*` and logged-out private requests) and the **write
-limiter** (per editor, or IP when logged out, on every write); see
+(per client IP, on `/auth/*` and logged-out private requests), the **write
+limiter** (per editor, or IP when logged out, on every write), and the **read
+limiter** (the same, on every other read; needs the tunnel in production, see
+[Behind Cloudflare](#behind-cloudflare)); see
 [api.md](./.claude/docs/api.md#rate-limits).
 
 - **Generate `JWT_SECRET`:**

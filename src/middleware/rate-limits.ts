@@ -1,5 +1,5 @@
-// The API's two rate limiters. Each keeps its own counts, so neither uses up
-// the other's budget (a request may count in both). Counts are per app
+// The API's three rate limiters. Each keeps its own counts, so none uses up
+// another's budget (a request may count in two). Counts are per app
 // instance, in memory. Settings: src/config/rate-limits.ts.
 import type { Request, RequestHandler, Response } from "express";
 import { ipKeyGenerator, rateLimit } from "express-rate-limit";
@@ -9,6 +9,8 @@ import type { AppConfig } from "../config/env.ts";
 import {
 	AUTH_RATE_LIMIT,
 	AUTH_RATE_LIMIT_WINDOW_MS,
+	READ_RATE_LIMIT,
+	READ_RATE_LIMIT_WINDOW_MS,
 	WRITE_RATE_LIMIT,
 	WRITE_RATE_LIMIT_WINDOW_MS
 } from "../config/rate-limits.ts";
@@ -55,11 +57,22 @@ export function authRateLimit(config: AppConfig): RequestHandler {
 	});
 }
 
+// The logged-in user, so editors sharing an IP don't share a budget, or else
+// the client IP.
+function userOrClientKey(
+	req: Request,
+	res: Response,
+	config: AppConfig
+): string {
+	return res.locals.user
+		? `user:${res.locals.user.id}`
+		: `ip:${clientIp(req, config)}`;
+}
+
 // Write limiter: caps how fast anyone can change things. Counts every unsafe
 // request (not GET, HEAD, or OPTIONS) that gets past the login gate: an
 // editor's private writes and anyone's public ones (/auth/refresh,
-// /auth/logout). Keyed by the logged-in user's ID, so editors sharing an IP
-// don't share a budget, or else by client IP.
+// /auth/logout). Keyed by userOrClientKey.
 export function writeRateLimit(config: AppConfig): RequestHandler {
 	return rateLimit({
 		windowMs: WRITE_RATE_LIMIT_WINDOW_MS,
@@ -67,12 +80,32 @@ export function writeRateLimit(config: AppConfig): RequestHandler {
 		standardHeaders: "draft-8",
 		legacyHeaders: false,
 		skip: (req) => isSafeMethod(req.method),
-		keyGenerator: (req, res) =>
-			res.locals.user
-				? `user:${res.locals.user.id}`
-				: `ip:${clientIp(req, config)}`,
+		keyGenerator: (req, res) => userOrClientKey(req, res, config),
 		handler: (_req, res, _next, options) => {
 			tooManyRequests(res, options.statusCode);
 		}
 	});
+}
+
+// Read limiter: caps how fast anyone can read, e.g. scraping. Counts GET and
+// HEAD requests that get past the login gate (public reads and an editor's
+// private ones), except /auth/*, which the auth limiter already counts.
+// Keyed by userOrClientKey, so behind the Cloudflare Tunnel the website's
+// server rendering counts against each visitor, not one shared budget.
+export function readRateLimit(config: AppConfig): RequestHandler {
+	return rateLimit({
+		windowMs: READ_RATE_LIMIT_WINDOW_MS,
+		limit: READ_RATE_LIMIT,
+		standardHeaders: "draft-8",
+		legacyHeaders: false,
+		skip: (req) => !isSafeMethod(req.method) || isAuthPath(req.path),
+		keyGenerator: (req, res) => userOrClientKey(req, res, config),
+		handler: (_req, res, _next, options) => {
+			tooManyRequests(res, options.statusCode);
+		}
+	});
+}
+
+function isAuthPath(path: string): boolean {
+	return path === "/auth" || path.startsWith("/auth/");
 }
