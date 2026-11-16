@@ -30,6 +30,27 @@ describe("request bodies", () => {
 		await write().set("Content-Length", "0").expect(404);
 	});
 
+	it("accepts an empty chunked body without a type", async () => {
+		await write().set("Transfer-Encoding", "chunked").expect(404);
+	});
+
+	it("refuses a chunked body without a type with 415", async () => {
+		const req = write().set("Transfer-Encoding", "chunked");
+		req.write('{"title": "news"}');
+		const res = await req.expect(415);
+
+		expect(res.body).toEqual({
+			error: "ERROR: request body must be application/json"
+		});
+	});
+
+	it("refuses a body without a type with 415", async () => {
+		await write()
+			.set("Content-Length", "2")
+			.send(Buffer.from("{}"))
+			.expect(415);
+	});
+
 	it.each([
 		["text", "text/plain", "hello"],
 		["a form", "application/x-www-form-urlencoded", "title=news"],

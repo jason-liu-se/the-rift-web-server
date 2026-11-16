@@ -76,12 +76,14 @@ a GET route; it isn't checked.
 
 ### Request bodies
 
-After the login gate, `jsonBody` (`src/middleware/json-body.ts`) answers `415`
-to any non-empty body that isn't `application/json` (which also keeps out the
-form and text bodies a page can send cross-site without a preflight), then
-parses JSON up to `JSON_BODY_LIMIT` (`src/config/requests.ts`). So routes only
-ever see parsed JSON in `req.body`, and logged-out bodies are never parsed.
-Still validate `req.body` with a Zod schema before use.
+After the login gate, `jsonBody` (`src/middleware/json-body.ts`) parses JSON
+bodies up to `JSON_BODY_LIMIT` (`src/config/requests.ts`). It reads any other
+body, up to the same limit, only to check it's empty: an empty one passes (a
+browser's empty POST has no `Content-Type`, a chunked one no length), anything
+else gets `415`. That also keeps out the form, text, and untyped bodies a page
+can send cross-site without a preflight. So routes only ever see parsed JSON (or
+nothing) in `req.body`, and logged-out bodies are never read. Still validate
+`req.body` with a Zod schema before use.
 
 CORS allows only `GET,POST,OPTIONS` (`src/middleware/cors.ts`): the first PUT,
 PATCH, or DELETE route must add its method there, or browsers block it.
