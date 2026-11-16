@@ -59,9 +59,12 @@ private routes). Private and `/auth` responses get `Cache-Control: no-store`;
 public reads stay cacheable even for a logged-in editor.
 
 To make a route public, add it to `PUBLIC_ROUTES`; the gate's tests
-(`src/middleware/require-login.test.ts`) cover every entry. A private route
-needs a test that it answers `401` when logged out (`test/session.ts` makes the
-cookie for logged-in tests).
+(`src/middleware/require-login.test.ts`) cover every entry, check each is a
+defined route, and fail if a public pattern also matches a private route (e.g.
+`/gallery/:collection` would match `/gallery/drafts`). Express matches whole
+paths, so `/news` never makes `/news/drafts` public. A private route needs a
+test that it answers `401` when logged out (`test/session.ts` makes the cookie
+for logged-in tests).
 
 ### CSRF
 
