@@ -21,7 +21,7 @@ export const READ_RATE_LIMIT = 100;
 
 /**
  * Read limiter, without the Cloudflare Tunnel: the default for
- * READ_RATE_LIMIT_WITHOUT_TUNNEL, the logged-out reads per client IP per
+ * READ_RATE_LIMIT_WITHOUT_TUNNEL, the reads per editor (or client IP) per
  * window. Higher, since the website's server rendering then shares an IP.
  */
 export const DEFAULT_READ_RATE_LIMIT_WITHOUT_TUNNEL = 1000;

@@ -51,8 +51,8 @@ const envSchema = z.object({
 		z.stringbool().default(DEFAULT_BEHIND_CLOUDFLARE_TUNNEL)
 	),
 	// Without the tunnel the website's server rendering reaches the API from
-	// shared IPs, so logged-out reads get this per-IP limit instead of
-	// READ_RATE_LIMIT (src/config/rate-limits.ts).
+	// shared IPs (or localhost in development), so reads get this limit
+	// instead of READ_RATE_LIMIT (src/config/rate-limits.ts).
 	READ_RATE_LIMIT_WITHOUT_TUNNEL: z.preprocess(
 		emptyAsUnset,
 		z.coerce

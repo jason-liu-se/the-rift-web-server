@@ -19,6 +19,11 @@ function freshApp(): Express {
 	return createApp(testConfig);
 }
 
+// Behind the tunnel the read limit is READ_RATE_LIMIT.
+function tunneledApp(): Express {
+	return createApp({ ...testConfig, BEHIND_CLOUDFLARE_TUNNEL: true });
+}
+
 // No route accepts writes yet, so a logged-in write reaching the routers
 // answers 404; the limiters run before them.
 function write(target: Express, cookie?: string) {
@@ -165,19 +170,24 @@ describe("read rate limit", () => {
 		expect(res.headers).toHaveProperty("retry-after");
 	});
 
-	it("gives logged-out reads READ_RATE_LIMIT_WITHOUT_TUNNEL without the tunnel", async () => {
+	it("gives every read READ_RATE_LIMIT_WITHOUT_TUNNEL without the tunnel", async () => {
 		const limit = READ_RATE_LIMIT + 5;
 		const app = createApp({
 			...testConfig,
 			READ_RATE_LIMIT_WITHOUT_TUNNEL: limit
 		});
+		const cookie = await sessionCookie(EDITOR);
 		await useUpPublicReads(app, limit);
+		for (let i = 0; i < limit; i++) {
+			await read(app, cookie).expect(404);
+		}
 
 		await request(app).get("/health").expect(429);
+		await read(app, cookie).expect(429);
 	});
 
 	it("counts a logged-in editor by user, not by IP", async () => {
-		const app = freshApp();
+		const app = tunneledApp();
 		const cookie = await sessionCookie(EDITOR);
 		await useUpReadBudget(app, cookie);
 
@@ -201,7 +211,7 @@ describe("read rate limit", () => {
 	});
 
 	it("leaves /auth to the auth limiter, and writes to the write limiter", async () => {
-		const app = freshApp();
+		const app = tunneledApp();
 		const cookie = await sessionCookie(EDITOR);
 		await useUpReadBudget(app, cookie);
 

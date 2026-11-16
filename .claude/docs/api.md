@@ -121,12 +121,12 @@ reach the read or write limiter.
 
 Behind the tunnel, Cloudflare names the visitor even for the Worker's requests,
 so each visitor has their own read budget (`READ_RATE_LIMIT`). Without it, the
-website's server rendering reaches the API from Cloudflare's shared IPs, so
-logged-out reads get the higher `READ_RATE_LIMIT_WITHOUT_TUNNEL` per IP (default
-in `src/config/rate-limits.ts`). That's still one budget for every visitor's
-rendered pages: one person requesting pages fast enough could get `429`s for
-everyone, so production should run behind the tunnel. Editors' reads are keyed
-by user, so they keep `READ_RATE_LIMIT` either way.
+website's server rendering reaches the API from Cloudflare's shared IPs (or
+localhost in development), so every read gets the higher
+`READ_RATE_LIMIT_WITHOUT_TUNNEL` (default in `src/config/rate-limits.ts`).
+That's still one budget for every visitor's rendered pages: one person
+requesting pages fast enough could get `429`s for everyone, so production should
+run behind the tunnel.
 
 ## Sessions
 
