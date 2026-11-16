@@ -14,3 +14,9 @@ export const REFRESH_GRACE_MS = 30 * 1000;
 
 /** How long a started login can take to come back from Discord, in ms. */
 export const LOGIN_STATE_MAX_AGE_MS = 10 * 60 * 1000;
+
+/**
+ * Where Discord sends the browser back after a login, under /auth. Must match
+ * the redirect URL registered with Discord (DISCORD_REDIRECT_URI).
+ */
+export const LOGIN_CALLBACK_PATH = "/discord/callback";

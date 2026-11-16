@@ -4,6 +4,7 @@
 import type { RequestHandler, Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { redirectToLoginPage } from "../auth/discord-login.ts";
+import { LOGIN_CALLBACK_PATH } from "../config/auth.ts";
 import type { AppConfig } from "../config/env.ts";
 import {
 	AUTH_RATE_LIMIT,
@@ -13,8 +14,6 @@ import {
 } from "../config/rate-limits.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import { isSafeMethod } from "./http-methods.ts";
-
-const LOGIN_CALLBACK_PATH = "/discord/callback";
 
 function tooManyRequests(res: Response, statusCode: number): void {
 	res.status(statusCode).json({

@@ -6,6 +6,7 @@ import {
 	clearSessionCookies,
 	setSessionCookies
 } from "../auth/session-cookie.ts";
+import { LOGIN_CALLBACK_PATH } from "../config/auth.ts";
 import type { AppConfig } from "../config/env.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import { authRateLimit } from "../middleware/rate-limits.ts";
@@ -29,7 +30,7 @@ export function authRouter(config: AppConfig): Router {
 	});
 
 	// Discord redirects here; this redirects on to the website either way.
-	router.get("/discord/callback", async (req, res) => {
+	router.get(LOGIN_CALLBACK_PATH, async (req, res) => {
 		await finishLogin(req, res, config);
 	});
 

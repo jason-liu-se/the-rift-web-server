@@ -1,3 +1,5 @@
+import { LOGIN_CALLBACK_PATH } from "../config/auth.ts";
+
 // The only routes anyone may call. Every other route, including any added
 // later, needs a logged-in editor (requireLogin in src/middleware/), so a route
 // is private unless it's listed here. Paths are Express patterns, matched as
@@ -17,7 +19,7 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
 	{ method: "get", path: "/downloads/:collection" },
 	// Logging in, and the session's own upkeep, can't require a login.
 	{ method: "get", path: "/auth/discord" },
-	{ method: "get", path: "/auth/discord/callback" },
+	{ method: "get", path: `/auth${LOGIN_CALLBACK_PATH}` },
 	// Answers 401 itself, so the website can tell whether anyone is logged in.
 	{ method: "get", path: "/auth/me" },
 	{ method: "post", path: "/auth/refresh" },
