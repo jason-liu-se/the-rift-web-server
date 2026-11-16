@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Express } from "express";
 import request from "supertest";
 import { createApp } from "../app.ts";
-import { WRITE_RATE_LIMIT } from "../config/rate-limits.ts";
+import { AUTH_RATE_LIMIT, WRITE_RATE_LIMIT } from "../config/rate-limits.ts";
 import { testConfig } from "../../test/app.ts";
 import { EDITOR, sessionCookie } from "../../test/session.ts";
 
@@ -60,8 +60,9 @@ describe("write rate limit", () => {
 		const limitedApp = createApp(testConfig);
 		const cookie = await sessionCookie(EDITOR);
 
-		// An editor's /auth POSTs don't use up their write budget...
-		for (let i = 0; i < WRITE_RATE_LIMIT; i++) {
+		// All but one of the auth budget: as POSTs, so they'd also use up the
+		// (smaller) write budget if the limiters shared one...
+		for (let i = 0; i < AUTH_RATE_LIMIT - 1; i++) {
 			await request(limitedApp)
 				.post("/auth/logout")
 				.set("Origin", testConfig.FRONTEND_URL)
@@ -70,7 +71,7 @@ describe("write rate limit", () => {
 		}
 		await useUpWriteBudget(limitedApp, cookie);
 
-		// ...and their writes don't use up the auth budget.
+		// ...and the last auth request would be refused if writes counted there.
 		await request(limitedApp)
 			.get("/auth/me")
 			.set("Cookie", cookie)
