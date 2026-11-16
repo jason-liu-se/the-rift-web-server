@@ -55,7 +55,8 @@ default deny: `requireLogin` (`src/middleware/require-login.ts`) runs before
 every router and answers `401` unless the request matches `PUBLIC_ROUTES`
 (`src/api/public-routes.ts`). So a new route is private until it's added to that
 list, and logged-out callers get `401` for unknown paths too (they can't map the
-private routes). A logged-in request gets `Cache-Control: no-store`.
+private routes). Private and `/auth` responses get `Cache-Control: no-store`;
+public reads stay cacheable even for a logged-in editor.
 
 To make a route public, add it to `PUBLIC_ROUTES`; the gate's tests
 (`src/middleware/require-login.test.ts`) cover every entry. A private route
