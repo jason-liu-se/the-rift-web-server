@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { UnsecuredJWT } from "jose";
 import request from "supertest";
 import { SESSION_COOKIE } from "./auth/session-cookie.ts";
@@ -42,6 +42,11 @@ describe("CORS", () => {
 });
 
 describe("private routes", () => {
+	// Here, not in the test, so a failing assertion can't leave Date faked.
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	const NOT_LOGGED_IN = { error: "ERROR: not logged in" };
 
 	it.each([
@@ -92,7 +97,6 @@ describe("private routes", () => {
 			.get("/news/drafts")
 			.set("Cookie", cookie)
 			.expect(401);
-		vi.useRealTimers();
 	});
 
 	it("let a logged-in editor through, uncached", async () => {
