@@ -1,23 +1,16 @@
 import express, { type Request, type Router } from "express";
-import { rateLimit } from "express-rate-limit";
-import {
-	finishLogin,
-	redirectToLoginPage,
-	startLogin
-} from "../auth/discord-login.ts";
+import { finishLogin, startLogin } from "../auth/discord-login.ts";
 import { endSession, refreshSession } from "../auth/refresh-tokens.ts";
 import {
 	REFRESH_COOKIE,
 	clearSessionCookies,
 	setSessionCookies
 } from "../auth/session-cookie.ts";
-import { AUTH_RATE_LIMIT, AUTH_RATE_LIMIT_WINDOW_MS } from "../config/auth.ts";
 import type { AppConfig } from "../config/env.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
+import { authRateLimit } from "../middleware/rate-limits.ts";
 import { cookieValue } from "./query-schemas.ts";
 import { parseResponse, sessionUser } from "./response-schemas.ts";
-
-const CALLBACK_PATH = "/discord/callback";
 
 export function authRouter(config: AppConfig): Router {
 	const router = express.Router();
@@ -28,26 +21,7 @@ export function authRouter(config: AppConfig): Router {
 		next();
 	});
 
-	// Slows down login abuse and token guessing; counts are per app instance,
-	// in memory. A browser coming back from Discord is redirected to the login
-	// page instead, like any other failed login.
-	router.use(
-		rateLimit({
-			windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
-			limit: AUTH_RATE_LIMIT,
-			standardHeaders: "draft-8",
-			legacyHeaders: false,
-			handler: (req, res, _next, options) => {
-				if (req.path === CALLBACK_PATH) {
-					redirectToLoginPage(res, config, "rate-limited");
-					return;
-				}
-				res.status(options.statusCode).json({
-					error: "ERROR: too many requests; try again later"
-				});
-			}
-		})
-	);
+	router.use(authRateLimit(config));
 
 	// The website links here (a navigation, not a fetch) to start a login.
 	router.get("/discord", (_req, res) => {
@@ -55,7 +29,7 @@ export function authRouter(config: AppConfig): Router {
 	});
 
 	// Discord redirects here; this redirects on to the website either way.
-	router.get(CALLBACK_PATH, async (req, res) => {
+	router.get("/discord/callback", async (req, res) => {
 		await finishLogin(req, res, config);
 	});
 

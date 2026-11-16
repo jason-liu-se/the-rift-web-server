@@ -6,11 +6,11 @@ import { createApp } from "../app.ts";
 import { startSession } from "../auth/refresh-tokens.ts";
 import { signSession } from "../auth/session.ts";
 import {
-	AUTH_RATE_LIMIT,
 	REFRESH_GRACE_MS,
 	SESSION_MAX_AGE_MS,
 	SESSION_TOKEN_TTL_SECONDS
 } from "../config/auth.ts";
+import { AUTH_RATE_LIMIT } from "../config/rate-limits.ts";
 import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
 import * as redisManager from "../helpers/redis-manager.ts";
 import { app, testConfig } from "../../test/app.ts";
@@ -421,7 +421,8 @@ describe("CSRF", () => {
 	);
 });
 
-describe("rate limiting", () => {
+// The write limiter's tests are in src/middleware/rate-limits.test.ts.
+describe("auth rate limit", () => {
 	it("answers 429 once a client exceeds the limit on /auth", async () => {
 		// A fresh app, so other tests' requests don't count.
 		const limitedApp = createApp(testConfig);

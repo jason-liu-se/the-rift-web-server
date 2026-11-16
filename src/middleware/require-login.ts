@@ -1,11 +1,15 @@
-import express, { type Router } from "express";
+import express, { type RequestHandler, type Router } from "express";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import type { PublicRoute } from "../routes/public-routes.ts";
 
 // Default deny: every request needs a logged-in editor (res.locals.user, set
 // by sessionMiddleware) unless it matches one of publicRoutes. Unknown paths
 // need a login too, so logged-out callers can't map the private routes.
-export function requireLogin(publicRoutes: readonly PublicRoute[]): Router {
+// privateOnly runs after the check, for private requests only.
+export function requireLogin(
+	publicRoutes: readonly PublicRoute[],
+	...privateOnly: RequestHandler[]
+): Router {
 	const router = express.Router();
 
 	// A public route skips the rest of this router.
@@ -23,6 +27,9 @@ export function requireLogin(publicRoutes: readonly PublicRoute[]): Router {
 		res.set("Cache-Control", "no-store");
 		next();
 	});
+	for (const handler of privateOnly) {
+		router.use(handler);
+	}
 
 	return router;
 }

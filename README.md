@@ -92,8 +92,12 @@ sessions work: [api.md](./.claude/docs/api.md).
 
 Logins use a short-lived JWT (`session`) plus a periodically rotating refresh
 token (`refresh_token`), used for generating JWTs, stored in Redis
-([`src/auth/`](./src/auth/)). Lifetimes and rate limits are in
-[`src/config/auth.ts`](./src/config/auth.ts).
+([`src/auth/`](./src/auth/)). Lifetimes are in
+[`src/config/auth.ts`](./src/config/auth.ts). Two rate limiters, tuned in
+[`src/config/rate-limits.ts`](./src/config/rate-limits.ts): the **auth limiter**
+(per client IP, on every `/auth/*` request) and the **write limiter** (per
+logged-in editor, on private writes); see
+[api.md](./.claude/docs/api.md#rate-limits).
 
 - **Generate `JWT_SECRET`:**
   `node -e "console.log(require('node:crypto').randomBytes(64).toString('base64url'))"`

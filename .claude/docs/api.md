@@ -35,7 +35,7 @@ The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 | `UnauthorizedError` (`src/errors/`)    | `401`  | Nobody is logged in, or bad refresh  |
 | `ForbiddenError` (`src/errors/`)       | `403`  | A write not from the website (CSRF)  |
 | `NotFoundError` (`src/errors/`)        | `404`  | What wasn't found; also no route     |
-| Rate limit                             | `429`  | Try again later (callback: redirect) |
+| Rate limit (see [below](#rate-limits)) | `429`  | Try again later (callback: redirect) |
 | Anything else, incl. a broken contract | `500`  | Generic message; details only logged |
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
@@ -65,6 +65,26 @@ requests, but not off a sibling subdomain's. A missing `Origin` is refused too:
 only the website's browser code writes (server rendering only reads), so
 non-browser callers (curl) must send `Origin` themselves. Never change state in
 a GET route; it isn't checked.
+
+### Rate limits
+
+Two separate limiters in `src/middleware/rate-limits.ts`, tuned in
+`src/config/rate-limits.ts`. They count different traffic, so neither uses up
+the other's budget. Counts are per app instance, in memory.
+
+|                | Auth limiter                                           | Write limiter                                    |
+| -------------- | ------------------------------------------------------ | ------------------------------------------------ |
+| Guards against | Login abuse, refresh-token guessing                    | An editor (or stolen session) flooding writes    |
+| Counts         | Every `/auth/*` request, any method                    | Private requests other than GET, HEAD, OPTIONS   |
+| Keyed by       | Client IP (`req.ip`, via `TRUST_PROXY_HOPS`; IPv6 /56) | Logged-in user's ID (editors may share an IP)    |
+| Mounted        | `authRouter`                                           | `requireLogin`, after the login check            |
+| On limit       | `429`; the Discord callback redirects (`rate-limited`) | `429`                                            |
+| Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS`         | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS` |
+
+The auth limiter is keyed by IP because its callers usually aren't logged in, so
+a wrong `TRUST_PROXY_HOPS` either puts every client behind one budget (too low)
+or lets a client forge `X-Forwarded-For` (too high). Public reads have no limit:
+the website's server rendering sends them all from one IP.
 
 ## Sessions
 

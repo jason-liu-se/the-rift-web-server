@@ -1,7 +1,6 @@
 import type { RequestHandler } from "express";
 import { ForbiddenError } from "../errors/forbidden-error.ts";
-
-const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+import { isSafeMethod } from "./http-methods.ts";
 
 // CSRF protection: a request that changes something must come from the
 // website. Browsers always send Origin on such requests, and another page
@@ -12,7 +11,7 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 export function requireFrontendOrigin(frontendOrigin: string): RequestHandler {
 	return (req, _res, next) => {
 		if (
-			!SAFE_METHODS.has(req.method) &&
+			!isSafeMethod(req.method) &&
 			req.headers.origin !== frontendOrigin
 		) {
 			throw new ForbiddenError("request must come from the website");
