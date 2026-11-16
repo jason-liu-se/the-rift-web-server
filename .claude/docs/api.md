@@ -7,10 +7,10 @@ and the rules for changing them. To add one, use the `add-endpoint` skill.
 
 `createApp(config)` in `src/app.ts` wires the app together: the app-wide
 middleware from `src/middleware/` (CORS headers only for `FRONTEND_URL`, with
-credentials, so the website's cookies are sent; the session; the error handler),
-and one router per URL prefix from `src/routes/`. Router-specific middleware,
-like the `/auth` rate limit, stays in its router. It doesn't connect or listen,
-so tests can drive it directly.
+credentials, so the website's cookies are sent; the session; the login gate, see
+[Access](#access); the error handler), and one router per URL prefix from
+`src/routes/`. Router-specific middleware, like the `/auth` rate limit, stays in
+its router. It doesn't connect or listen, so tests can drive it directly.
 
 A route:
 
@@ -39,16 +39,30 @@ The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
 
+## Access
+
+Anyone may read public content; everything else needs a logged-in editor (anyone
+who can log in is an editor, see the README's "Sessions and access"). It's
+default deny: `requireLogin` (`src/middleware/require-login.ts`) runs before
+every router and answers `401` unless the request matches `PUBLIC_ROUTES`
+(`src/routes/public-routes.ts`). So a new route is private until it's added to
+that list, and logged-out callers get `401` for unknown paths too (they can't
+map the private routes). A logged-in request gets `Cache-Control: no-store`.
+
+To make a route public, add it to `PUBLIC_ROUTES`; the gate's tests
+(`src/middleware/require-login.test.ts`) cover every entry. A private route
+needs a test that it answers `401` when logged out (`test/session.ts` makes the
+cookie for logged-in tests).
+
 ## Sessions
 
 `sessionMiddleware` (`src/middleware/session.ts`) runs before every route. It
 verifies the access token in the `session` cookie and sets `res.locals.user`; it
 never rejects a request, and never re-issues a token: an expired one means
 nobody is logged in until the website calls `POST /auth/refresh`. It never sets
-or clears a cookie, so it can't clash with the refresh's. A route that needs a
-user throws `UnauthorizedError` when `res.locals.user` is unset. Set and clear
-the cookies only through `src/auth/session-cookie.ts`, so their options always
-match.
+or clears a cookie, so it can't clash with the refresh's. Rejecting is
+`requireLogin`'s job ([Access](#access)). Set and clear the cookies only through
+`src/auth/session-cookie.ts`, so their options always match.
 
 Refresh tokens (`src/auth/refresh-tokens.ts`) are `<session ID>.<secret>`,
 single-use, and rotated on every refresh. Each login is a session: one Redis

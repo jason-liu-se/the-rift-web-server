@@ -6,7 +6,9 @@ import type { AppConfig } from "./config/env.ts";
 import { NotFoundError } from "./errors/not-found-error.ts";
 import { allowFrontendOrigin } from "./middleware/cors.ts";
 import { handleError } from "./middleware/error-handler.ts";
+import { requireLogin } from "./middleware/require-login.ts";
 import { sessionMiddleware } from "./middleware/session.ts";
+import { PUBLIC_ROUTES } from "./routes/public-routes.ts";
 import { authRouter } from "./routes/auth.ts";
 import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";
@@ -20,6 +22,7 @@ export function createApp(config: AppConfig): Express {
 	app.use(allowFrontendOrigin(config.FRONTEND_URL));
 	app.use(cookieParser());
 	app.use(sessionMiddleware(config));
+	app.use(requireLogin(PUBLIC_ROUTES));
 	app.use("/health", healthRouter);
 	app.use("/auth", authRouter(config));
 	app.use("/news", newsRouter);

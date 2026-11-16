@@ -62,20 +62,24 @@ its `check` job a required status check on `main`.
 
 ## Endpoints
 
-| Endpoint                         | Query                 | Returns                                  |
-| -------------------------------- | --------------------- | ---------------------------------------- |
-| `GET /news`                      | `startIndex`, `limit` | `{ items, total }`, newest first         |
-| `GET /news/count`                |                       | `{ total }`                              |
-| `GET /gallery/:collection`       | `startIndex`, `limit` | `{ items, total }`                       |
-| `GET /gallery/:collection/count` |                       | `{ total }`                              |
-| `GET /downloads`                 |                       | `[{ name, items }]` for every group      |
-| `GET /downloads/:collection`     |                       | The group's items                        |
-| `GET /health`                    |                       | `200`                                    |
-| `GET /auth/discord`              |                       | Starts a Discord login                   |
-| `GET /auth/discord/callback`     | From Discord          | Redirects to the website                 |
-| `GET /auth/me`                   |                       | The logged-in user, or `401`             |
-| `POST /auth/refresh`             |                       | `204` with new session cookies, or `401` |
-| `POST /auth/logout`              |                       | `204`                                    |
+| Endpoint                         | Query                 | Returns                                  | Access |
+| -------------------------------- | --------------------- | ---------------------------------------- | ------ |
+| `GET /news`                      | `startIndex`, `limit` | `{ items, total }`, newest first         | Public |
+| `GET /news/count`                |                       | `{ total }`                              | Public |
+| `GET /gallery/:collection`       | `startIndex`, `limit` | `{ items, total }`                       | Public |
+| `GET /gallery/:collection/count` |                       | `{ total }`                              | Public |
+| `GET /downloads`                 |                       | `[{ name, items }]` for every group      | Public |
+| `GET /downloads/:collection`     |                       | The group's items                        | Public |
+| `GET /health`                    |                       | `200`                                    | Public |
+| `GET /auth/discord`              |                       | Starts a Discord login                   | Public |
+| `GET /auth/discord/callback`     | From Discord          | Redirects to the website                 | Public |
+| `GET /auth/me`                   |                       | The logged-in user, or `401`             | Public |
+| `POST /auth/refresh`             |                       | `204` with new session cookies, or `401` | Public |
+| `POST /auth/logout`              |                       | `204`                                    | Public |
+
+Every other request, including any unknown path, needs a logged-in editor and
+answers `401` otherwise: public routes are an allow list in
+[`src/routes/public-routes.ts`](./src/routes/public-routes.ts).
 
 Errors are `{ "error": string }`. Response types:
 [`src/contract/api-responses.ts`](./src/contract/api-responses.ts), which the
