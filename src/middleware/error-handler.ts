@@ -1,12 +1,14 @@
 import type { ErrorRequestHandler } from "express";
 import * as z from "zod";
+import { ForbiddenError } from "../errors/forbidden-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 
 // Express 5 sends errors thrown by any route (including rejected promises)
 // here. Zod errors come from routes parsing their path and query parameters,
 // so they're the caller's mistake (400); UnauthorizedError means nobody is
-// logged in (401); NotFoundError means the resource doesn't exist (404).
+// logged in (401); ForbiddenError means it's refused whoever asks (403);
+// NotFoundError means the resource doesn't exist (404).
 // Anything else is logged but not exposed (500).
 export const handleError: ErrorRequestHandler = (error, req, res, next) => {
 	if (res.headersSent) {
@@ -27,6 +29,11 @@ export const handleError: ErrorRequestHandler = (error, req, res, next) => {
 
 	if (error instanceof UnauthorizedError) {
 		res.status(401).json({ error: `ERROR: ${error.message}` });
+		return;
+	}
+
+	if (error instanceof ForbiddenError) {
+		res.status(403).json({ error: `ERROR: ${error.message}` });
 		return;
 	}
 

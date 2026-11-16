@@ -52,7 +52,10 @@ describe("private routes", () => {
 	] as const)(
 		"answer %s %s with 401 when logged out",
 		async (method, url) => {
-			const res = await request(app)[method](url).expect(401);
+			const res = await request(app)
+				[method](url)
+				.set("Origin", testConfig.FRONTEND_URL)
+				.expect(401);
 
 			expect(res.body).toEqual(NOT_LOGGED_IN);
 		}
@@ -102,5 +105,38 @@ describe("private routes", () => {
 			error: "ERROR: GET /does-not-exist not found"
 		});
 		expect(res.headers["cache-control"]).toBe("no-store");
+	});
+});
+
+describe("CSRF", () => {
+	const REFUSED = { error: "ERROR: request must come from the website" };
+
+	it.each([
+		["no Origin", undefined],
+		["another origin", "https://evil.example.com"],
+		["a sibling subdomain", "http://evil.localhost:4200"],
+		["the website over another scheme", "https://localhost:4200"]
+	])("refuses a logged-in write with %s", async (_, origin) => {
+		const req = request(app)
+			.delete("/news/some-id")
+			.set("Cookie", await sessionCookie());
+
+		const res = await (origin ? req.set("Origin", origin) : req).expect(
+			403
+		);
+
+		expect(res.body).toEqual(REFUSED);
+	});
+
+	it("lets the website's writes through", async () => {
+		await request(app)
+			.delete("/news/some-id")
+			.set("Origin", testConfig.FRONTEND_URL)
+			.set("Cookie", await sessionCookie())
+			.expect(404);
+	});
+
+	it("doesn't need an Origin to read (server rendering)", async () => {
+		await request(app).get("/does-not-exist").expect(401);
 	});
 });

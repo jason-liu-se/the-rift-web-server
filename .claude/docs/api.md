@@ -33,6 +33,7 @@ The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 | -------------------------------------- | ------ | ------------------------------------ |
 | `ZodError` (bad params or query)       | `400`  | Which parameters are wrong           |
 | `UnauthorizedError` (`src/errors/`)    | `401`  | Nobody is logged in, or bad refresh  |
+| `ForbiddenError` (`src/errors/`)       | `403`  | A write not from the website (CSRF)  |
 | `NotFoundError` (`src/errors/`)        | `404`  | What wasn't found; also no route     |
 | Rate limit                             | `429`  | Try again later (callback: redirect) |
 | Anything else, incl. a broken contract | `500`  | Generic message; details only logged |
@@ -53,6 +54,17 @@ To make a route public, add it to `PUBLIC_ROUTES`; the gate's tests
 (`src/middleware/require-login.test.ts`) cover every entry. A private route
 needs a test that it answers `401` when logged out (`test/session.ts` makes the
 cookie for logged-in tests).
+
+### CSRF
+
+`requireFrontendOrigin` (`src/middleware/require-frontend-origin.ts`) runs first
+and answers `403` to any request other than GET, HEAD, or OPTIONS whose `Origin`
+isn't exactly `FRONTEND_URL`, public or not (so it also covers `/auth/refresh`
+and `/auth/logout`). `SameSite=Lax` cookies already stay off cross-site
+requests, but not off a sibling subdomain's. A missing `Origin` is refused too:
+only the website's browser code writes (server rendering only reads), so
+non-browser callers (curl) must send `Origin` themselves. Never change state in
+a GET route; it isn't checked.
 
 ## Sessions
 

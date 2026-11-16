@@ -65,7 +65,9 @@ function getMe(token: string, target = app) {
 }
 
 function refresh(token?: string) {
-	const req = request(app).post("/auth/refresh");
+	const req = request(app)
+		.post("/auth/refresh")
+		.set("Origin", testConfig.FRONTEND_URL);
 	return token ? req.set("Cookie", `${REFRESH_COOKIE}=${token}`) : req;
 }
 
@@ -368,6 +370,7 @@ describe("POST /auth/logout", () => {
 
 		const res = await request(app)
 			.post("/auth/logout")
+			.set("Origin", testConfig.FRONTEND_URL)
 			.set("Cookie", [
 				`${SESSION_COOKIE}=${await accessToken()}`,
 				`${REFRESH_COOKIE}=${token}`
@@ -388,11 +391,34 @@ describe("POST /auth/logout", () => {
 		["without a session", undefined],
 		["with a malformed refresh token", "not-a-refresh-token"]
 	])("succeeds %s", async (_, token) => {
-		const req = request(app).post("/auth/logout");
+		const req = request(app)
+			.post("/auth/logout")
+			.set("Origin", testConfig.FRONTEND_URL);
 		await (
 			token ? req.set("Cookie", `${REFRESH_COOKIE}=${token}`) : req
 		).expect(204);
 	});
+});
+
+describe("CSRF", () => {
+	it.each(["/auth/refresh", "/auth/logout"])(
+		"refuses POST %s from another origin, keeping the session",
+		async (path) => {
+			const token = await logIn();
+
+			const res = await request(app)
+				.post(path)
+				.set("Origin", "https://evil.example.com")
+				.set("Cookie", `${REFRESH_COOKIE}=${token}`)
+				.expect(403);
+
+			expect(res.body).toEqual({
+				error: "ERROR: request must come from the website"
+			});
+			expect(res.get("Set-Cookie")).toBeUndefined();
+			await refresh(token).expect(204);
+		}
+	);
 });
 
 describe("rate limiting", () => {
@@ -401,7 +427,10 @@ describe("rate limiting", () => {
 		const limitedApp = createApp(testConfig);
 
 		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
-			await request(limitedApp).post("/auth/logout").expect(204);
+			await request(limitedApp)
+				.post("/auth/logout")
+				.set("Origin", testConfig.FRONTEND_URL)
+				.expect(204);
 		}
 		const res = await request(limitedApp).get("/auth/me").expect(429);
 

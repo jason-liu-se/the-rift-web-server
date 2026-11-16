@@ -53,7 +53,8 @@ in `src/routes/public-routes.ts`. Ask the user if unsure.
 Add tests in the router's `*.test.ts` (`.claude/rules/testing.md`): the success
 body, the `400` and `404` paths, and `expectContractError` for stored data
 missing a required field. For a private route, log in with `sessionCookie` from
-`test/session.ts`, and assert `401` without it. Then run:
+`test/session.ts`, and assert `401` without it. Writes send
+`Origin: testConfig.FRONTEND_URL`; assert `403` without it. Then run:
 
 ```bash
 npm run typecheck && npm run lint && npm test

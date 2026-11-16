@@ -6,6 +6,7 @@ import type { AppConfig } from "./config/env.ts";
 import { NotFoundError } from "./errors/not-found-error.ts";
 import { allowFrontendOrigin } from "./middleware/cors.ts";
 import { handleError } from "./middleware/error-handler.ts";
+import { requireFrontendOrigin } from "./middleware/require-frontend-origin.ts";
 import { requireLogin } from "./middleware/require-login.ts";
 import { sessionMiddleware } from "./middleware/session.ts";
 import { PUBLIC_ROUTES } from "./routes/public-routes.ts";
@@ -20,6 +21,7 @@ export function createApp(config: AppConfig): Express {
 	app.set("trust proxy", config.TRUST_PROXY_HOPS);
 
 	app.use(allowFrontendOrigin(config.FRONTEND_URL));
+	app.use(requireFrontendOrigin(config.FRONTEND_URL));
 	app.use(cookieParser());
 	app.use(sessionMiddleware(config));
 	app.use(requireLogin(PUBLIC_ROUTES));

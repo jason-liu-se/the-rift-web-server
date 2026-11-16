@@ -79,7 +79,9 @@ its `check` job a required status check on `main`.
 
 Every other request, including any unknown path, needs a logged-in editor and
 answers `401` otherwise: public routes are an allow list in
-[`src/routes/public-routes.ts`](./src/routes/public-routes.ts).
+[`src/routes/public-routes.ts`](./src/routes/public-routes.ts). Any request
+other than GET, HEAD, or OPTIONS must send `Origin: <FRONTEND_URL>` (CSRF
+protection), or gets `403`.
 
 Errors are `{ "error": string }`. Response types:
 [`src/contract/api-responses.ts`](./src/contract/api-responses.ts), which the
@@ -150,4 +152,5 @@ test/             Test helpers
 | Exits on startup             | The listed `.env` variables; MongoDB and Redis are up |
 | `404` for a gallery/download | The collection exists in the right database           |
 | `500` errors                 | The server console                                    |
+| `403` on a POST              | `Origin` is exactly `FRONTEND_URL`                    |
 | Login fails                  | The `error` code on `/admin/login` and the console    |
