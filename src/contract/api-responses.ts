@@ -6,7 +6,7 @@
 // compiles on its own.
 //
 // Every route sends its body through a schema in
-// src/routes/response-schemas.ts, which z.toZod checks against these types, so
+// src/api/response-schemas.ts, which z.toZod checks against these types, so
 // the server can't send a different shape.
 //
 //   GET /news                    PaginatedResponse<NewsItem>, newest first

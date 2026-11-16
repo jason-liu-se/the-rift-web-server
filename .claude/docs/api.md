@@ -15,12 +15,12 @@ its router. It doesn't connect or listen, so tests can drive it directly.
 A route:
 
 1. parses `req.params`, `req.query`, and cookies with the schemas in
-   `src/routes/query-schemas.ts` (never passes raw values on),
+   `src/api/query-schemas.ts` (never passes raw values on),
 2. for a `:collection` route, verifies inputs and throws `NotFoundError` if it's
    missing (an unknown collection would otherwise return an empty list),
 3. calls `mongo-manager`, using `Promise.all` for independent queries,
 4. sends the body through `parseResponse` and a schema from
-   `src/routes/response-schemas.ts`.
+   `src/api/response-schemas.ts`.
 
 Routes don't catch errors: Express 5 forwards thrown errors and rejected
 promises to the handler.
@@ -53,9 +53,9 @@ Anyone may read public content; everything else needs a logged-in editor (anyone
 who can log in is an editor, see the README's "Sessions and access"). It's
 default deny: `requireLogin` (`src/middleware/require-login.ts`) runs before
 every router and answers `401` unless the request matches `PUBLIC_ROUTES`
-(`src/routes/public-routes.ts`). So a new route is private until it's added to
-that list, and logged-out callers get `401` for unknown paths too (they can't
-map the private routes). A logged-in request gets `Cache-Control: no-store`.
+(`src/api/public-routes.ts`). So a new route is private until it's added to that
+list, and logged-out callers get `401` for unknown paths too (they can't map the
+private routes). A logged-in request gets `Cache-Control: no-store`.
 
 To make a route public, add it to `PUBLIC_ROUTES`; the gate's tests
 (`src/middleware/require-login.test.ts`) cover every entry. A private route

@@ -24,10 +24,10 @@ file dependency-free.
 
 ## 3. Schemas
 
-- Response: add or update a schema in `src/routes/response-schemas.ts`, typed
-  with `z.toZod<ContractType>()`, until `npm run typecheck` passes.
+- Response: add or update a schema in `src/api/response-schemas.ts`, typed with
+  `z.toZod<ContractType>()`, until `npm run typecheck` passes.
 - Input: reuse `collectionParams` and `paginationQuery` from
-  `src/routes/query-schemas.ts`, or add a schema there.
+  `src/api/query-schemas.ts`, or add a schema there.
 
 ## 4. Data access
 
@@ -46,7 +46,7 @@ and send the body through `parseResponse`. Don't catch errors.
 
 Routes need a logged-in editor by default (`.claude/docs/api.md`, "Access").
 Only if anyone should call it (public content reads), add it to `PUBLIC_ROUTES`
-in `src/routes/public-routes.ts`. Ask the user if unsure.
+in `src/api/public-routes.ts`. Ask the user if unsure.
 
 ## 7. Tests
 

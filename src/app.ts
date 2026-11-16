@@ -11,7 +11,7 @@ import { requireFrontendOrigin } from "./middleware/require-frontend-origin.ts";
 import { writeRateLimit } from "./middleware/rate-limits.ts";
 import { requireLogin } from "./middleware/require-login.ts";
 import { sessionMiddleware } from "./middleware/session.ts";
-import { PUBLIC_ROUTES } from "./routes/public-routes.ts";
+import { PUBLIC_ROUTES } from "./api/public-routes.ts";
 import { authRouter } from "./routes/auth.ts";
 import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";

@@ -3,7 +3,7 @@ import express from "express";
 import request from "supertest";
 import { handleError } from "./error-handler.ts";
 import { requireLogin } from "./require-login.ts";
-import { PUBLIC_ROUTES } from "../routes/public-routes.ts";
+import { PUBLIC_ROUTES } from "../api/public-routes.ts";
 
 // The gate alone, in front of a route that answers every request, so these
 // tests need no database and run over the real PUBLIC_ROUTES.

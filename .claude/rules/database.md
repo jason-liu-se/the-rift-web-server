@@ -33,7 +33,7 @@ lose precision).
 - A query against an unknown collection returns nothing, so routes check
   `hasGalleryCollection` / `hasDownloadCollection` first and answer `404`.
 - User-supplied collection names go through `collectionParams`
-  (`src/routes/query-schemas.ts`) before reaching `mongo-manager`.
+  (`src/api/query-schemas.ts`) before reaching `mongo-manager`.
 
 ## Query rules
 

@@ -1,12 +1,12 @@
 import express from "express";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import * as mongoManager from "../helpers/mongo-manager.ts";
-import { collectionParams, paginationQuery } from "./query-schemas.ts";
+import { collectionParams, paginationQuery } from "../api/query-schemas.ts";
 import {
 	countResponse,
 	galleryPage,
 	parseResponse
-} from "./response-schemas.ts";
+} from "../api/response-schemas.ts";
 
 export const galleryRouter = express.Router();
 

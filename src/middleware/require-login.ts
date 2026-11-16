@@ -1,6 +1,6 @@
 import express, { type RequestHandler, type Router } from "express";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
-import type { PublicRoute } from "../routes/public-routes.ts";
+import type { PublicRoute } from "../api/public-routes.ts";
 
 // Default deny: every request needs a logged-in editor (res.locals.user, set
 // by sessionMiddleware) unless it matches one of publicRoutes. Unknown paths

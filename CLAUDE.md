@@ -38,7 +38,7 @@ edited.
 - **Routers** (`src/routes/`) validate input with Zod, call `mongo-manager`, and
   send bodies through the response schemas. They don't catch errors; the handler
   in `src/middleware/error-handler.ts` maps them to status codes.
-- **Routes are private unless listed in `src/routes/public-routes.ts`**:
+- **Routes are private unless listed in `src/api/public-routes.ts`**:
   `requireLogin` answers `401` to everything else when nobody is logged in.
 - **`src/helpers/mongo-manager.ts` owns all database access**, and
   `src/helpers/redis-manager.ts` all Redis access. Routers never touch models or

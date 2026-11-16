@@ -9,8 +9,8 @@ import {
 import type { AppConfig } from "../config/env.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import { authRateLimit } from "../middleware/rate-limits.ts";
-import { cookieValue } from "./query-schemas.ts";
-import { parseResponse, sessionUser } from "./response-schemas.ts";
+import { cookieValue } from "../api/query-schemas.ts";
+import { parseResponse, sessionUser } from "../api/response-schemas.ts";
 
 export function authRouter(config: AppConfig): Router {
 	const router = express.Router();
