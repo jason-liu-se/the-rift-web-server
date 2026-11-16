@@ -95,8 +95,8 @@ token (`refresh_token`), used for generating JWTs, stored in Redis
 ([`src/auth/`](./src/auth/)). Lifetimes are in
 [`src/config/auth.ts`](./src/config/auth.ts). Two rate limiters, tuned in
 [`src/config/rate-limits.ts`](./src/config/rate-limits.ts): the **auth limiter**
-(per client IP, on every `/auth/*` request) and the **write limiter** (per
-logged-in editor, on private writes); see
+(per client IP, on `/auth/*` and logged-out private requests) and the **write
+limiter** (per editor, or IP when logged out, on every write); see
 [api.md](./.claude/docs/api.md#rate-limits).
 
 - **Generate `JWT_SECRET`:**

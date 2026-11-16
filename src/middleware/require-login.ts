@@ -5,10 +5,10 @@ import type { PublicRoute } from "../api/public-routes.ts";
 // Default deny: every request needs a logged-in editor (res.locals.user, set
 // by sessionMiddleware) unless it matches one of publicRoutes. Unknown paths
 // need a login too, so logged-out callers can't map the private routes.
-// privateOnly runs after the check, for private requests only.
+// loggedOutLimit counts each request refused here, so probing is limited.
 export function requireLogin(
 	publicRoutes: readonly PublicRoute[],
-	...privateOnly: RequestHandler[]
+	loggedOutLimit: RequestHandler
 ): Router {
 	const router = express.Router();
 
@@ -19,6 +19,13 @@ export function requireLogin(
 		});
 	}
 
+	router.use((req, res, next) => {
+		if (res.locals.user) {
+			next();
+			return;
+		}
+		loggedOutLimit(req, res, next);
+	});
 	router.use((_req, res, next) => {
 		if (!res.locals.user) {
 			throw new UnauthorizedError();
@@ -27,9 +34,6 @@ export function requireLogin(
 		res.set("Cache-Control", "no-store");
 		next();
 	});
-	for (const handler of privateOnly) {
-		router.use(handler);
-	}
 
 	return router;
 }

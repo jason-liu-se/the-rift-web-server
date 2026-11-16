@@ -428,10 +428,7 @@ describe("auth rate limit", () => {
 		const limitedApp = createApp(testConfig);
 
 		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
-			await request(limitedApp)
-				.post("/auth/logout")
-				.set("Origin", testConfig.FRONTEND_URL)
-				.expect(204);
+			await request(limitedApp).get("/auth/me").expect(401);
 		}
 		const res = await request(limitedApp).get("/auth/me").expect(429);
 

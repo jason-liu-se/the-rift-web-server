@@ -11,7 +11,7 @@ import { testConfig } from "../../test/app.ts";
 // tests need no database.
 function gate(publicRoutes: readonly PublicRoute[]): Express {
 	return express()
-		.use(requireLogin(publicRoutes))
+		.use(requireLogin(publicRoutes, (_req, _res, next) => next()))
 		.use((_req, res) => {
 			res.sendStatus(200);
 		})

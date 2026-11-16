@@ -8,9 +8,10 @@ and the rules for changing them. To add one, use the `add-endpoint` skill.
 `createApp(config)` in `src/app.ts` wires the app together: the app-wide
 middleware from `src/middleware/` (CORS headers only for `FRONTEND_URL`, with
 credentials, so the website's cookies are sent; the session; the login gate, see
-[Access](#access); the error handler), and one router per URL prefix from
-`src/routes/`. Router-specific middleware, like the `/auth` rate limit, stays in
-its router. It doesn't connect or listen, so tests can drive it directly.
+[Access](#access); the rate limits; the error handler), and one router per URL
+prefix from `src/routes/` (`apiRouters`). Router-specific middleware, like the
+`/auth` routes' `no-store`, stays in its router. It doesn't connect or listen,
+so tests can drive it directly.
 
 A route:
 
@@ -46,8 +47,10 @@ Never reveal internals (stack traces, queries, connection strings) in a body.
 ## Access
 
 Every request passes, in order (`createApp`): CORS → the CSRF origin check
-(`403`) → the session → the login gate (`401`), then the write limiter (`429`)
-for private requests → the JSON body check (`400`, `413`, `415`) → the routers.
+(`403`) → the session → the login gate (logged out on a private or unknown path:
+the auth limiter (`429`), then `401`) → the auth limiter for `/auth/*` → the
+write limiter (`429`) → the JSON body check (`400`, `413`, `415`) → the routers
+(or `404`).
 
 Anyone may read public content; everything else needs a logged-in editor (anyone
 who can log in is an editor, see the README's "Sessions and access"). It's
@@ -93,23 +96,27 @@ PATCH, or DELETE route must add its method there, or browsers block it.
 
 ### Rate limits
 
-Two separate limiters in `src/middleware/rate-limits.ts`, tuned in
-`src/config/rate-limits.ts`. They count different traffic, so neither uses up
-the other's budget. Counts are per app instance, in memory.
+Two limiters in `src/middleware/rate-limits.ts`, tuned in
+`src/config/rate-limits.ts`. Each keeps its own counts, so neither uses up the
+other's budget, though a request may count in both (a logged-out
+`/auth/refresh`). Counts are per app instance, in memory.
 
-|                | Auth limiter                                           | Write limiter                                    |
-| -------------- | ------------------------------------------------------ | ------------------------------------------------ |
-| Guards against | Login abuse, refresh-token guessing                    | An editor (or stolen session) flooding writes    |
-| Counts         | Every `/auth/*` request, any method                    | Private requests other than GET, HEAD, OPTIONS   |
-| Keyed by       | Client IP (`req.ip`, via `TRUST_PROXY_HOPS`; IPv6 /56) | Logged-in user's ID (editors may share an IP)    |
-| Mounted        | `authRouter`                                           | `requireLogin`, after the login check            |
-| On limit       | `429`; the Discord callback redirects (`rate-limited`) | `429`                                            |
-| Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS`         | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS` |
+|                | Auth limiter                                                    | Write limiter                                        |
+| -------------- | --------------------------------------------------------------- | ---------------------------------------------------- |
+| Guards against | Login abuse, refresh-token guessing, logged-out probing         | Anyone flooding writes (incl. a stolen session)      |
+| Counts         | Every `/auth/*` request; logged-out private or unknown requests | Requests other than GET, HEAD, OPTIONS past the gate |
+| Keyed by       | Client IP (`req.ip`, via `TRUST_PROXY_HOPS`; IPv6 /56)          | Logged-in user's ID (editors may share an IP), or IP |
+| Mounted        | One instance: in `requireLogin` and on `/auth`                  | After `requireLogin`, app-wide                       |
+| On limit       | `429`; the Discord callback redirects (`rate-limited`)          | `429`                                                |
+| Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS`                  | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS`     |
 
 The auth limiter is keyed by IP because its callers usually aren't logged in, so
 a wrong `TRUST_PROXY_HOPS` either puts every client behind one budget (too low)
-or lets a client forge `X-Forwarded-For` (too high). Public reads have no limit:
-the website's server rendering sends them all from one IP.
+or lets a client forge `X-Forwarded-For` (too high). It counts each request at
+most once: the gate counts only what it refuses, and `/auth/*` is public, so the
+gate passes it on. Logged-out private writes are refused by the gate, so they
+never reach the write limiter. Public reads have no limit: the website's server
+rendering sends them all from one IP.
 
 ## Sessions
 

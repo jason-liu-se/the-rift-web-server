@@ -9,7 +9,6 @@ import {
 import { LOGIN_CALLBACK_PATH } from "../config/auth.ts";
 import type { AppConfig } from "../config/env.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
-import { authRateLimit } from "../middleware/rate-limits.ts";
 import { cookieValue } from "../api/query-schemas.ts";
 import { parseResponse, sessionUser } from "../api/response-schemas.ts";
 
@@ -21,8 +20,6 @@ export function authRouter(config: AppConfig): Router {
 		res.set("Cache-Control", "no-store");
 		next();
 	});
-
-	router.use(authRateLimit(config));
 
 	// The website links here (a navigation, not a fetch) to start a login.
 	router.get("/discord", (_req, res) => {

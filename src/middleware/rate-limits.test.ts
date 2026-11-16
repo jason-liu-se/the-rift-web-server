@@ -6,75 +6,133 @@ import { AUTH_RATE_LIMIT, WRITE_RATE_LIMIT } from "../config/rate-limits.ts";
 import { testConfig } from "../../test/app.ts";
 import { EDITOR, sessionCookie } from "../../test/session.ts";
 
-// The auth limiter's own tests are in src/routes/auth.test.ts.
+const TOO_MANY_REQUESTS = {
+	error: "ERROR: too many requests; try again later"
+};
+
+// A fresh app per test, so other tests' requests don't count.
+function freshApp(): Express {
+	return createApp(testConfig);
+}
+
+// No route accepts writes yet, so a logged-in write reaching the routers
+// answers 404; the limiters run before them.
+function write(target: Express, cookie?: string) {
+	const req = request(target)
+		.delete("/news/some-id")
+		.set("Origin", testConfig.FRONTEND_URL);
+	return cookie ? req.set("Cookie", cookie) : req;
+}
+
+async function useUpWriteBudget(target: Express, cookie: string) {
+	for (let i = 0; i < WRITE_RATE_LIMIT; i++) {
+		expect((await write(target, cookie)).status).toBe(404);
+	}
+}
+
+function logout(target: Express) {
+	return request(target)
+		.post("/auth/logout")
+		.set("Origin", testConfig.FRONTEND_URL);
+}
+
+// The auth limiter on /auth itself is tested in src/routes/auth.test.ts.
+describe("auth rate limit on private routes", () => {
+	it("counts logged-out requests to private and unknown paths with /auth", async () => {
+		const app = freshApp();
+		for (let i = 0; i < AUTH_RATE_LIMIT / 2; i++) {
+			await request(app).get("/auth/me").expect(401);
+			await request(app).get("/does-not-exist").expect(401);
+		}
+
+		const res = await request(app).get("/news/drafts").expect(429);
+
+		expect(res.body).toEqual(TOO_MANY_REQUESTS);
+		await request(app).get("/auth/me").expect(429);
+	});
+
+	it("never counts a logged-in editor's private requests", async () => {
+		const app = freshApp();
+		const cookie = await sessionCookie(EDITOR);
+
+		for (let i = 0; i <= AUTH_RATE_LIMIT; i++) {
+			await request(app)
+				.get("/news/drafts")
+				.set("Cookie", cookie)
+				.expect(404);
+		}
+	});
+
+	it("leaves public reads unlimited", async () => {
+		const app = freshApp();
+		for (let i = 0; i <= AUTH_RATE_LIMIT; i++) {
+			await request(app).get("/health").expect(200);
+		}
+	});
+});
+
 describe("write rate limit", () => {
 	const OTHER_EDITOR = { id: "456", username: "other" };
 
-	// No route accepts writes yet, so a write reaching the routers answers 404;
-	// the limiter runs before them.
-	function write(target: Express, cookie: string) {
-		return request(target)
-			.delete("/news/some-id")
-			.set("Origin", testConfig.FRONTEND_URL)
-			.set("Cookie", cookie);
-	}
-
-	async function useUpWriteBudget(target: Express, cookie: string) {
-		for (let i = 0; i < WRITE_RATE_LIMIT; i++) {
-			expect((await write(target, cookie)).status).toBe(404);
-		}
-	}
-
 	it("answers 429 once an editor exceeds the limit", async () => {
-		// A fresh app, so other tests' requests don't count.
-		const limitedApp = createApp(testConfig);
+		const app = freshApp();
 		const cookie = await sessionCookie(EDITOR);
-		await useUpWriteBudget(limitedApp, cookie);
+		await useUpWriteBudget(app, cookie);
 
-		const res = await write(limitedApp, cookie);
+		const res = await write(app, cookie);
 
 		expect(res.status).toBe(429);
-		expect(res.body).toEqual({
-			error: "ERROR: too many requests; try again later"
-		});
+		expect(res.body).toEqual(TOO_MANY_REQUESTS);
 		expect(res.headers).toHaveProperty("retry-after");
 	});
 
 	it("counts each editor separately, and never their reads", async () => {
-		const limitedApp = createApp(testConfig);
+		const app = freshApp();
 		const cookie = await sessionCookie(EDITOR);
-		await useUpWriteBudget(limitedApp, cookie);
+		await useUpWriteBudget(app, cookie);
 
-		const other = await write(
-			limitedApp,
-			await sessionCookie(OTHER_EDITOR)
-		);
+		const other = await write(app, await sessionCookie(OTHER_EDITOR));
 		expect(other.status).toBe(404);
-		await request(limitedApp)
+		await request(app)
 			.get("/news/drafts")
 			.set("Cookie", cookie)
 			.expect(404);
 	});
 
-	it("doesn't share a budget with the auth limiter", async () => {
-		const limitedApp = createApp(testConfig);
+	it("counts logged-out public writes by IP", async () => {
+		const app = freshApp();
+		// Under the auth limit, so only the write limiter can refuse.
+		for (let i = 0; i < WRITE_RATE_LIMIT; i++) {
+			await logout(app).expect(204);
+		}
+
+		const res = await logout(app).expect(429);
+
+		expect(res.body).toEqual(TOO_MANY_REQUESTS);
+	});
+
+	it("doesn't count logged-out private writes, which the gate refuses", async () => {
+		const app = freshApp();
+		for (let i = 0; i <= WRITE_RATE_LIMIT; i++) {
+			await write(app).expect(401);
+		}
+	});
+
+	it("keeps a separate budget from the auth limiter", async () => {
+		const app = freshApp();
 		const cookie = await sessionCookie(EDITOR);
 
-		// All but one of the auth budget: as POSTs, so they'd also use up the
-		// (smaller) write budget if the limiters shared one...
+		// All but one of the auth budget...
 		for (let i = 0; i < AUTH_RATE_LIMIT - 1; i++) {
-			await request(limitedApp)
-				.post("/auth/logout")
-				.set("Origin", testConfig.FRONTEND_URL)
+			await request(app)
+				.get("/auth/me")
 				.set("Cookie", cookie)
-				.expect(204);
+				.expect(200);
 		}
-		await useUpWriteBudget(limitedApp, cookie);
+		// ...doesn't touch the write budget...
+		await useUpWriteBudget(app, cookie);
 
-		// ...and the last auth request would be refused if writes counted there.
-		await request(limitedApp)
-			.get("/auth/me")
-			.set("Cookie", cookie)
-			.expect(200);
+		// ...and the writes didn't touch the auth budget.
+		await request(app).get("/auth/me").set("Cookie", cookie).expect(200);
 	});
 });

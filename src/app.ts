@@ -8,7 +8,7 @@ import { allowFrontendOrigin } from "./middleware/cors.ts";
 import { handleError } from "./middleware/error-handler.ts";
 import { jsonBody } from "./middleware/json-body.ts";
 import { requireFrontendOrigin } from "./middleware/require-frontend-origin.ts";
-import { writeRateLimit } from "./middleware/rate-limits.ts";
+import { authRateLimit, writeRateLimit } from "./middleware/rate-limits.ts";
 import { requireLogin } from "./middleware/require-login.ts";
 import { sessionMiddleware } from "./middleware/session.ts";
 import { PUBLIC_ROUTES } from "./api/public-routes.ts";
@@ -27,7 +27,12 @@ export function createApp(config: AppConfig): Express {
 	app.use(requireFrontendOrigin(config.FRONTEND_URL));
 	app.use(cookieParser());
 	app.use(sessionMiddleware(config));
-	app.use(requireLogin(PUBLIC_ROUTES, writeRateLimit()));
+	// One auth budget per IP for /auth and logged-out private requests; each
+	// request counts once. Writes that get past the gate count separately.
+	const authLimit = authRateLimit(config);
+	app.use(requireLogin(PUBLIC_ROUTES, authLimit));
+	app.use("/auth", authLimit);
+	app.use(writeRateLimit());
 	app.use(jsonBody());
 	for (const [prefix, router] of Object.entries(apiRouters(config))) {
 		app.use(prefix, router);
