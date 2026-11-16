@@ -210,15 +210,26 @@ describe("read rate limit", () => {
 		await health("203.0.113.2").expect(200);
 	});
 
-	it("leaves /auth to the auth limiter, and writes to the write limiter", async () => {
+	it("counts /auth reads too, but not writes", async () => {
 		const app = tunneledApp();
 		const cookie = await sessionCookie(EDITOR);
 		await useUpReadBudget(app, cookie);
 
-		await request(app).get("/auth/me").set("Cookie", cookie).expect(200);
-		// Express routes /auth case-insensitively, so this is /auth too.
-		await request(app).get("/AUTH/me").set("Cookie", cookie).expect(200);
+		await request(app).get("/auth/me").set("Cookie", cookie).expect(429);
 		expect((await write(app, cookie)).status).toBe(404);
+	});
+
+	it("redirects a read-limited Discord callback to the login page", async () => {
+		const app = tunneledApp();
+		await useUpPublicReads(app, READ_RATE_LIMIT);
+
+		const res = await request(app)
+			.get("/auth/discord/callback?code=abc&state=xyz")
+			.expect(302);
+
+		expect(res.headers["location"]).toBe(
+			`${testConfig.FRONTEND_URL}/admin/login?error=rate-limited`
+		);
 	});
 });
 

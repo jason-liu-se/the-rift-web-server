@@ -99,15 +99,16 @@ PATCH, or DELETE route must add its method there, or browsers block it.
 Three limiters in `src/middleware/rate-limits.ts`, tuned in
 `src/config/rate-limits.ts`, so every request is limited somewhere. Each keeps
 its own counts, so none uses up another's budget, though a request may count in
-two (a logged-out `/auth/refresh`). Counts are per app instance, in memory.
+two (a logged-out `/auth/refresh`, or `/auth/me`). Counts are per app instance,
+in memory. Each answers `429`, except that a rate-limited Discord callback
+redirects to the login page (`rate-limited`), whichever limiter stopped it.
 
 |                | Auth limiter                                                    | Write limiter                                        | Read limiter                                                                         |
 | -------------- | --------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Guards against | Login abuse, refresh-token guessing, logged-out probing         | Anyone flooding writes (incl. a stolen session)      | Scraping, flooding reads                                                             |
-| Counts         | Every `/auth/*` request; logged-out private or unknown requests | Requests other than GET, HEAD, OPTIONS past the gate | GET and HEAD past the gate, except `/auth/*`                                         |
+| Counts         | Every `/auth/*` request; logged-out private or unknown requests | Requests other than GET, HEAD, OPTIONS past the gate | GET and HEAD past the gate                                                           |
 | Keyed by       | Client IP (see below; IPv6 /56)                                 | Logged-in user's ID (editors may share an IP), or IP | Same as the write limiter                                                            |
 | Mounted        | One instance: in `requireLogin` and on `/auth`                  | After `requireLogin`, app-wide                       | After the write limiter, app-wide                                                    |
-| On limit       | `429`; the Discord callback redirects (`rate-limited`)          | `429`                                                | `429`                                                                                |
 | Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS`                  | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS`     | `READ_RATE_LIMIT`, `READ_RATE_LIMIT_WINDOW_MS`; env `READ_RATE_LIMIT_WITHOUT_TUNNEL` |
 
 The auth limiter is keyed by IP because its callers usually aren't logged in.

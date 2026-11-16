@@ -16,19 +16,21 @@ import {
 } from "../config/rate-limits.ts";
 import { isSafeMethod } from "./http-methods.ts";
 
-function tooManyRequests(res: Response, statusCode: number): void {
-	res.status(statusCode).json({
-		error: "ERROR: too many requests; try again later"
-	});
-}
-
-// What every limiter shares: standard RateLimit headers and a JSON 429.
-function limiter(options: Partial<Options>): RequestHandler {
+// What every limiter shares: standard RateLimit headers and a JSON 429. A
+// browser coming back from Discord is redirected to the login page instead,
+// like any other failed login, whichever limiter stopped it.
+function limiter(config: AppConfig, options: Partial<Options>): RequestHandler {
 	return rateLimit({
 		standardHeaders: "draft-8",
 		legacyHeaders: false,
-		handler: (_req, res, _next, { statusCode }) => {
-			tooManyRequests(res, statusCode);
+		handler: (req, res, _next, { statusCode }) => {
+			if (routePath(req) === `/auth${LOGIN_CALLBACK_PATH}`) {
+				redirectToLoginPage(res, config, "rate-limited");
+				return;
+			}
+			res.status(statusCode).json({
+				error: "ERROR: too many requests; try again later"
+			});
 		},
 		...options
 	});
@@ -49,21 +51,12 @@ function clientIp(req: Request, config: AppConfig): string {
 // Auth limiter: slows down login abuse, refresh-token guessing, and logged-out
 // probing. Counts every /auth/* request and every logged-out request to a
 // private (or unknown) path, in one budget per client IP, since those callers
-// usually aren't logged in. createApp mounts the one instance for both. A
-// browser coming back from Discord is redirected to the login page instead,
-// like any other failed login.
+// usually aren't logged in. createApp mounts the one instance for both.
 export function authRateLimit(config: AppConfig): RequestHandler {
-	return limiter({
+	return limiter(config, {
 		windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
 		limit: AUTH_RATE_LIMIT,
-		keyGenerator: (req) => clientIp(req, config),
-		handler: (req, res, _next, options) => {
-			if (routePath(req) === `/auth${LOGIN_CALLBACK_PATH}`) {
-				redirectToLoginPage(res, config, "rate-limited");
-				return;
-			}
-			tooManyRequests(res, options.statusCode);
-		}
+		keyGenerator: (req) => clientIp(req, config)
 	});
 }
 
@@ -84,7 +77,7 @@ function userOrClientKey(
 // editor's private writes and anyone's public ones (/auth/refresh,
 // /auth/logout). Keyed by userOrClientKey.
 export function writeRateLimit(config: AppConfig): RequestHandler {
-	return limiter({
+	return limiter(config, {
 		windowMs: WRITE_RATE_LIMIT_WINDOW_MS,
 		limit: WRITE_RATE_LIMIT,
 		skip: (req) => isSafeMethod(req.method),
@@ -92,26 +85,22 @@ export function writeRateLimit(config: AppConfig): RequestHandler {
 	});
 }
 
-// Read limiter: caps how fast anyone can read, e.g. scraping. Counts GET and
-// HEAD requests that get past the login gate (public reads and an editor's
-// private ones), except /auth/*, which the auth limiter already counts.
-// Keyed by userOrClientKey, so behind the Cloudflare Tunnel the website's
-// server rendering counts against each visitor, not one shared budget.
+// Read limiter: caps how fast anyone can read, e.g. scraping. Counts every
+// GET and HEAD request that gets past the login gate: public reads (/auth/*
+// too) and an editor's private ones. Keyed by userOrClientKey, so behind the
+// Cloudflare Tunnel the website's server rendering counts against each
+// visitor, not one shared budget.
 // Without the tunnel it shares Cloudflare's IPs (or localhost in development),
 // so every read gets the higher READ_RATE_LIMIT_WITHOUT_TUNNEL instead.
 export function readRateLimit(config: AppConfig): RequestHandler {
-	return limiter({
+	return limiter(config, {
 		windowMs: READ_RATE_LIMIT_WINDOW_MS,
 		limit: config.BEHIND_CLOUDFLARE_TUNNEL
 			? READ_RATE_LIMIT
 			: config.READ_RATE_LIMIT_WITHOUT_TUNNEL,
-		skip: (req) => !isSafeMethod(req.method) || isAuthPath(routePath(req)),
+		skip: (req) => !isSafeMethod(req.method),
 		keyGenerator: (req, res) => userOrClientKey(req, res, config)
 	});
-}
-
-function isAuthPath(path: string): boolean {
-	return path === "/auth" || path.startsWith("/auth/");
 }
 
 // The full path as Express routes it: case-insensitive, with an optional
