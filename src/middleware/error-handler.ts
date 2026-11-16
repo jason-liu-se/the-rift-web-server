@@ -5,13 +5,20 @@ import { NotFoundError } from "../errors/not-found-error.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import { UnsupportedMediaTypeError } from "../errors/unsupported-media-type-error.ts";
 
-// What express.json (body-parser) throws for a bad body: a client error with
-// a `type` such as "entity.parse.failed" or "entity.too.large". Its own
-// message can quote the body or internals, so callers get ours instead.
+// What express.json (body-parser) throws when the caller sent a bad body,
+// told apart by `type`; its other errors (e.g. "stream.not.readable") are
+// server faults. Its own message can quote the body or internals, so callers
+// get ours instead.
 const bodyParserError = z.object({
-	type: z.string(),
-	expose: z.literal(true),
-	status: z.number().int().min(400).max(499)
+	type: z.enum([
+		"entity.parse.failed",
+		"entity.too.large",
+		"request.aborted",
+		"request.size.invalid",
+		"charset.unsupported",
+		"encoding.unsupported"
+	]),
+	status: z.number().int()
 });
 
 const BODY_ERROR_MESSAGES: Readonly<Record<number, string>> = {
