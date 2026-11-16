@@ -188,6 +188,8 @@ describe("read rate limit", () => {
 		await useUpReadBudget(app, cookie);
 
 		await request(app).get("/auth/me").set("Cookie", cookie).expect(200);
+		// Express routes /auth case-insensitively, so this is /auth too.
+		await request(app).get("/AUTH/me").set("Cookie", cookie).expect(200);
 		expect((await write(app, cookie)).status).toBe(404);
 	});
 });

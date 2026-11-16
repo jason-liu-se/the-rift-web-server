@@ -438,12 +438,19 @@ describe("auth rate limit", () => {
 		expect(res.headers).toHaveProperty("retry-after");
 		// Other routes aren't limited.
 		await request(limitedApp).get("/health").expect(200);
-		// Discord's redirect back still lands on the website's login page.
-		const callback = await request(limitedApp)
-			.get("/auth/discord/callback?code=abc&state=xyz")
-			.expect(302);
-		expect(callback.headers["location"]).toBe(
-			`${testConfig.FRONTEND_URL}/admin/login?error=rate-limited`
-		);
+		// Discord's redirect back still lands on the website's login page, by
+		// any path Express routes to the callback.
+		for (const path of [
+			"/auth/discord/callback",
+			"/auth/discord/callback/",
+			"/Auth/Discord/Callback"
+		]) {
+			const callback = await request(limitedApp)
+				.get(`${path}?code=abc&state=xyz`)
+				.expect(302);
+			expect(callback.headers["location"]).toBe(
+				`${testConfig.FRONTEND_URL}/admin/login?error=rate-limited`
+			);
+		}
 	});
 });

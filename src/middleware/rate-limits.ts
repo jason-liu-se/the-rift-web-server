@@ -58,7 +58,7 @@ export function authRateLimit(config: AppConfig): RequestHandler {
 		limit: AUTH_RATE_LIMIT,
 		keyGenerator: (req) => clientIp(req, config),
 		handler: (req, res, _next, options) => {
-			if (`${req.baseUrl}${req.path}` === `/auth${LOGIN_CALLBACK_PATH}`) {
+			if (routePath(req) === `/auth${LOGIN_CALLBACK_PATH}`) {
 				redirectToLoginPage(res, config, "rate-limited");
 				return;
 			}
@@ -101,11 +101,18 @@ export function readRateLimit(config: AppConfig): RequestHandler {
 	return limiter({
 		windowMs: READ_RATE_LIMIT_WINDOW_MS,
 		limit: READ_RATE_LIMIT,
-		skip: (req) => !isSafeMethod(req.method) || isAuthPath(req.path),
+		skip: (req) => !isSafeMethod(req.method) || isAuthPath(routePath(req)),
 		keyGenerator: (req, res) => userOrClientKey(req, res, config)
 	});
 }
 
 function isAuthPath(path: string): boolean {
 	return path === "/auth" || path.startsWith("/auth/");
+}
+
+// The full path as Express routes it: case-insensitive, with an optional
+// trailing slash, so /Auth/discord/callback/ is the callback too.
+function routePath(req: Request): string {
+	const path = `${req.baseUrl}${req.path}`.toLowerCase();
+	return path.length > 1 ? path.replace(/\/$/, "") : path;
 }
