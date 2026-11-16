@@ -2,7 +2,7 @@
 // another's budget (a request may count in two). Counts are per app
 // instance, in memory. Settings: src/config/rate-limits.ts.
 import type { Request, RequestHandler, Response } from "express";
-import { ipKeyGenerator, rateLimit } from "express-rate-limit";
+import { type Options, ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { redirectToLoginPage } from "../auth/discord-login.ts";
 import { LOGIN_CALLBACK_PATH } from "../config/auth.ts";
 import type { AppConfig } from "../config/env.ts";
@@ -19,6 +19,18 @@ import { isSafeMethod } from "./http-methods.ts";
 function tooManyRequests(res: Response, statusCode: number): void {
 	res.status(statusCode).json({
 		error: "ERROR: too many requests; try again later"
+	});
+}
+
+// What every limiter shares: standard RateLimit headers and a JSON 429.
+function limiter(options: Partial<Options>): RequestHandler {
+	return rateLimit({
+		standardHeaders: "draft-8",
+		legacyHeaders: false,
+		handler: (_req, res, _next, { statusCode }) => {
+			tooManyRequests(res, statusCode);
+		},
+		...options
 	});
 }
 
@@ -41,11 +53,9 @@ function clientIp(req: Request, config: AppConfig): string {
 // browser coming back from Discord is redirected to the login page instead,
 // like any other failed login.
 export function authRateLimit(config: AppConfig): RequestHandler {
-	return rateLimit({
+	return limiter({
 		windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
 		limit: AUTH_RATE_LIMIT,
-		standardHeaders: "draft-8",
-		legacyHeaders: false,
 		keyGenerator: (req) => clientIp(req, config),
 		handler: (req, res, _next, options) => {
 			if (`${req.baseUrl}${req.path}` === `/auth${LOGIN_CALLBACK_PATH}`) {
@@ -74,16 +84,11 @@ function userOrClientKey(
 // editor's private writes and anyone's public ones (/auth/refresh,
 // /auth/logout). Keyed by userOrClientKey.
 export function writeRateLimit(config: AppConfig): RequestHandler {
-	return rateLimit({
+	return limiter({
 		windowMs: WRITE_RATE_LIMIT_WINDOW_MS,
 		limit: WRITE_RATE_LIMIT,
-		standardHeaders: "draft-8",
-		legacyHeaders: false,
 		skip: (req) => isSafeMethod(req.method),
-		keyGenerator: (req, res) => userOrClientKey(req, res, config),
-		handler: (_req, res, _next, options) => {
-			tooManyRequests(res, options.statusCode);
-		}
+		keyGenerator: (req, res) => userOrClientKey(req, res, config)
 	});
 }
 
@@ -93,16 +98,11 @@ export function writeRateLimit(config: AppConfig): RequestHandler {
 // Keyed by userOrClientKey, so behind the Cloudflare Tunnel the website's
 // server rendering counts against each visitor, not one shared budget.
 export function readRateLimit(config: AppConfig): RequestHandler {
-	return rateLimit({
+	return limiter({
 		windowMs: READ_RATE_LIMIT_WINDOW_MS,
 		limit: READ_RATE_LIMIT,
-		standardHeaders: "draft-8",
-		legacyHeaders: false,
 		skip: (req) => !isSafeMethod(req.method) || isAuthPath(req.path),
-		keyGenerator: (req, res) => userOrClientKey(req, res, config),
-		handler: (_req, res, _next, options) => {
-			tooManyRequests(res, options.statusCode);
-		}
+		keyGenerator: (req, res) => userOrClientKey(req, res, config)
 	});
 }
 
