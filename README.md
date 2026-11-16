@@ -81,7 +81,7 @@ Every other request, including any unknown path, needs a logged-in editor and
 answers `401` otherwise: public routes are an allow list in
 [`src/routes/public-routes.ts`](./src/routes/public-routes.ts). Any request
 other than GET, HEAD, or OPTIONS must send `Origin: <FRONTEND_URL>` (CSRF
-protection), or gets `403`.
+protection), or gets `403`. Request bodies must be JSON (`415` otherwise).
 
 Errors are `{ "error": string }`. Response types:
 [`src/contract/api-responses.ts`](./src/contract/api-responses.ts), which the

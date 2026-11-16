@@ -29,18 +29,25 @@ promises to the handler.
 
 The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 
-| Error                                  | Status | Body                                 |
-| -------------------------------------- | ------ | ------------------------------------ |
-| `ZodError` (bad params or query)       | `400`  | Which parameters are wrong           |
-| `UnauthorizedError` (`src/errors/`)    | `401`  | Nobody is logged in, or bad refresh  |
-| `ForbiddenError` (`src/errors/`)       | `403`  | A write not from the website (CSRF)  |
-| `NotFoundError` (`src/errors/`)        | `404`  | What wasn't found; also no route     |
-| Rate limit (see [below](#rate-limits)) | `429`  | Try again later (callback: redirect) |
-| Anything else, incl. a broken contract | `500`  | Generic message; details only logged |
+| Error                                    | Status | Body                                 |
+| ---------------------------------------- | ------ | ------------------------------------ |
+| `ZodError` (bad params or query)         | `400`  | Which parameters are wrong           |
+| Malformed JSON body (body-parser)        | `400`  | Generic; never echoes the body       |
+| `UnauthorizedError` (`src/errors/`)      | `401`  | Nobody is logged in, or bad refresh  |
+| `ForbiddenError` (`src/errors/`)         | `403`  | A write not from the website (CSRF)  |
+| `NotFoundError` (`src/errors/`)          | `404`  | What wasn't found; also no route     |
+| Body over `JSON_BODY_LIMIT`              | `413`  | Generic                              |
+| `UnsupportedMediaTypeError`, bad charset | `415`  | The body must be JSON (UTF-8)        |
+| Rate limit (see [below](#rate-limits))   | `429`  | Try again later (callback: redirect) |
+| Anything else, incl. a broken contract   | `500`  | Generic message; details only logged |
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
 
 ## Access
+
+Every request passes, in order (`createApp`): CORS → the CSRF origin check
+(`403`) → the session → the login gate (`401`), then the write limiter (`429`)
+for private requests → the JSON body check (`400`, `413`, `415`) → the routers.
 
 Anyone may read public content; everything else needs a logged-in editor (anyone
 who can log in is an editor, see the README's "Sessions and access"). It's
@@ -65,6 +72,18 @@ requests, but not off a sibling subdomain's. A missing `Origin` is refused too:
 only the website's browser code writes (server rendering only reads), so
 non-browser callers (curl) must send `Origin` themselves. Never change state in
 a GET route; it isn't checked.
+
+### Request bodies
+
+After the login gate, `jsonBody` (`src/middleware/json-body.ts`) answers `415`
+to any non-empty body that isn't `application/json` (which also keeps out the
+form and text bodies a page can send cross-site without a preflight), then
+parses JSON up to `JSON_BODY_LIMIT` (`src/config/requests.ts`). So routes only
+ever see parsed JSON in `req.body`, and logged-out bodies are never parsed.
+Still validate `req.body` with a Zod schema before use.
+
+CORS allows only `GET,POST,OPTIONS` (`src/middleware/cors.ts`): the first PUT,
+PATCH, or DELETE route must add its method there, or browsers block it.
 
 ### Rate limits
 

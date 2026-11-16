@@ -6,6 +6,7 @@ import type { AppConfig } from "./config/env.ts";
 import { NotFoundError } from "./errors/not-found-error.ts";
 import { allowFrontendOrigin } from "./middleware/cors.ts";
 import { handleError } from "./middleware/error-handler.ts";
+import { jsonBody } from "./middleware/json-body.ts";
 import { requireFrontendOrigin } from "./middleware/require-frontend-origin.ts";
 import { writeRateLimit } from "./middleware/rate-limits.ts";
 import { requireLogin } from "./middleware/require-login.ts";
@@ -19,6 +20,7 @@ import { healthRouter } from "./routes/health.ts";
 
 export function createApp(config: AppConfig): Express {
 	const app = express();
+	app.disable("x-powered-by");
 	app.set("trust proxy", config.TRUST_PROXY_HOPS);
 
 	app.use(allowFrontendOrigin(config.FRONTEND_URL));
@@ -26,6 +28,7 @@ export function createApp(config: AppConfig): Express {
 	app.use(cookieParser());
 	app.use(sessionMiddleware(config));
 	app.use(requireLogin(PUBLIC_ROUTES, writeRateLimit()));
+	app.use(jsonBody());
 	app.use("/health", healthRouter);
 	app.use("/auth", authRouter(config));
 	app.use("/news", newsRouter);
