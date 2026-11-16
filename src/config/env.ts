@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { DEFAULT_READ_RATE_LIMIT_WITHOUT_TUNNEL } from "./rate-limits.ts";
 
 const DEFAULT_PORT = 4000;
 const DEFAULT_TRUST_PROXY_HOPS = 0;
@@ -48,6 +49,17 @@ const envSchema = z.object({
 	BEHIND_CLOUDFLARE_TUNNEL: z.preprocess(
 		emptyAsUnset,
 		z.stringbool().default(DEFAULT_BEHIND_CLOUDFLARE_TUNNEL)
+	),
+	// Without the tunnel the website's server rendering reaches the API from
+	// shared IPs, so logged-out reads get this per-IP limit instead of
+	// READ_RATE_LIMIT (src/config/rate-limits.ts).
+	READ_RATE_LIMIT_WITHOUT_TUNNEL: z.preprocess(
+		emptyAsUnset,
+		z.coerce
+			.number()
+			.int()
+			.min(1)
+			.default(DEFAULT_READ_RATE_LIMIT_WITHOUT_TUNNEL)
 	)
 });
 

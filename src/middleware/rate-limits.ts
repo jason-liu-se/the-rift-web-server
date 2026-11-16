@@ -97,10 +97,15 @@ export function writeRateLimit(config: AppConfig): RequestHandler {
 // private ones), except /auth/*, which the auth limiter already counts.
 // Keyed by userOrClientKey, so behind the Cloudflare Tunnel the website's
 // server rendering counts against each visitor, not one shared budget.
+// Without the tunnel it shares Cloudflare's IPs, so logged-out reads get the
+// higher READ_RATE_LIMIT_WITHOUT_TUNNEL instead.
 export function readRateLimit(config: AppConfig): RequestHandler {
 	return limiter({
 		windowMs: READ_RATE_LIMIT_WINDOW_MS,
-		limit: READ_RATE_LIMIT,
+		limit: (_req, res) =>
+			config.BEHIND_CLOUDFLARE_TUNNEL || res.locals.user
+				? READ_RATE_LIMIT
+				: config.READ_RATE_LIMIT_WITHOUT_TUNNEL,
 		skip: (req) => !isSafeMethod(req.method) || isAuthPath(routePath(req)),
 		keyGenerator: (req, res) => userOrClientKey(req, res, config)
 	});

@@ -30,19 +30,20 @@ but may need tuning (session lifetimes, rate limits, timeouts, the website's
 login pages) are constants in the other files in [`src/config/`](./src/config/),
 meant to be edited directly.
 
-| Variable                    | Required | Sets                                                                                |
-| --------------------------- | -------- | ----------------------------------------------------------------------------------- |
-| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                                              |
-| `REDIS_URL`                 | Yes      | Redis URL (`redis://` or `rediss://`)                                               |
-| `PORT`                      | No       | Port (default `4000`, which the website expects)                                    |
-| `FRONTEND_URL`              | Yes      | The website's origin (CORS, login redirects)                                        |
-| `JWT_SECRET`                | Yes      | 64+ characters; see [Sessions and access](#sessions-and-access)                     |
-| `DISCORD_CLIENT_ID`         | Yes      | Discord application's client ID                                                     |
-| `DISCORD_CLIENT_SECRET`     | Yes      | Discord application's client secret                                                 |
-| `DISCORD_REDIRECT_URI`      | Yes      | `<this API>/auth/discord/callback`, registered with Discord                         |
-| `DISCORD_GUILD_ID`          | Yes      | The Rift's Discord server, for role grants                                          |
-| `TRUST_PROXY_HOPS`          | No       | Proxies in front of the server (default `0`), for rate limiting                     |
-| `BEHIND_CLOUDFLARE_TUNNEL`  | No       | `true` only behind a Cloudflare Tunnel; see [Behind Cloudflare](#behind-cloudflare) |
+| Variable                         | Required | Sets                                                                                         |
+| -------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `MONGODB_CONNECTION_STRING`      | Yes      | MongoDB connection URI                                                                       |
+| `REDIS_URL`                      | Yes      | Redis URL (`redis://` or `rediss://`)                                                        |
+| `PORT`                           | No       | Port (default `4000`, which the website expects)                                             |
+| `FRONTEND_URL`                   | Yes      | The website's origin (CORS, login redirects)                                                 |
+| `JWT_SECRET`                     | Yes      | 64+ characters; see [Sessions and access](#sessions-and-access)                              |
+| `DISCORD_CLIENT_ID`              | Yes      | Discord application's client ID                                                              |
+| `DISCORD_CLIENT_SECRET`          | Yes      | Discord application's client secret                                                          |
+| `DISCORD_REDIRECT_URI`           | Yes      | `<this API>/auth/discord/callback`, registered with Discord                                  |
+| `DISCORD_GUILD_ID`               | Yes      | The Rift's Discord server, for role grants                                                   |
+| `TRUST_PROXY_HOPS`               | No       | Proxies in front of the server (default `0`), for rate limiting                              |
+| `BEHIND_CLOUDFLARE_TUNNEL`       | No       | `true` only behind a Cloudflare Tunnel; see [Behind Cloudflare](#behind-cloudflare)          |
+| `READ_RATE_LIMIT_WITHOUT_TUNNEL` | No       | Logged-out reads per IP per minute without the tunnel (default: `src/config/rate-limits.ts`) |
 
 ## Commands
 
@@ -98,8 +99,8 @@ token (`refresh_token`), used for generating JWTs, stored in Redis
 [`src/config/rate-limits.ts`](./src/config/rate-limits.ts): the **auth limiter**
 (per client IP, on `/auth/*` and logged-out private requests), the **write
 limiter** (per editor, or IP when logged out, on every write), and the **read
-limiter** (the same, on every other read; needs the tunnel in production, see
-[Behind Cloudflare](#behind-cloudflare)); see
+limiter** (the same, on every other read; higher for logged-out reads without
+the tunnel, see [Behind Cloudflare](#behind-cloudflare)); see
 [api.md](./.claude/docs/api.md#rate-limits).
 
 - **Generate `JWT_SECRET`:**
@@ -129,7 +130,10 @@ means nobody can log in. Access is checked only at login.
 In production the API sits behind a Cloudflare Tunnel on the website's zone
 (e.g. `api.example.com`), so Cloudflare names each client and other zones'
 Workers can be blocked. Rate limits then key clients by `CF-Connecting-IP`; for
-the website's server rendering that's the visitor, not the Worker.
+the website's server rendering that's the visitor, not the Worker. Without the
+tunnel, every visitor's rendered pages share Cloudflare's IPs, so logged-out
+reads get `READ_RATE_LIMIT_WITHOUT_TUNNEL` per IP instead, and one person could
+still use it up for everyone.
 
 1. Run `cloudflared` next to the API and route `api.<domain>` to it.
 2. **Remove the service's public port** (Northflank: private ports only).

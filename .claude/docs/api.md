@@ -101,14 +101,14 @@ Three limiters in `src/middleware/rate-limits.ts`, tuned in
 its own counts, so none uses up another's budget, though a request may count in
 two (a logged-out `/auth/refresh`). Counts are per app instance, in memory.
 
-|                | Auth limiter                                                    | Write limiter                                        | Read limiter                                   |
-| -------------- | --------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------- |
-| Guards against | Login abuse, refresh-token guessing, logged-out probing         | Anyone flooding writes (incl. a stolen session)      | Scraping, flooding reads                       |
-| Counts         | Every `/auth/*` request; logged-out private or unknown requests | Requests other than GET, HEAD, OPTIONS past the gate | GET and HEAD past the gate, except `/auth/*`   |
-| Keyed by       | Client IP (see below; IPv6 /56)                                 | Logged-in user's ID (editors may share an IP), or IP | Same as the write limiter                      |
-| Mounted        | One instance: in `requireLogin` and on `/auth`                  | After `requireLogin`, app-wide                       | After the write limiter, app-wide              |
-| On limit       | `429`; the Discord callback redirects (`rate-limited`)          | `429`                                                | `429`                                          |
-| Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS`                  | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS`     | `READ_RATE_LIMIT`, `READ_RATE_LIMIT_WINDOW_MS` |
+|                | Auth limiter                                                    | Write limiter                                        | Read limiter                                                                         |
+| -------------- | --------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Guards against | Login abuse, refresh-token guessing, logged-out probing         | Anyone flooding writes (incl. a stolen session)      | Scraping, flooding reads                                                             |
+| Counts         | Every `/auth/*` request; logged-out private or unknown requests | Requests other than GET, HEAD, OPTIONS past the gate | GET and HEAD past the gate, except `/auth/*`                                         |
+| Keyed by       | Client IP (see below; IPv6 /56)                                 | Logged-in user's ID (editors may share an IP), or IP | Same as the write limiter                                                            |
+| Mounted        | One instance: in `requireLogin` and on `/auth`                  | After `requireLogin`, app-wide                       | After the write limiter, app-wide                                                    |
+| On limit       | `429`; the Discord callback redirects (`rate-limited`)          | `429`                                                | `429`                                                                                |
+| Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS`                  | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS`     | `READ_RATE_LIMIT`, `READ_RATE_LIMIT_WINDOW_MS`; env `READ_RATE_LIMIT_WITHOUT_TUNNEL` |
 
 The auth limiter is keyed by IP because its callers usually aren't logged in.
 The client IP (`clientIp`) is `CF-Connecting-IP` when `BEHIND_CLOUDFLARE_TUNNEL`
@@ -119,11 +119,14 @@ once: the gate counts only what it refuses, and `/auth/*` is public, so the gate
 passes it on. Logged-out private requests are refused by the gate, so they never
 reach the read or write limiter.
 
-The read limiter needs the tunnel in production. Without it, the website's
-server rendering reaches the API from Cloudflare's shared IPs, so every visitor
-shares one read budget, and one person requesting pages fast enough would get
-`429`s for everyone. Behind the tunnel, Cloudflare names the visitor even for
-the Worker's requests, so each visitor has their own budget.
+Behind the tunnel, Cloudflare names the visitor even for the Worker's requests,
+so each visitor has their own read budget (`READ_RATE_LIMIT`). Without it, the
+website's server rendering reaches the API from Cloudflare's shared IPs, so
+logged-out reads get the higher `READ_RATE_LIMIT_WITHOUT_TUNNEL` per IP (default
+in `src/config/rate-limits.ts`). That's still one budget for every visitor's
+rendered pages: one person requesting pages fast enough could get `429`s for
+everyone, so production should run behind the tunnel. Editors' reads are keyed
+by user, so they keep `READ_RATE_LIMIT` either way.
 
 ## Sessions
 

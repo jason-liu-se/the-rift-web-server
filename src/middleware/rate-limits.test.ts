@@ -146,16 +146,34 @@ describe("read rate limit", () => {
 		}
 	}
 
-	it("answers 429 once a client exceeds the limit on public reads", async () => {
-		const app = freshApp();
-		for (let i = 0; i < READ_RATE_LIMIT; i++) {
-			await request(app).get("/health").expect(200);
+	async function useUpPublicReads(target: Express, count: number) {
+		for (let i = 0; i < count; i++) {
+			await request(target).get("/health").expect(200);
 		}
+	}
+
+	it("answers 429 once a client exceeds the limit on public reads", async () => {
+		const app = createApp({
+			...testConfig,
+			BEHIND_CLOUDFLARE_TUNNEL: true
+		});
+		await useUpPublicReads(app, READ_RATE_LIMIT);
 
 		const res = await request(app).get("/health").expect(429);
 
 		expect(res.body).toEqual(TOO_MANY_REQUESTS);
 		expect(res.headers).toHaveProperty("retry-after");
+	});
+
+	it("gives logged-out reads READ_RATE_LIMIT_WITHOUT_TUNNEL without the tunnel", async () => {
+		const limit = READ_RATE_LIMIT + 5;
+		const app = createApp({
+			...testConfig,
+			READ_RATE_LIMIT_WITHOUT_TUNNEL: limit
+		});
+		await useUpPublicReads(app, limit);
+
+		await request(app).get("/health").expect(429);
 	});
 
 	it("counts a logged-in editor by user, not by IP", async () => {
