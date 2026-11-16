@@ -105,17 +105,19 @@ other's budget, though a request may count in both (a logged-out
 | -------------- | --------------------------------------------------------------- | ---------------------------------------------------- |
 | Guards against | Login abuse, refresh-token guessing, logged-out probing         | Anyone flooding writes (incl. a stolen session)      |
 | Counts         | Every `/auth/*` request; logged-out private or unknown requests | Requests other than GET, HEAD, OPTIONS past the gate |
-| Keyed by       | Client IP (`req.ip`, via `TRUST_PROXY_HOPS`; IPv6 /56)          | Logged-in user's ID (editors may share an IP), or IP |
+| Keyed by       | Client IP (see below; IPv6 /56)                                 | Logged-in user's ID (editors may share an IP), or IP |
 | Mounted        | One instance: in `requireLogin` and on `/auth`                  | After `requireLogin`, app-wide                       |
 | On limit       | `429`; the Discord callback redirects (`rate-limited`)          | `429`                                                |
 | Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS`                  | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS`     |
 
-The auth limiter is keyed by IP because its callers usually aren't logged in, so
-a wrong `TRUST_PROXY_HOPS` either puts every client behind one budget (too low)
-or lets a client forge `X-Forwarded-For` (too high). It counts each request at
-most once: the gate counts only what it refuses, and `/auth/*` is public, so the
-gate passes it on. Logged-out private writes are refused by the gate, so they
-never reach the write limiter. Public reads have no limit: the website's server
+The auth limiter is keyed by IP because its callers usually aren't logged in.
+The client IP (`clientIp`) is `CF-Connecting-IP` when `BEHIND_CLOUDFLARE_TUNNEL`
+is set (the README's "Behind Cloudflare"), else `req.ip`, where a wrong
+`TRUST_PROXY_HOPS` either puts every client behind one budget (too low) or lets
+a client forge `X-Forwarded-For` (too high). It counts each request at most
+once: the gate counts only what it refuses, and `/auth/*` is public, so the gate
+passes it on. Logged-out private writes are refused by the gate, so they never
+reach the write limiter. Public reads have no limit: the website's server
 rendering sends them all from one IP.
 
 ## Sessions

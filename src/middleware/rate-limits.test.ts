@@ -136,3 +136,33 @@ describe("write rate limit", () => {
 		await request(app).get("/auth/me").set("Cookie", cookie).expect(200);
 	});
 });
+
+describe("client IP", () => {
+	function me(target: Express, ip: string) {
+		return request(target).get("/auth/me").set("CF-Connecting-IP", ip);
+	}
+
+	async function useUpAuthBudget(target: Express, ip: string) {
+		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
+			await me(target, ip).expect(401);
+		}
+	}
+
+	it("comes from CF-Connecting-IP behind the Cloudflare Tunnel", async () => {
+		const app = createApp({
+			...testConfig,
+			BEHIND_CLOUDFLARE_TUNNEL: true
+		});
+		await useUpAuthBudget(app, "203.0.113.1");
+
+		await me(app, "203.0.113.1").expect(429);
+		await me(app, "203.0.113.2").expect(401);
+	});
+
+	it("ignores CF-Connecting-IP otherwise, so callers can't pick it", async () => {
+		const app = freshApp();
+		await useUpAuthBudget(app, "203.0.113.1");
+
+		await me(app, "203.0.113.2").expect(429);
+	});
+});

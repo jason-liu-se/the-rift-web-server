@@ -32,7 +32,7 @@ export function createApp(config: AppConfig): Express {
 	const authLimit = authRateLimit(config);
 	app.use(requireLogin(PUBLIC_ROUTES, authLimit));
 	app.use("/auth", authLimit);
-	app.use(writeRateLimit());
+	app.use(writeRateLimit(config));
 	app.use(jsonBody());
 	for (const [prefix, router] of Object.entries(apiRouters(config))) {
 		app.use(prefix, router);

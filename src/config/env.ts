@@ -2,6 +2,7 @@ import * as z from "zod";
 
 const DEFAULT_PORT = 4000;
 const DEFAULT_TRUST_PROXY_HOPS = 0;
+const DEFAULT_BEHIND_CLOUDFLARE_TUNNEL = false;
 const MAX_PORT = 65_535;
 const MIN_JWT_SECRET_LENGTH = 64;
 
@@ -39,6 +40,14 @@ const envSchema = z.object({
 	TRUST_PROXY_HOPS: z.preprocess(
 		emptyAsUnset,
 		z.coerce.number().int().min(0).default(DEFAULT_TRUST_PROXY_HOPS)
+	),
+	// The server is reachable only through a Cloudflare Tunnel, so Cloudflare's
+	// CF-Connecting-IP header is the client's address (README "Behind
+	// Cloudflare"). Never set it on a server reachable any other way: anyone
+	// could send the header and pick their address.
+	BEHIND_CLOUDFLARE_TUNNEL: z.preprocess(
+		emptyAsUnset,
+		z.stringbool().default(DEFAULT_BEHIND_CLOUDFLARE_TUNNEL)
 	)
 });
 

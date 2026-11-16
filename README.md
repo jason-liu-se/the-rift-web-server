@@ -30,18 +30,19 @@ but may need tuning (session lifetimes, rate limits, timeouts, the website's
 login pages) are constants in the other files in [`src/config/`](./src/config/),
 meant to be edited directly.
 
-| Variable                    | Required | Sets                                                            |
-| --------------------------- | -------- | --------------------------------------------------------------- |
-| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                          |
-| `REDIS_URL`                 | Yes      | Redis URL (`redis://` or `rediss://`)                           |
-| `PORT`                      | No       | Port (default `4000`, which the website expects)                |
-| `FRONTEND_URL`              | Yes      | The website's origin (CORS, login redirects)                    |
-| `JWT_SECRET`                | Yes      | 64+ characters; see [Sessions and access](#sessions-and-access) |
-| `DISCORD_CLIENT_ID`         | Yes      | Discord application's client ID                                 |
-| `DISCORD_CLIENT_SECRET`     | Yes      | Discord application's client secret                             |
-| `DISCORD_REDIRECT_URI`      | Yes      | `<this API>/auth/discord/callback`, registered with Discord     |
-| `DISCORD_GUILD_ID`          | Yes      | The Rift's Discord server, for role grants                      |
-| `TRUST_PROXY_HOPS`          | No       | Proxies in front of the server (default `0`), for rate limiting |
+| Variable                    | Required | Sets                                                                                |
+| --------------------------- | -------- | ----------------------------------------------------------------------------------- |
+| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                                              |
+| `REDIS_URL`                 | Yes      | Redis URL (`redis://` or `rediss://`)                                               |
+| `PORT`                      | No       | Port (default `4000`, which the website expects)                                    |
+| `FRONTEND_URL`              | Yes      | The website's origin (CORS, login redirects)                                        |
+| `JWT_SECRET`                | Yes      | 64+ characters; see [Sessions and access](#sessions-and-access)                     |
+| `DISCORD_CLIENT_ID`         | Yes      | Discord application's client ID                                                     |
+| `DISCORD_CLIENT_SECRET`     | Yes      | Discord application's client secret                                                 |
+| `DISCORD_REDIRECT_URI`      | Yes      | `<this API>/auth/discord/callback`, registered with Discord                         |
+| `DISCORD_GUILD_ID`          | Yes      | The Rift's Discord server, for role grants                                          |
+| `TRUST_PROXY_HOPS`          | No       | Proxies in front of the server (default `0`), for rate limiting                     |
+| `BEHIND_CLOUDFLARE_TUNNEL`  | No       | `true` only behind a Cloudflare Tunnel; see [Behind Cloudflare](#behind-cloudflare) |
 
 ## Commands
 
@@ -120,6 +121,22 @@ means nobody can log in. Access is checked only at login.
 	"createdAt": { "$date": "2026-11-12T00:00:00Z" }
 }
 ```
+
+## Behind Cloudflare
+
+In production the API sits behind a Cloudflare Tunnel on the website's zone
+(e.g. `api.example.com`), so Cloudflare names each client and other zones'
+Workers can be blocked. Rate limits then key clients by `CF-Connecting-IP`; for
+the website's server rendering that's the visitor, not the Worker.
+
+1. Run `cloudflared` next to the API and route `api.<domain>` to it.
+2. **Remove the service's public port** (Northflank: private ports only).
+   `BEHIND_CLOUDFLARE_TUNNEL=true` trusts a header anyone could send, so the
+   server must not be reachable except through the tunnel.
+3. Set `BEHIND_CLOUDFLARE_TUNNEL=true` (and leave `TRUST_PROXY_HOPS` at `0`).
+4. Add a WAF custom rule on the zone that blocks other zones' Workers:
+   `not (cf.worker.upstream_zone in {"" "<domain>"})` → Block.
+5. Point the website's `API_URL` and `DISCORD_REDIRECT_URI` at `api.<domain>`.
 
 ## Data
 

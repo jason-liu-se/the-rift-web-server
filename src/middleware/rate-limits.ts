@@ -20,9 +20,16 @@ function tooManyRequests(res: Response, statusCode: number): void {
 	});
 }
 
-// req.ip relies on TRUST_PROXY_HOPS; IPv6 is keyed by /56 subnet.
-function clientIp(req: Request): string {
-	return ipKeyGenerator(req.ip ?? "");
+// The client's address, IPv6 by /56 subnet. Behind the tunnel every request
+// arrives from cloudflared, so Cloudflare's header names the client; for the
+// website's server rendering it's the visitor, not the Worker. Requests
+// without it (the host's own health checks) can't come through Cloudflare.
+// Otherwise req.ip, which relies on TRUST_PROXY_HOPS.
+function clientIp(req: Request, config: AppConfig): string {
+	const ip = config.BEHIND_CLOUDFLARE_TUNNEL
+		? (req.get("CF-Connecting-IP") ?? req.ip)
+		: req.ip;
+	return ipKeyGenerator(ip ?? "");
 }
 
 // Auth limiter: slows down login abuse, refresh-token guessing, and logged-out
@@ -37,6 +44,7 @@ export function authRateLimit(config: AppConfig): RequestHandler {
 		limit: AUTH_RATE_LIMIT,
 		standardHeaders: "draft-8",
 		legacyHeaders: false,
+		keyGenerator: (req) => clientIp(req, config),
 		handler: (req, res, _next, options) => {
 			if (`${req.baseUrl}${req.path}` === `/auth${LOGIN_CALLBACK_PATH}`) {
 				redirectToLoginPage(res, config, "rate-limited");
@@ -52,7 +60,7 @@ export function authRateLimit(config: AppConfig): RequestHandler {
 // editor's private writes and anyone's public ones (/auth/refresh,
 // /auth/logout). Keyed by the logged-in user's ID, so editors sharing an IP
 // don't share a budget, or else by client IP.
-export function writeRateLimit(): RequestHandler {
+export function writeRateLimit(config: AppConfig): RequestHandler {
 	return rateLimit({
 		windowMs: WRITE_RATE_LIMIT_WINDOW_MS,
 		limit: WRITE_RATE_LIMIT,
@@ -62,7 +70,7 @@ export function writeRateLimit(): RequestHandler {
 		keyGenerator: (req, res) =>
 			res.locals.user
 				? `user:${res.locals.user.id}`
-				: `ip:${clientIp(req)}`,
+				: `ip:${clientIp(req, config)}`,
 		handler: (_req, res, _next, options) => {
 			tooManyRequests(res, options.statusCode);
 		}
