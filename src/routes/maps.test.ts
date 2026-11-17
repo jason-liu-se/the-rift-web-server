@@ -23,6 +23,7 @@ function season(number: number) {
 			{
 				name: "overworld",
 				imageUrl: `season-${number}-overworld.webp`,
+				worldId: `season-${number}-overworld`,
 				perspective: ":0:0:0:1500:0:0:0:0:"
 			}
 		]

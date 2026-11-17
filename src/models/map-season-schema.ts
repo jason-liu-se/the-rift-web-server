@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 export interface MapDimension {
 	readonly name: string;
 	readonly imageUrl: string;
+	readonly worldId: string;
 	readonly perspective: string;
 }
 
@@ -16,6 +17,7 @@ const mapDimensionSchema = new mongoose.Schema<MapDimension>(
 	{
 		name: { type: String, required: true },
 		imageUrl: { type: String, required: true },
+		worldId: { type: String, required: true },
 		perspective: { type: String, required: true }
 	},
 	{ _id: false }
