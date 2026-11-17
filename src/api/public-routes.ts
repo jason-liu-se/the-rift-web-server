@@ -1,4 +1,4 @@
-import { LOGIN_CALLBACK_PATH } from "../config/auth.ts";
+import { CURRENT_USER_PATH, LOGIN_CALLBACK_PATH } from "../config/auth.ts";
 
 // The only routes anyone may call. Every other route, including any added
 // later, needs a logged-in editor (requireLogin in src/middleware/), so a route
@@ -21,7 +21,7 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
 	{ method: "get", path: "/auth/discord" },
 	{ method: "get", path: `/auth${LOGIN_CALLBACK_PATH}` },
 	// Answers 401 itself, so the website can tell whether anyone is logged in.
-	{ method: "get", path: "/auth/me" },
+	{ method: "get", path: `/auth${CURRENT_USER_PATH}` },
 	{ method: "post", path: "/auth/refresh" },
 	{ method: "post", path: "/auth/logout" }
 ];

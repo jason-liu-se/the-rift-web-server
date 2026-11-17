@@ -6,7 +6,7 @@ import {
 	clearSessionCookies,
 	setSessionCookies
 } from "../auth/session-cookie.ts";
-import { LOGIN_CALLBACK_PATH } from "../config/auth.ts";
+import { CURRENT_USER_PATH, LOGIN_CALLBACK_PATH } from "../config/auth.ts";
 import type { AppConfig } from "../config/env.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import { cookieValue } from "../api/query-schemas.ts";
@@ -32,7 +32,7 @@ export function authRouter(config: AppConfig): Router {
 	});
 
 	// The logged-in user, so the website can tell whether someone is logged in.
-	router.get("/me", (_req, res) => {
+	router.get(CURRENT_USER_PATH, (_req, res) => {
 		const { user } = res.locals;
 		if (!user) {
 			throw new UnauthorizedError();

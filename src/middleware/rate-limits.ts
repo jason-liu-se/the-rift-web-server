@@ -4,7 +4,7 @@
 import type { Request, RequestHandler, Response } from "express";
 import { type Options, ipKeyGenerator, rateLimit } from "express-rate-limit";
 import { redirectToLoginPage } from "../auth/discord-login.ts";
-import { LOGIN_CALLBACK_PATH } from "../config/auth.ts";
+import { CURRENT_USER_PATH, LOGIN_CALLBACK_PATH } from "../config/auth.ts";
 import type { AppConfig } from "../config/env.ts";
 import {
 	AUTH_RATE_LIMIT,
@@ -59,7 +59,8 @@ export function authRateLimit(config: AppConfig): RequestHandler {
 	return limiter(config, {
 		windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
 		limit: AUTH_RATE_LIMIT,
-		skip: (req) => routePath(req) === "/auth/me",
+		skip: (req) =>
+			routePath(req) === `/auth${CURRENT_USER_PATH}`.toLowerCase(),
 		keyGenerator: (req) => clientIp(req, config)
 	});
 }
