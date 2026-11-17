@@ -9,7 +9,7 @@
 // src/api/response-schemas.ts, which z.toZod checks against these types, so
 // the server can't send a different shape.
 //
-//   GET /news                    PaginatedResponse<NewsItem>, newest first
+//   GET /news                    PaginatedResponse<NewsPost>, newest first
 //   GET /news/count              CountResponse
 //   GET /gallery/:collection     PaginatedResponse<GalleryImage>
 //   GET /gallery/:collection/count  CountResponse
@@ -27,7 +27,7 @@
 //                                /admin/login?error=LoginErrorCode
 //   any error (400, 401, 404, 500)  ErrorResponse
 
-export interface NewsItem {
+export interface NewsPost {
 	id: string;
 	title: string;
 	/** ISO 8601 date-time, e.g. 2025-01-01T00:00:00.000Z */

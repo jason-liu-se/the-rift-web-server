@@ -12,12 +12,12 @@ import type {
 	DownloadCollection,
 	DownloadItem,
 	GalleryImage,
-	NewsItem,
+	NewsPost,
 	PaginatedResponse,
 	SessionUser
 } from "../contract/api-responses.ts";
 
-const newsItem = z.toZod<NewsItem>()(
+const newsPost = z.toZod<NewsPost>()(
 	z.object({
 		id: z.string(),
 		title: z.string(),
@@ -51,8 +51,8 @@ export const countResponse = z.toZod<CountResponse>()(
 	z.object({ total: z.number().int().min(0) })
 );
 
-export const newsPage = z.toZod<PaginatedResponse<NewsItem>>()(
-	countResponse.extend({ items: z.array(newsItem) })
+export const newsPostsPage = z.toZod<PaginatedResponse<NewsPost>>()(
+	countResponse.extend({ items: z.array(newsPost) })
 );
 
 export const galleryPage = z.toZod<PaginatedResponse<GalleryImage>>()(

@@ -17,7 +17,7 @@ per file in `src/models/`:
 
 | Database    | Collections            | Model                               |
 | ----------- | ---------------------- | ----------------------------------- |
-| `news`      | `posts`                | `src/models/post-schema.ts`         |
+| `news`      | `posts`                | `src/models/news-post-schema.ts`    |
 | `gallery`   | One per gallery        | `src/models/gallery-schema.ts`      |
 | `downloads` | One per download group | `src/models/downloads-schema.ts`    |
 | `auth`      | `accessGrants`         | `src/models/access-grant-schema.ts` |

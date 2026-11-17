@@ -14,7 +14,7 @@ import {
 	getGalleryModel,
 	type GalleryImage
 } from "../models/gallery-schema.ts";
-import { postModel, type Post } from "../models/post-schema.ts";
+import { newsPostModel, type NewsPost } from "../models/news-post-schema.ts";
 
 // MongoDB treats a limit of 0 as "no limit".
 const NO_LIMIT = 0;
@@ -90,13 +90,13 @@ export async function countGalleryCollectionItems(
 	return getGalleryModel(collectionName).countDocuments();
 }
 
-// Returns posts newest first. Omitting `limit` returns every item from
+// Returns news posts newest first. Omitting `limit` returns every item from
 // `startIndex` onwards.
-export async function getPosts(
+export async function getNewsPosts(
 	startIndex: number,
 	limit?: number
-): Promise<WithId<Post>[]> {
-	const items = await postModel
+): Promise<WithId<NewsPost>[]> {
+	const items = await newsPostModel
 		.find()
 		.sort({ date: -1 })
 		.skip(startIndex)
@@ -105,8 +105,8 @@ export async function getPosts(
 	return items.map(withId);
 }
 
-export async function countPosts(): Promise<number> {
-	return postModel.countDocuments();
+export async function countNewsPosts(): Promise<number> {
+	return newsPostModel.countDocuments();
 }
 
 export async function getDownloadCollection(

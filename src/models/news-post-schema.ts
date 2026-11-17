@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
 
-export interface Post {
+export interface NewsPost {
 	readonly title: string;
 	readonly date: Date;
 	readonly content: string;
 	readonly bannerImg?: string;
 }
 
-const postSchema = new mongoose.Schema<Post>({
+const newsPostSchema = new mongoose.Schema<NewsPost>({
 	title: { type: String, required: true },
 	date: { type: Date, required: true },
 	content: { type: String, required: true },
@@ -18,4 +18,8 @@ export const newsDb = mongoose.connection.useDb("news");
 
 // The collection name is passed explicitly: this model is compiled on import,
 // before `connect` turns off Mongoose's pluralizer.
-export const postModel = newsDb.model<Post>("Post", postSchema, "posts");
+export const newsPostModel = newsDb.model<NewsPost>(
+	"NewsPost",
+	newsPostSchema,
+	"posts"
+);
