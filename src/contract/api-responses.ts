@@ -15,6 +15,7 @@
 //   GET /gallery/:collection/count  CountResponse
 //   GET /downloads               DownloadCollection[], sorted by name
 //   GET /downloads/:collection   DownloadItem[]
+//   GET /maps/seasons            MapSeason[], oldest season first
 //   GET /auth/me                 SessionUser (401 when nobody is logged in,
 //                                including when the access token expired)
 //   POST /auth/refresh           204, no body, with new session cookies (401
@@ -53,6 +54,22 @@ export interface DownloadItem {
 export interface DownloadCollection {
 	name: string;
 	items: DownloadItem[];
+}
+
+/** One world of a season's map, e.g. the overworld. */
+export interface MapDimension {
+	name: string;
+	imageUrl: string;
+	/** BlueMap perspective (camera position) to open the map at */
+	perspective: string;
+}
+
+export interface MapSeason {
+	id: string;
+	/** Season number */
+	season: number;
+	imageUrl: string;
+	dimensions: MapDimension[];
 }
 
 export interface CountResponse {

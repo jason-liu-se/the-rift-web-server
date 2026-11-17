@@ -17,6 +17,7 @@ export const PUBLIC_ROUTES: readonly PublicRoute[] = [
 	{ method: "get", path: "/gallery/:collection/count" },
 	{ method: "get", path: "/downloads" },
 	{ method: "get", path: "/downloads/:collection" },
+	{ method: "get", path: "/maps/seasons" },
 	// Logging in, and the session's own upkeep, can't require a login.
 	{ method: "get", path: "/auth/discord" },
 	{ method: "get", path: `/auth${LOGIN_CALLBACK_PATH}` },

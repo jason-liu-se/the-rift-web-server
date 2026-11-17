@@ -20,6 +20,7 @@ per file in `src/models/`:
 | `news`      | `posts`                | `src/models/news-post-schema.ts`    |
 | `gallery`   | One per gallery        | `src/models/gallery-schema.ts`      |
 | `downloads` | One per download group | `src/models/downloads-schema.ts`    |
+| `maps`      | `seasons`              | `src/models/map-season-schema.ts`   |
 | `auth`      | `accessGrants`         | `src/models/access-grant-schema.ts` |
 
 Content and access grants are added to MongoDB directly; the server never

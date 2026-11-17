@@ -72,6 +72,7 @@ its `check` job a required status check on `main`.
 | `GET /gallery/:collection/count` |                       | `{ total }`                              | Public |
 | `GET /downloads`                 |                       | `[{ name, items }]` for every group      | Public |
 | `GET /downloads/:collection`     |                       | The group's items                        | Public |
+| `GET /maps/seasons`              |                       | Every season's map, oldest first         | Public |
 | `GET /health`                    |                       | `200`                                    | Public |
 | `GET /auth/discord`              |                       | Starts a Discord login                   | Public |
 | `GET /auth/discord/callback`     | From Discord          | Redirects to the website                 | Public |
@@ -147,8 +148,9 @@ use it up for everyone.
 ## Data
 
 **MongoDB:** databases `news` (collection `posts`), `gallery` (one collection
-per gallery), `downloads` (one per group), and `auth` (`accessGrants`). Add
-content directly. See [database.md](./.claude/rules/database.md).
+per gallery), `downloads` (one per group), `maps` (`seasons`), and `auth`
+(`accessGrants`). Add content directly. See
+[database.md](./.claude/rules/database.md).
 
 **Redis:** one hash per login session, key `session:<session ID>`, expiring with
 the session; fields in

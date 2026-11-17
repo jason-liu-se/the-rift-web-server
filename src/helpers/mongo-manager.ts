@@ -14,6 +14,7 @@ import {
 	getGalleryModel,
 	type GalleryImage
 } from "../models/gallery-schema.ts";
+import { mapSeasonModel, type MapSeason } from "../models/map-season-schema.ts";
 import { newsPostModel, type NewsPost } from "../models/news-post-schema.ts";
 
 // MongoDB treats a limit of 0 as "no limit".
@@ -130,6 +131,12 @@ export async function getAllDownloadCollections(): Promise<
 			items: await getDownloadCollection(name)
 		}))
 	);
+}
+
+// Returns every map season, oldest first. Unpaginated: there's one per season.
+export async function getMapSeasons(): Promise<WithId<MapSeason>[]> {
+	const seasons = await mapSeasonModel.find().sort({ season: 1 }).lean();
+	return seasons.map(withId);
 }
 
 export interface AccessGrantSubjects {

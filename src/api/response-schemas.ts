@@ -12,6 +12,7 @@ import type {
 	DownloadCollection,
 	DownloadItem,
 	GalleryImage,
+	MapSeason,
 	NewsPost,
 	PaginatedResponse,
 	SessionUser
@@ -45,6 +46,23 @@ export const downloadItems = z.toZod<DownloadItem[]>()(
 
 export const downloadCollections = z.toZod<DownloadCollection[]>()(
 	z.array(z.object({ name: z.string(), items: downloadItems }))
+);
+
+export const mapSeasons = z.toZod<MapSeason[]>()(
+	z.array(
+		z.object({
+			id: z.string(),
+			season: z.number().int(),
+			imageUrl: z.string(),
+			dimensions: z.array(
+				z.object({
+					name: z.string(),
+					imageUrl: z.string(),
+					perspective: z.string()
+				})
+			)
+		})
+	)
 );
 
 export const countResponse = z.toZod<CountResponse>()(
