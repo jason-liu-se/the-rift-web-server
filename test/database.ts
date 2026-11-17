@@ -5,7 +5,7 @@ import * as mongoManager from "../src/helpers/mongo-manager.ts";
 import { authDb } from "../src/models/access-grant-schema.ts";
 import { downloadsDb } from "../src/models/downloads-schema.ts";
 import { galleryDb } from "../src/models/gallery-schema.ts";
-import { newsDb } from "../src/models/news-schema.ts";
+import { newsDb } from "../src/models/post-schema.ts";
 
 const DATABASES = [newsDb, galleryDb, downloadsDb, authDb];
 

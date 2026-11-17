@@ -9,13 +9,13 @@ import {
 
 export const newsRouter = express.Router();
 
-// A page of news items, newest first, with the total for paginating.
+// A page of posts, newest first, with the total for paginating.
 newsRouter.get("/", async (req, res) => {
 	const { startIndex, limit } = paginationQuery.parse(req.query);
 
 	const [items, total] = await Promise.all([
-		mongoManager.getNewsItems(startIndex, limit),
-		mongoManager.countNewsItems()
+		mongoManager.getPosts(startIndex, limit),
+		mongoManager.countPosts()
 	]);
 	res.json(parseResponse(newsPage, { items, total }));
 });
@@ -24,7 +24,7 @@ newsRouter.get("/", async (req, res) => {
 newsRouter.get("/count", async (req, res) => {
 	res.json(
 		parseResponse(countResponse, {
-			total: await mongoManager.countNewsItems()
+			total: await mongoManager.countPosts()
 		})
 	);
 });

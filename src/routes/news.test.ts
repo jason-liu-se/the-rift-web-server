@@ -21,7 +21,7 @@ const IDS = {
 };
 
 function seedNews() {
-	return collection("news", "news-items").insertMany([
+	return collection("news", "posts").insertMany([
 		{
 			_id: IDS.oldest,
 			title: "Oldest",
@@ -94,7 +94,7 @@ describe("GET /news", () => {
 	});
 
 	it("answers 500 when a stored item breaks the contract", async () => {
-		await collection("news", "news-items").insertOne({
+		await collection("news", "posts").insertOne({
 			title: "No date",
 			content: "a"
 		});
@@ -115,7 +115,7 @@ describe("GET /news", () => {
 });
 
 describe("GET /news/count", () => {
-	it("returns the number of news items", async () => {
+	it("returns the number of posts", async () => {
 		await seedNews();
 
 		const res = await request(app).get("/news/count").expect(200);

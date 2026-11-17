@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
 
-export interface NewsItem {
+export interface Post {
 	readonly title: string;
 	readonly date: Date;
 	readonly content: string;
 	readonly bannerImg?: string;
 }
 
-const newsSchema = new mongoose.Schema<NewsItem>({
+const postSchema = new mongoose.Schema<Post>({
 	title: { type: String, required: true },
 	date: { type: Date, required: true },
 	content: { type: String, required: true },
@@ -16,4 +16,4 @@ const newsSchema = new mongoose.Schema<NewsItem>({
 
 export const newsDb = mongoose.connection.useDb("news");
 
-export const newsItemModel = newsDb.model<NewsItem>("news-items", newsSchema);
+export const postModel = newsDb.model<Post>("posts", postSchema);

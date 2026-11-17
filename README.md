@@ -146,10 +146,9 @@ use it up for everyone.
 
 ## Data
 
-**MongoDB:** databases `news` (collection `news-items`), `gallery` (one
-collection per gallery), `downloads` (one per group), and `auth`
-(`access-grants`). Add content directly. See
-[database.md](./.claude/rules/database.md).
+**MongoDB:** databases `news` (collection `posts`), `gallery` (one collection
+per gallery), `downloads` (one per group), and `auth` (`access-grants`). Add
+content directly. See [database.md](./.claude/rules/database.md).
 
 **Redis:** one hash per login session, key `session:<session ID>`, expiring with
 the session; fields in
