@@ -83,7 +83,7 @@ function stubDiscord(overrides: Partial<DiscordReplies> = {}) {
 }
 
 function grant(subjectType: string, subjectId: string) {
-	return collection("auth", "access-grants").insertOne({
+	return collection("auth", "accessGrants").insertOne({
 		subjectType,
 		subjectId,
 		createdBy: "6000000000000000006",

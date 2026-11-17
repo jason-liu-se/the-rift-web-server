@@ -21,6 +21,7 @@ import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";
 import { galleryRouter } from "./routes/gallery.ts";
 import { healthRouter } from "./routes/health.ts";
+import { mapsRouter } from "./routes/maps.ts";
 
 export function createApp(config: AppConfig): Express {
 	const app = express();
@@ -59,6 +60,7 @@ export function apiRouters(config: AppConfig): Record<string, Router> {
 		"/auth": authRouter(config),
 		"/news": newsRouter,
 		"/downloads": downloadsRouter,
-		"/gallery": galleryRouter
+		"/gallery": galleryRouter,
+		"/maps": mapsRouter
 	};
 }

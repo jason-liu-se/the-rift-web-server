@@ -17,10 +17,11 @@ per file in `src/models/`:
 
 | Database    | Collections            | Model                               |
 | ----------- | ---------------------- | ----------------------------------- |
-| `news`      | `news-items`           | `src/models/news-schema.ts`         |
+| `news`      | `posts`                | `src/models/news-post-schema.ts`    |
 | `gallery`   | One per gallery        | `src/models/gallery-schema.ts`      |
 | `downloads` | One per download group | `src/models/downloads-schema.ts`    |
-| `auth`      | `access-grants`        | `src/models/access-grant-schema.ts` |
+| `maps`      | `seasons`              | `src/models/map-season-schema.ts`   |
+| `auth`      | `accessGrants`         | `src/models/access-grant-schema.ts` |
 
 Content and access grants are added to MongoDB directly; the server never
 writes. Login sessions and their refresh token hashes live in Redis instead
@@ -29,7 +30,9 @@ writes. Login sessions and their refresh token hashes live in Redis instead
 lose precision).
 
 - Collection names are used as given: pluralization and auto-creation are off. A
-  new gallery or download group is just a new collection.
+  new gallery or download group is just a new collection. Models compiled on
+  import (before `connect` turns pluralization off) pass their collection name
+  as `model()`'s third argument, or Mongoose lowercases it.
 - A query against an unknown collection returns nothing, so routes check
   `hasGalleryCollection` / `hasDownloadCollection` first and answer `404`.
 - User-supplied collection names go through `collectionParams`

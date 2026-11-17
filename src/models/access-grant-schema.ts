@@ -33,7 +33,10 @@ const accessGrantSchema = new mongoose.Schema<AccessGrant>(
 
 export const authDb = mongoose.connection.useDb("auth");
 
+// The collection name is passed explicitly: this model is compiled on import,
+// before `connect` turns off Mongoose's pluralizer, which would lowercase it.
 export const accessGrantModel = authDb.model<AccessGrant>(
-	"access-grants",
-	accessGrantSchema
+	"AccessGrant",
+	accessGrantSchema,
+	"accessGrants"
 );

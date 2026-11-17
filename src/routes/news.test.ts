@@ -20,8 +20,8 @@ const IDS = {
 	middle: new Types.ObjectId()
 };
 
-function seedNews() {
-	return collection("news", "news-items").insertMany([
+function seedNewsPosts() {
+	return collection("news", "posts").insertMany([
 		{
 			_id: IDS.oldest,
 			title: "Oldest",
@@ -46,7 +46,7 @@ function seedNews() {
 
 describe("GET /news", () => {
 	it("returns every item newest first with the total", async () => {
-		await seedNews();
+		await seedNewsPosts();
 
 		const res = await request(app).get("/news").expect(200);
 
@@ -76,7 +76,7 @@ describe("GET /news", () => {
 	});
 
 	it("returns the page selected by startIndex and limit", async () => {
-		await seedNews();
+		await seedNewsPosts();
 
 		const res = await request(app)
 			.get("/news?startIndex=1&limit=1")
@@ -87,14 +87,14 @@ describe("GET /news", () => {
 		expect(res.body.items[0].title).toBe("Middle");
 	});
 
-	it("returns an empty page when there is no news", async () => {
+	it("returns an empty page when there are no news posts", async () => {
 		const res = await request(app).get("/news").expect(200);
 
 		expect(res.body).toEqual({ items: [], total: 0 });
 	});
 
 	it("answers 500 when a stored item breaks the contract", async () => {
-		await collection("news", "news-items").insertOne({
+		await collection("news", "posts").insertOne({
 			title: "No date",
 			content: "a"
 		});
@@ -115,15 +115,15 @@ describe("GET /news", () => {
 });
 
 describe("GET /news/count", () => {
-	it("returns the number of news items", async () => {
-		await seedNews();
+	it("returns the number of news posts", async () => {
+		await seedNewsPosts();
 
 		const res = await request(app).get("/news/count").expect(200);
 
 		expect(res.body).toEqual({ total: 3 });
 	});
 
-	it("returns 0 when there is no news", async () => {
+	it("returns 0 when there are no news posts", async () => {
 		const res = await request(app).get("/news/count").expect(200);
 
 		expect(res.body).toEqual({ total: 0 });

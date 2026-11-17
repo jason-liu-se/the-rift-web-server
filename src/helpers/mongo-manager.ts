@@ -14,7 +14,8 @@ import {
 	getGalleryModel,
 	type GalleryImage
 } from "../models/gallery-schema.ts";
-import { newsItemModel, type NewsItem } from "../models/news-schema.ts";
+import { mapSeasonModel, type MapSeason } from "../models/map-season-schema.ts";
+import { newsPostModel, type NewsPost } from "../models/news-post-schema.ts";
 
 // MongoDB treats a limit of 0 as "no limit".
 const NO_LIMIT = 0;
@@ -90,13 +91,13 @@ export async function countGalleryCollectionItems(
 	return getGalleryModel(collectionName).countDocuments();
 }
 
-// Returns news items newest first. Omitting `limit` returns every item from
+// Returns news posts newest first. Omitting `limit` returns every item from
 // `startIndex` onwards.
-export async function getNewsItems(
+export async function getNewsPosts(
 	startIndex: number,
 	limit?: number
-): Promise<WithId<NewsItem>[]> {
-	const items = await newsItemModel
+): Promise<WithId<NewsPost>[]> {
+	const items = await newsPostModel
 		.find()
 		.sort({ date: -1 })
 		.skip(startIndex)
@@ -105,8 +106,8 @@ export async function getNewsItems(
 	return items.map(withId);
 }
 
-export async function countNewsItems(): Promise<number> {
-	return newsItemModel.countDocuments();
+export async function countNewsPosts(): Promise<number> {
+	return newsPostModel.countDocuments();
 }
 
 export async function getDownloadCollection(
@@ -130,6 +131,12 @@ export async function getAllDownloadCollections(): Promise<
 			items: await getDownloadCollection(name)
 		}))
 	);
+}
+
+// Returns every map season, oldest first. Unpaginated: there's one per season.
+export async function getMapSeasons(): Promise<WithId<MapSeason>[]> {
+	const seasons = await mapSeasonModel.find().sort({ season: 1 }).lean();
+	return seasons.map(withId);
 }
 
 export interface AccessGrantSubjects {

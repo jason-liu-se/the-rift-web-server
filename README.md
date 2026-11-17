@@ -72,6 +72,7 @@ its `check` job a required status check on `main`.
 | `GET /gallery/:collection/count` |                       | `{ total }`                              | Public |
 | `GET /downloads`                 |                       | `[{ name, items }]` for every group      | Public |
 | `GET /downloads/:collection`     |                       | The group's items                        | Public |
+| `GET /maps/seasons`              |                       | Every season's map, oldest first         | Public |
 | `GET /health`                    |                       | `200`                                    | Public |
 | `GET /auth/discord`              |                       | Starts a Discord login                   | Public |
 | `GET /auth/discord/callback`     | From Discord          | Redirects to the website                 | Public |
@@ -112,7 +113,7 @@ same, on every read; higher without the tunnel, see
 - **Log everyone out:** delete the `session:*` keys in Redis (and rotate
   `JWT_SECRET` to end access tokens immediately).
 
-**Who can log in:** documents in the `auth` database's `access-grants`
+**Who can log in:** documents in the `auth` database's `accessGrants`
 collection, matching a Discord user ID or a role in The Rift's server. No grants
 means nobody can log in. Access is checked only at login.
 
@@ -146,9 +147,9 @@ use it up for everyone.
 
 ## Data
 
-**MongoDB:** databases `news` (collection `news-items`), `gallery` (one
-collection per gallery), `downloads` (one per group), and `auth`
-(`access-grants`). Add content directly. See
+**MongoDB:** databases `news` (collection `posts`), `gallery` (one collection
+per gallery), `downloads` (one per group), `maps` (`seasons`), and `auth`
+(`accessGrants`). Add content directly. See
 [database.md](./.claude/rules/database.md).
 
 **Redis:** one hash per login session, key `session:<session ID>`, expiring with
