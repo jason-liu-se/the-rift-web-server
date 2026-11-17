@@ -4,8 +4,8 @@
 /** Auth limiter: the window it counts over, in ms. */
 export const AUTH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 
-/** Auth limiter: /auth/* and logged-out private requests per client IP per window. */
-export const AUTH_RATE_LIMIT = 60;
+/** Auth limiter: login and session requests per client IP per window. */
+export const AUTH_RATE_LIMIT = 15;
 
 /** Write limiter: the window it counts over, in ms. */
 export const WRITE_RATE_LIMIT_WINDOW_MS = 60 * 1000;

@@ -48,8 +48,8 @@ Never reveal internals (stack traces, queries, connection strings) in a body.
 
 Every request passes, in order (`createApp`): CORS → the CSRF origin check
 (`403`) → the session → the write limiter, then the read limiter (`429`) → the
-login gate (`401`) → the auth limiter for `/auth/*` (`429`) → the JSON body
-check (`400`, `413`, `415`) → the routers (or `404`).
+login gate (`401`) → the auth limiter for `/auth/*` but `/auth/me` (`429`) → the
+JSON body check (`400`, `413`, `415`) → the routers (or `404`).
 
 Anyone may read public content; everything else needs a logged-in editor (anyone
 who can log in is an editor, see the README's "Sessions and access"). It's
@@ -98,17 +98,23 @@ PATCH, or DELETE route must add its method there, or browsers block it.
 Three limiters in `src/middleware/rate-limits.ts`, tuned in
 `src/config/rate-limits.ts`, so every request is limited somewhere. Each keeps
 its own counts, so none uses up another's budget, though a request may count in
-two (a logged-out `/auth/refresh`, or `/auth/me`). Counts are per app instance,
-in memory. Each answers `429`, except that a rate-limited Discord callback
-redirects to the login page (`rate-limited`), whichever limiter stopped it.
+two (a login's `/auth/discord` and callback count as reads too). Counts are per
+app instance, in memory. Each answers `429`, except that a rate-limited Discord
+callback redirects to the login page (`rate-limited`), whichever limiter stopped
+it.
 
-|                | Auth limiter                                   | Write limiter                                        | Read limiter                                                                         |
-| -------------- | ---------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Guards against | Login abuse, refresh-token guessing            | Anyone flooding writes (incl. a stolen session)      | Scraping, flooding reads                                                             |
-| Counts         | Every `/auth/*` request                        | Every request other than GET, HEAD, OPTIONS          | Every GET and HEAD                                                                   |
-| Keyed by       | Client IP (see below; IPv6 /56)                | Logged-in user's ID (editors may share an IP), or IP | Same as the write limiter                                                            |
-| Mounted        | On `/auth`                                     | Before `requireLogin`, app-wide                      | After the write limiter, app-wide                                                    |
-| Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS` | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS`     | `READ_RATE_LIMIT`, `READ_RATE_LIMIT_WINDOW_MS`; env `READ_RATE_LIMIT_WITHOUT_TUNNEL` |
+|                | Auth limiter                                     | Write limiter                                              | Read limiter                                                                         |
+| -------------- | ------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Guards against | Login abuse, refresh-token guessing              | Anyone flooding writes (incl. a stolen session)            | Scraping, flooding reads                                                             |
+| Counts         | `/auth/*` but `/auth/me`: login, refresh, logout | Every request other than GET, HEAD, OPTIONS, but `/auth/*` | Every GET and HEAD                                                                   |
+| Keyed by       | Client IP (see below; IPv6 /56)                  | Logged-in user's ID (editors may share an IP), or IP       | Same as the write limiter                                                            |
+| Mounted        | On `/auth`                                       | Before `requireLogin`, app-wide                            | After the write limiter, app-wide                                                    |
+| Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS`   | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS`           | `READ_RATE_LIMIT`, `READ_RATE_LIMIT_WINDOW_MS`; env `READ_RATE_LIMIT_WITHOUT_TUNNEL` |
+
+The auth limiter guards the login steps and session upkeep, so it's the
+strictest. `/auth/me` is only a read (the admin pages call it on every
+navigation), and refresh and logout aren't writes, so an editor's writes can
+never stop them keeping or ending their session.
 
 The auth limiter is keyed by IP because its callers usually aren't logged in.
 The client IP (`clientIp`) is `CF-Connecting-IP` when `BEHIND_CLOUDFLARE_TUNNEL`

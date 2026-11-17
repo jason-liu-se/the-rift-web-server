@@ -49,12 +49,14 @@ function clientIp(req: Request, config: AppConfig): string {
 }
 
 // Auth limiter: slows down login abuse and refresh-token guessing. Counts
-// every /auth/* request, in one budget per client IP, since those callers
-// usually aren't logged in.
+// the login steps and session upkeep (everything under /auth but /auth/me,
+// which is only a read), in one budget per client IP, since those callers
+// usually aren't logged in. Mounted on /auth.
 export function authRateLimit(config: AppConfig): RequestHandler {
 	return limiter(config, {
 		windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
 		limit: AUTH_RATE_LIMIT,
+		skip: (req) => routePath(req) === "/auth/me",
 		keyGenerator: (req) => clientIp(req, config)
 	});
 }
@@ -73,13 +75,14 @@ function userOrClientKey(
 
 // Write limiter: caps how fast anyone can change things. Counts every unsafe
 // request (not GET, HEAD, or OPTIONS), before the login gate: an editor's
-// writes, anyone's public ones (/auth/refresh, /auth/logout), and logged-out
-// ones the gate then refuses. Keyed by userOrClientKey.
+// writes, and logged-out ones the gate then refuses. Not /auth/* (refresh,
+// logout): the auth limiter counts those, so an editor's writes can't stop
+// them refreshing their session or logging out. Keyed by userOrClientKey.
 export function writeRateLimit(config: AppConfig): RequestHandler {
 	return limiter(config, {
 		windowMs: WRITE_RATE_LIMIT_WINDOW_MS,
 		limit: WRITE_RATE_LIMIT,
-		skip: (req) => isSafeMethod(req.method),
+		skip: (req) => isSafeMethod(req.method) || isAuthPath(routePath(req)),
 		keyGenerator: (req, res) => userOrClientKey(req, res, config)
 	});
 }
@@ -100,6 +103,10 @@ export function readRateLimit(config: AppConfig): RequestHandler {
 		skip: (req) => !isSafeMethod(req.method),
 		keyGenerator: (req, res) => userOrClientKey(req, res, config)
 	});
+}
+
+function isAuthPath(path: string): boolean {
+	return path === "/auth" || path.startsWith("/auth/");
 }
 
 // The full path as Express routes it: case-insensitive, with an optional

@@ -65,7 +65,7 @@ describe("logged-out requests to private and unknown paths", () => {
 			await request(app).get("/news/drafts").expect(401);
 		}
 
-		await request(app).get("/auth/me").expect(401);
+		await request(app).get("/auth/discord").expect(302);
 	});
 });
 
@@ -97,16 +97,12 @@ describe("write rate limit", () => {
 			.expect(404);
 	});
 
-	it("counts logged-out public writes by IP", async () => {
+	it("never stops an editor logging out", async () => {
 		const app = freshApp();
-		// Under the auth limit, so only the write limiter can refuse.
-		for (let i = 0; i < WRITE_RATE_LIMIT; i++) {
-			await logout(app).expect(204);
-		}
+		const cookie = await sessionCookie(EDITOR);
+		await useUpWriteBudget(app, cookie);
 
-		const res = await logout(app).expect(429);
-
-		expect(res.body).toEqual(TOO_MANY_REQUESTS);
+		await logout(app).set("Cookie", cookie).expect(204);
 	});
 
 	it("counts logged-out private writes, which the gate then refuses", async () => {
@@ -124,16 +120,13 @@ describe("write rate limit", () => {
 
 		// All but one of the auth budget...
 		for (let i = 0; i < AUTH_RATE_LIMIT - 1; i++) {
-			await request(app)
-				.get("/auth/me")
-				.set("Cookie", cookie)
-				.expect(200);
+			await request(app).get("/auth/discord").expect(302);
 		}
 		// ...doesn't touch the write budget...
 		await useUpWriteBudget(app, cookie);
 
 		// ...and the writes didn't touch the auth budget.
-		await request(app).get("/auth/me").set("Cookie", cookie).expect(200);
+		await request(app).get("/auth/discord").expect(302);
 	});
 });
 
@@ -232,13 +225,13 @@ describe("read rate limit", () => {
 });
 
 describe("client IP", () => {
-	function me(target: Express, ip: string) {
-		return request(target).get("/auth/me").set("CF-Connecting-IP", ip);
+	function startLogin(target: Express, ip: string) {
+		return request(target).get("/auth/discord").set("CF-Connecting-IP", ip);
 	}
 
 	async function useUpAuthBudget(target: Express, ip: string) {
 		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
-			await me(target, ip).expect(401);
+			await startLogin(target, ip).expect(302);
 		}
 	}
 
@@ -249,14 +242,14 @@ describe("client IP", () => {
 		});
 		await useUpAuthBudget(app, "203.0.113.1");
 
-		await me(app, "203.0.113.1").expect(429);
-		await me(app, "203.0.113.2").expect(401);
+		await startLogin(app, "203.0.113.1").expect(429);
+		await startLogin(app, "203.0.113.2").expect(302);
 	});
 
 	it("ignores CF-Connecting-IP otherwise, so callers can't pick it", async () => {
 		const app = freshApp();
 		await useUpAuthBudget(app, "203.0.113.1");
 
-		await me(app, "203.0.113.2").expect(429);
+		await startLogin(app, "203.0.113.2").expect(429);
 	});
 });
