@@ -1,0 +1,268 @@
+import { describe, expect, it } from "vitest";
+import type { Express } from "express";
+import request from "supertest";
+import { createApp } from "../app.ts";
+import {
+	AUTH_RATE_LIMIT,
+	READ_RATE_LIMIT,
+	WRITE_RATE_LIMIT
+} from "../config/rate-limits.ts";
+import { testConfig } from "../../test/app.ts";
+import { EDITOR, sessionCookie } from "../../test/session.ts";
+
+const TOO_MANY_REQUESTS = {
+	error: "ERROR: too many requests; try again later"
+};
+
+// A fresh app per test, so other tests' requests don't count.
+function freshApp(): Express {
+	return createApp(testConfig);
+}
+
+// Behind the tunnel the read limit is READ_RATE_LIMIT.
+function tunneledApp(): Express {
+	return createApp({ ...testConfig, BEHIND_CLOUDFLARE_TUNNEL: true });
+}
+
+// No route accepts writes yet, so a logged-in write reaching the routers
+// answers 404; the limiters run before them.
+function write(target: Express, cookie?: string) {
+	const req = request(target)
+		.delete("/news/some-id")
+		.set("Origin", testConfig.FRONTEND_URL);
+	return cookie ? req.set("Cookie", cookie) : req;
+}
+
+async function useUpWriteBudget(target: Express, cookie: string) {
+	for (let i = 0; i < WRITE_RATE_LIMIT; i++) {
+		expect((await write(target, cookie)).status).toBe(404);
+	}
+}
+
+function logout(target: Express) {
+	return request(target)
+		.post("/auth/logout")
+		.set("Origin", testConfig.FRONTEND_URL);
+}
+
+// The auth limiter on /auth itself is tested in src/routes/auth.test.ts.
+describe("logged-out requests to private and unknown paths", () => {
+	it("count as reads, then get 401", async () => {
+		const app = tunneledApp();
+		for (let i = 0; i < READ_RATE_LIMIT / 2; i++) {
+			await request(app).get("/news/drafts").expect(401);
+			await request(app).get("/does-not-exist").expect(401);
+		}
+
+		const res = await request(app).get("/health").expect(429);
+
+		expect(res.body).toEqual(TOO_MANY_REQUESTS);
+	});
+
+	it("count against the auth budget under /auth, writes included", async () => {
+		const app = freshApp();
+		const unknownAuthWrite = () =>
+			request(app)
+				.post("/auth/anything")
+				.set("Origin", testConfig.FRONTEND_URL);
+		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
+			await unknownAuthWrite().expect(401);
+		}
+
+		await unknownAuthWrite().expect(429);
+	});
+
+	it("don't count against the auth budget elsewhere", async () => {
+		const app = freshApp();
+		for (let i = 0; i <= AUTH_RATE_LIMIT; i++) {
+			await request(app).get("/news/drafts").expect(401);
+		}
+
+		await request(app).get("/auth/discord").expect(302);
+	});
+});
+
+describe("write rate limit", () => {
+	const OTHER_EDITOR = { id: "456", username: "other" };
+
+	it("answers 429 once an editor exceeds the limit", async () => {
+		const app = freshApp();
+		const cookie = await sessionCookie(EDITOR);
+		await useUpWriteBudget(app, cookie);
+
+		const res = await write(app, cookie);
+
+		expect(res.status).toBe(429);
+		expect(res.body).toEqual(TOO_MANY_REQUESTS);
+		expect(res.headers).toHaveProperty("retry-after");
+	});
+
+	it("counts each editor separately, and never their reads", async () => {
+		const app = freshApp();
+		const cookie = await sessionCookie(EDITOR);
+		await useUpWriteBudget(app, cookie);
+
+		const other = await write(app, await sessionCookie(OTHER_EDITOR));
+		expect(other.status).toBe(404);
+		await request(app)
+			.get("/news/drafts")
+			.set("Cookie", cookie)
+			.expect(404);
+	});
+
+	it("never stops an editor logging out", async () => {
+		const app = freshApp();
+		const cookie = await sessionCookie(EDITOR);
+		await useUpWriteBudget(app, cookie);
+
+		await logout(app).set("Cookie", cookie).expect(204);
+	});
+
+	it("counts logged-out private writes, which the gate then refuses", async () => {
+		const app = freshApp();
+		for (let i = 0; i < WRITE_RATE_LIMIT; i++) {
+			await write(app).expect(401);
+		}
+
+		await write(app).expect(429);
+	});
+
+	it("keeps a separate budget from the auth limiter", async () => {
+		const app = freshApp();
+		const cookie = await sessionCookie(EDITOR);
+
+		// All but one of the auth budget...
+		for (let i = 0; i < AUTH_RATE_LIMIT - 1; i++) {
+			await request(app).get("/auth/discord").expect(302);
+		}
+		// ...doesn't touch the write budget...
+		await useUpWriteBudget(app, cookie);
+
+		// ...and the writes didn't touch the auth budget.
+		await request(app).get("/auth/discord").expect(302);
+	});
+});
+
+describe("read rate limit", () => {
+	function read(target: Express, cookie?: string) {
+		const req = request(target).get("/news/drafts");
+		return cookie ? req.set("Cookie", cookie) : req;
+	}
+
+	async function useUpReadBudget(target: Express, cookie: string) {
+		for (let i = 0; i < READ_RATE_LIMIT; i++) {
+			expect((await read(target, cookie)).status).toBe(404);
+		}
+	}
+
+	async function useUpPublicReads(target: Express, count: number) {
+		for (let i = 0; i < count; i++) {
+			await request(target).get("/health").expect(200);
+		}
+	}
+
+	it("answers 429 once a client exceeds the limit on public reads", async () => {
+		const app = createApp({
+			...testConfig,
+			BEHIND_CLOUDFLARE_TUNNEL: true
+		});
+		await useUpPublicReads(app, READ_RATE_LIMIT);
+
+		const res = await request(app).get("/health").expect(429);
+
+		expect(res.body).toEqual(TOO_MANY_REQUESTS);
+		expect(res.headers).toHaveProperty("retry-after");
+	});
+
+	it("gives every read READ_RATE_LIMIT_WITHOUT_TUNNEL without the tunnel", async () => {
+		const limit = READ_RATE_LIMIT + 5;
+		const app = createApp({
+			...testConfig,
+			READ_RATE_LIMIT_WITHOUT_TUNNEL: limit
+		});
+		const cookie = await sessionCookie(EDITOR);
+		await useUpPublicReads(app, limit);
+		for (let i = 0; i < limit; i++) {
+			await read(app, cookie).expect(404);
+		}
+
+		await request(app).get("/health").expect(429);
+		await read(app, cookie).expect(429);
+	});
+
+	it("counts a logged-in editor by user, not by IP", async () => {
+		const app = tunneledApp();
+		const cookie = await sessionCookie(EDITOR);
+		await useUpReadBudget(app, cookie);
+
+		await read(app, cookie).expect(429);
+		await request(app).get("/health").expect(200);
+	});
+
+	it("counts each visitor separately behind the Cloudflare Tunnel", async () => {
+		const app = createApp({
+			...testConfig,
+			BEHIND_CLOUDFLARE_TUNNEL: true
+		});
+		const health = (ip: string) =>
+			request(app).get("/health").set("CF-Connecting-IP", ip);
+		for (let i = 0; i < READ_RATE_LIMIT; i++) {
+			await health("203.0.113.1").expect(200);
+		}
+
+		await health("203.0.113.1").expect(429);
+		await health("203.0.113.2").expect(200);
+	});
+
+	it("counts /auth reads too, but not writes", async () => {
+		const app = tunneledApp();
+		const cookie = await sessionCookie(EDITOR);
+		await useUpReadBudget(app, cookie);
+
+		await request(app).get("/auth/me").set("Cookie", cookie).expect(429);
+		expect((await write(app, cookie)).status).toBe(404);
+	});
+
+	it("redirects a read-limited Discord callback to the login page", async () => {
+		const app = tunneledApp();
+		await useUpPublicReads(app, READ_RATE_LIMIT);
+
+		const res = await request(app)
+			.get("/auth/discord/callback?code=abc&state=xyz")
+			.expect(302);
+
+		expect(res.headers["location"]).toBe(
+			`${testConfig.FRONTEND_URL}/admin/login?error=rate-limited`
+		);
+	});
+});
+
+describe("client IP", () => {
+	function startLogin(target: Express, ip: string) {
+		return request(target).get("/auth/discord").set("CF-Connecting-IP", ip);
+	}
+
+	async function useUpAuthBudget(target: Express, ip: string) {
+		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
+			await startLogin(target, ip).expect(302);
+		}
+	}
+
+	it("comes from CF-Connecting-IP behind the Cloudflare Tunnel", async () => {
+		const app = createApp({
+			...testConfig,
+			BEHIND_CLOUDFLARE_TUNNEL: true
+		});
+		await useUpAuthBudget(app, "203.0.113.1");
+
+		await startLogin(app, "203.0.113.1").expect(429);
+		await startLogin(app, "203.0.113.2").expect(302);
+	});
+
+	it("ignores CF-Connecting-IP otherwise, so callers can't pick it", async () => {
+		const app = freshApp();
+		await useUpAuthBudget(app, "203.0.113.1");
+
+		await startLogin(app, "203.0.113.2").expect(429);
+	});
+});

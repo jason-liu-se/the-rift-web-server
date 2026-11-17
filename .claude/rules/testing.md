@@ -13,6 +13,10 @@ throwaway in-memory MongoDB (mongodb-memory-server). No `.env`, running
 database, or Redis is needed; the first run downloads a MongoDB binary.
 
 - Test files sit next to the code as `*.test.ts`.
+- Rate-limit counts live in the app, in memory. A file that makes more requests
+  to a limited path than one client may per window (e.g. `/auth`) builds its own
+  app per test with `createApp(testConfig)` instead of sharing `app` (see
+  `src/routes/auth.test.ts`).
 - `test/database.ts`: `startDatabase`, `stopDatabase`, `clearDatabase` (use as
   `beforeAll` / `afterAll` / `afterEach`), and `collection(database, name)` for
   seeding raw documents. It bypasses the models, so tests can also seed data

@@ -1,4 +1,4 @@
-// Tunable login and session settings. Safe to change; keep
+// Tunable login and session settings (rate limits: rate-limits.ts). Safe to change; keep
 // SESSION_TOKEN_TTL_SECONDS well under SESSION_MAX_AGE_MS, and
 // REFRESH_GRACE_MS short (it only needs to cover concurrent or retried
 // refreshes).
@@ -15,8 +15,14 @@ export const REFRESH_GRACE_MS = 30 * 1000;
 /** How long a started login can take to come back from Discord, in ms. */
 export const LOGIN_STATE_MAX_AGE_MS = 10 * 60 * 1000;
 
-/** The window auth rate limits are counted over, in ms. */
-export const AUTH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+/**
+ * Where Discord sends the browser back after a login, under /auth. Must match
+ * the redirect URL registered with Discord (DISCORD_REDIRECT_URI).
+ */
+export const LOGIN_CALLBACK_PATH = "/discord/callback";
 
-/** Requests to /auth/* each client IP may make per window. */
-export const AUTH_RATE_LIMIT = 60;
+/**
+ * The logged-in user, under /auth. The website calls it (its copy of
+ * src/contract/api-responses.ts), so a change must reach the website too.
+ */
+export const CURRENT_USER_PATH = "/me";

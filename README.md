@@ -30,18 +30,20 @@ but may need tuning (session lifetimes, rate limits, timeouts, the website's
 login pages) are constants in the other files in [`src/config/`](./src/config/),
 meant to be edited directly.
 
-| Variable                    | Required | Sets                                                            |
-| --------------------------- | -------- | --------------------------------------------------------------- |
-| `MONGODB_CONNECTION_STRING` | Yes      | MongoDB connection URI                                          |
-| `REDIS_URL`                 | Yes      | Redis URL (`redis://` or `rediss://`)                           |
-| `PORT`                      | No       | Port (default `4000`, which the website expects)                |
-| `FRONTEND_URL`              | Yes      | The website's origin (CORS, login redirects)                    |
-| `JWT_SECRET`                | Yes      | 64+ characters; see [Sessions and access](#sessions-and-access) |
-| `DISCORD_CLIENT_ID`         | Yes      | Discord application's client ID                                 |
-| `DISCORD_CLIENT_SECRET`     | Yes      | Discord application's client secret                             |
-| `DISCORD_REDIRECT_URI`      | Yes      | `<this API>/auth/discord/callback`, registered with Discord     |
-| `DISCORD_GUILD_ID`          | Yes      | The Rift's Discord server, for role grants                      |
-| `TRUST_PROXY_HOPS`          | No       | Proxies in front of the server (default `0`), for rate limiting |
+| Variable                         | Required | Sets                                                                                            |
+| -------------------------------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `MONGODB_CONNECTION_STRING`      | Yes      | MongoDB connection URI                                                                          |
+| `REDIS_URL`                      | Yes      | Redis URL (`redis://` or `rediss://`)                                                           |
+| `PORT`                           | No       | Port (default `4000`, which the website expects)                                                |
+| `FRONTEND_URL`                   | Yes      | The website's origin (CORS, login redirects)                                                    |
+| `JWT_SECRET`                     | Yes      | 64+ characters; see [Sessions and access](#sessions-and-access)                                 |
+| `DISCORD_CLIENT_ID`              | Yes      | Discord application's client ID                                                                 |
+| `DISCORD_CLIENT_SECRET`          | Yes      | Discord application's client secret                                                             |
+| `DISCORD_REDIRECT_URI`           | Yes      | `<this API>/auth/discord/callback`, registered with Discord                                     |
+| `DISCORD_GUILD_ID`               | Yes      | The Rift's Discord server, for role grants                                                      |
+| `TRUST_PROXY_HOPS`               | No       | Proxies in front of the server (default `0`), for rate limiting                                 |
+| `BEHIND_CLOUDFLARE_TUNNEL`       | No       | `true` only behind a Cloudflare Tunnel; see [Behind Cloudflare](#behind-cloudflare)             |
+| `READ_RATE_LIMIT_WITHOUT_TUNNEL` | No       | Reads per minute without the tunnel, e.g. in development (default: `src/config/rate-limits.ts`) |
 
 ## Commands
 
@@ -62,20 +64,26 @@ its `check` job a required status check on `main`.
 
 ## Endpoints
 
-| Endpoint                         | Query                 | Returns                                  |
-| -------------------------------- | --------------------- | ---------------------------------------- |
-| `GET /news`                      | `startIndex`, `limit` | `{ items, total }`, newest first         |
-| `GET /news/count`                |                       | `{ total }`                              |
-| `GET /gallery/:collection`       | `startIndex`, `limit` | `{ items, total }`                       |
-| `GET /gallery/:collection/count` |                       | `{ total }`                              |
-| `GET /downloads`                 |                       | `[{ name, items }]` for every group      |
-| `GET /downloads/:collection`     |                       | The group's items                        |
-| `GET /health`                    |                       | `200`                                    |
-| `GET /auth/discord`              |                       | Starts a Discord login                   |
-| `GET /auth/discord/callback`     | From Discord          | Redirects to the website                 |
-| `GET /auth/me`                   |                       | The logged-in user, or `401`             |
-| `POST /auth/refresh`             |                       | `204` with new session cookies, or `401` |
-| `POST /auth/logout`              |                       | `204`                                    |
+| Endpoint                         | Query                 | Returns                                  | Access |
+| -------------------------------- | --------------------- | ---------------------------------------- | ------ |
+| `GET /news`                      | `startIndex`, `limit` | `{ items, total }`, newest first         | Public |
+| `GET /news/count`                |                       | `{ total }`                              | Public |
+| `GET /gallery/:collection`       | `startIndex`, `limit` | `{ items, total }`                       | Public |
+| `GET /gallery/:collection/count` |                       | `{ total }`                              | Public |
+| `GET /downloads`                 |                       | `[{ name, items }]` for every group      | Public |
+| `GET /downloads/:collection`     |                       | The group's items                        | Public |
+| `GET /health`                    |                       | `200`                                    | Public |
+| `GET /auth/discord`              |                       | Starts a Discord login                   | Public |
+| `GET /auth/discord/callback`     | From Discord          | Redirects to the website                 | Public |
+| `GET /auth/me`                   |                       | The logged-in user, or `401`             | Public |
+| `POST /auth/refresh`             |                       | `204` with new session cookies, or `401` | Public |
+| `POST /auth/logout`              |                       | `204`                                    | Public |
+
+Every other request, including any unknown path, needs a logged-in editor and
+answers `401` otherwise: public routes are an allow list in
+[`src/api/public-routes.ts`](./src/api/public-routes.ts). Any request other than
+GET, HEAD, or OPTIONS must send `Origin: <FRONTEND_URL>` (CSRF protection), or
+gets `403`. Request bodies must be JSON (`415` otherwise).
 
 Errors are `{ "error": string }`. Response types:
 [`src/contract/api-responses.ts`](./src/contract/api-responses.ts), which the
@@ -86,8 +94,14 @@ sessions work: [api.md](./.claude/docs/api.md).
 
 Logins use a short-lived JWT (`session`) plus a periodically rotating refresh
 token (`refresh_token`), used for generating JWTs, stored in Redis
-([`src/auth/`](./src/auth/)). Lifetimes and rate limits are in
-[`src/config/auth.ts`](./src/config/auth.ts).
+([`src/auth/`](./src/auth/)). Lifetimes are in
+[`src/config/auth.ts`](./src/config/auth.ts). Three rate limiters, tuned in
+[`src/config/rate-limits.ts`](./src/config/rate-limits.ts): the **auth limiter**
+(per client IP, on logging in, refresh, and logout), the **write limiter** (per
+editor, or IP when logged out, on every write), and the **read limiter** (the
+same, on every read; higher without the tunnel, see
+[Behind Cloudflare](#behind-cloudflare)); see
+[api.md](./.claude/docs/api.md#rate-limits).
 
 - **Generate `JWT_SECRET`:**
   `node -e "console.log(require('node:crypto').randomBytes(64).toString('base64url'))"`
@@ -110,6 +124,25 @@ means nobody can log in. Access is checked only at login.
 	"createdAt": { "$date": "2026-11-12T00:00:00Z" }
 }
 ```
+
+## Behind Cloudflare
+
+In production the API sits behind a Cloudflare Tunnel on the website's zone
+(e.g. `api.example.com`), so Cloudflare names each client and other zones'
+Workers can be blocked. Rate limits then key clients by `CF-Connecting-IP`; for
+the website's server rendering that's the visitor, not the Worker. Without the
+tunnel (e.g. in development), every visitor's rendered pages share one IP, so
+reads get `READ_RATE_LIMIT_WITHOUT_TUNNEL` instead, and one person could still
+use it up for everyone.
+
+1. Run `cloudflared` next to the API and route `api.<domain>` to it.
+2. **Remove the service's public port** (Northflank: private ports only).
+   `BEHIND_CLOUDFLARE_TUNNEL=true` trusts a header anyone could send, so the
+   server must not be reachable except through the tunnel.
+3. Set `BEHIND_CLOUDFLARE_TUNNEL=true` (and leave `TRUST_PROXY_HOPS` at `0`).
+4. Add a WAF custom rule on the zone that blocks other zones' Workers:
+   `not (cf.worker.upstream_zone in {"" "<domain>"})` → Block.
+5. Point the website's `API_URL` and `DISCORD_REDIRECT_URI` at `api.<domain>`.
 
 ## Data
 
@@ -146,4 +179,5 @@ test/             Test helpers
 | Exits on startup             | The listed `.env` variables; MongoDB and Redis are up |
 | `404` for a gallery/download | The collection exists in the right database           |
 | `500` errors                 | The server console                                    |
+| `403` on a POST              | `Origin` is exactly `FRONTEND_URL`                    |
 | Login fails                  | The `error` code on `/admin/login` and the console    |

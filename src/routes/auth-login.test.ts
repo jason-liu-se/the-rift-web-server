@@ -11,7 +11,8 @@ import {
 import request from "supertest";
 import { SESSION_MAX_AGE_MS } from "../config/auth.ts";
 import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
-import { app, testConfig } from "../../test/app.ts";
+import { createApp } from "../app.ts";
+import { testConfig } from "../../test/app.ts";
 import {
 	clearDatabase,
 	collection,
@@ -117,6 +118,13 @@ async function expectLoginError(
 	expect(findCookie(res, REFRESH_COOKIE)).toBeUndefined();
 	expect(storedSessions().size).toBe(0);
 }
+
+// A fresh app per test: its rate-limit counts are in memory, and these tests
+// make more /auth requests than one client may in a window.
+let app = createApp(testConfig);
+beforeEach(() => {
+	app = createApp(testConfig);
+});
 
 beforeEach(() => {
 	// Failed logins are logged; keep the test output clean.

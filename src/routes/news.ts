@@ -1,7 +1,11 @@
 import express from "express";
 import * as mongoManager from "../helpers/mongo-manager.ts";
-import { paginationQuery } from "./query-schemas.ts";
-import { countResponse, newsPage, parseResponse } from "./response-schemas.ts";
+import { paginationQuery } from "../api/query-schemas.ts";
+import {
+	countResponse,
+	newsPage,
+	parseResponse
+} from "../api/response-schemas.ts";
 
 export const newsRouter = express.Router();
 

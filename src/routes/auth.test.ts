@@ -6,14 +6,14 @@ import { createApp } from "../app.ts";
 import { startSession } from "../auth/refresh-tokens.ts";
 import { signSession } from "../auth/session.ts";
 import {
-	AUTH_RATE_LIMIT,
 	REFRESH_GRACE_MS,
 	SESSION_MAX_AGE_MS,
 	SESSION_TOKEN_TTL_SECONDS
 } from "../config/auth.ts";
+import { AUTH_RATE_LIMIT } from "../config/rate-limits.ts";
 import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
 import * as redisManager from "../helpers/redis-manager.ts";
-import { app, testConfig } from "../../test/app.ts";
+import { testConfig } from "../../test/app.ts";
 import { clearRedis, storedSessions } from "../../test/redis.ts";
 
 vi.mock(
@@ -65,7 +65,9 @@ function getMe(token: string, target = app) {
 }
 
 function refresh(token?: string) {
-	const req = request(app).post("/auth/refresh");
+	const req = request(app)
+		.post("/auth/refresh")
+		.set("Origin", testConfig.FRONTEND_URL);
 	return token ? req.set("Cookie", `${REFRESH_COOKIE}=${token}`) : req;
 }
 
@@ -73,6 +75,13 @@ function setNow(ms: number) {
 	vi.useFakeTimers({ toFake: ["Date"] });
 	vi.setSystemTime(ms);
 }
+
+// A fresh app per test: its rate-limit counts are in memory, and these tests
+// make more /auth requests than one client may in a window.
+let app = createApp(testConfig);
+beforeEach(() => {
+	app = createApp(testConfig);
+});
 
 // Tests start at the login.
 beforeEach(() => {
@@ -368,6 +377,7 @@ describe("POST /auth/logout", () => {
 
 		const res = await request(app)
 			.post("/auth/logout")
+			.set("Origin", testConfig.FRONTEND_URL)
 			.set("Cookie", [
 				`${SESSION_COOKIE}=${await accessToken()}`,
 				`${REFRESH_COOKIE}=${token}`
@@ -388,35 +398,81 @@ describe("POST /auth/logout", () => {
 		["without a session", undefined],
 		["with a malformed refresh token", "not-a-refresh-token"]
 	])("succeeds %s", async (_, token) => {
-		const req = request(app).post("/auth/logout");
+		const req = request(app)
+			.post("/auth/logout")
+			.set("Origin", testConfig.FRONTEND_URL);
 		await (
 			token ? req.set("Cookie", `${REFRESH_COOKIE}=${token}`) : req
 		).expect(204);
 	});
 });
 
-describe("rate limiting", () => {
+describe("CSRF", () => {
+	it.each(["/auth/refresh", "/auth/logout"])(
+		"refuses POST %s from another origin, keeping the session",
+		async (path) => {
+			const token = await logIn();
+
+			const res = await request(app)
+				.post(path)
+				.set("Origin", "https://evil.example.com")
+				.set("Cookie", `${REFRESH_COOKIE}=${token}`)
+				.expect(403);
+
+			expect(res.body).toEqual({
+				error: "ERROR: request must come from the website"
+			});
+			expect(res.get("Set-Cookie")).toBeUndefined();
+			await refresh(token).expect(204);
+		}
+	);
+});
+
+// The write limiter's tests are in src/middleware/rate-limits.test.ts.
+describe("auth rate limit", () => {
+	it("counts logout and refresh in one budget", async () => {
+		const limitedApp = createApp(testConfig);
+		const post = (path: string) =>
+			request(limitedApp)
+				.post(path)
+				.set("Origin", testConfig.FRONTEND_URL);
+		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
+			await post("/auth/logout").expect(204);
+		}
+
+		await post("/auth/logout").expect(429);
+		await post("/auth/refresh").expect(429);
+	});
+
 	it("answers 429 once a client exceeds the limit on /auth", async () => {
 		// A fresh app, so other tests' requests don't count.
 		const limitedApp = createApp(testConfig);
 
 		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
-			await request(limitedApp).post("/auth/logout").expect(204);
+			await request(limitedApp).get("/auth/discord").expect(302);
 		}
-		const res = await request(limitedApp).get("/auth/me").expect(429);
+		const res = await request(limitedApp).get("/auth/discord").expect(429);
 
 		expect(res.body).toEqual({
 			error: "ERROR: too many requests; try again later"
 		});
 		expect(res.headers).toHaveProperty("retry-after");
-		// Other routes aren't limited.
+		// Other routes aren't limited, /auth/me (only a read) included.
 		await request(limitedApp).get("/health").expect(200);
-		// Discord's redirect back still lands on the website's login page.
-		const callback = await request(limitedApp)
-			.get("/auth/discord/callback?code=abc&state=xyz")
-			.expect(302);
-		expect(callback.headers["location"]).toBe(
-			`${testConfig.FRONTEND_URL}/admin/login?error=rate-limited`
-		);
+		await request(limitedApp).get("/auth/me").expect(401);
+		// Discord's redirect back still lands on the website's login page, by
+		// any path Express routes to the callback.
+		for (const path of [
+			"/auth/discord/callback",
+			"/auth/discord/callback/",
+			"/Auth/Discord/Callback"
+		]) {
+			const callback = await request(limitedApp)
+				.get(`${path}?code=abc&state=xyz`)
+				.expect(302);
+			expect(callback.headers["location"]).toBe(
+				`${testConfig.FRONTEND_URL}/admin/login?error=rate-limited`
+			);
+		}
 	});
 });

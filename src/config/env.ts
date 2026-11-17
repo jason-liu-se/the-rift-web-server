@@ -1,7 +1,9 @@
 import * as z from "zod";
+import { DEFAULT_READ_RATE_LIMIT_WITHOUT_TUNNEL } from "./rate-limits.ts";
 
 const DEFAULT_PORT = 4000;
 const DEFAULT_TRUST_PROXY_HOPS = 0;
+const DEFAULT_BEHIND_CLOUDFLARE_TUNNEL = false;
 const MAX_PORT = 65_535;
 const MIN_JWT_SECRET_LENGTH = 64;
 
@@ -39,6 +41,25 @@ const envSchema = z.object({
 	TRUST_PROXY_HOPS: z.preprocess(
 		emptyAsUnset,
 		z.coerce.number().int().min(0).default(DEFAULT_TRUST_PROXY_HOPS)
+	),
+	// The server is reachable only through a Cloudflare Tunnel, so Cloudflare's
+	// CF-Connecting-IP header is the client's address (README "Behind
+	// Cloudflare"). Never set it on a server reachable any other way: anyone
+	// could send the header and pick their address.
+	BEHIND_CLOUDFLARE_TUNNEL: z.preprocess(
+		emptyAsUnset,
+		z.stringbool().default(DEFAULT_BEHIND_CLOUDFLARE_TUNNEL)
+	),
+	// Without the tunnel the website's server rendering reaches the API from
+	// shared IPs (or localhost in development), so reads get this limit
+	// instead of READ_RATE_LIMIT (src/config/rate-limits.ts).
+	READ_RATE_LIMIT_WITHOUT_TUNNEL: z.preprocess(
+		emptyAsUnset,
+		z.coerce
+			.number()
+			.int()
+			.min(1)
+			.default(DEFAULT_READ_RATE_LIMIT_WITHOUT_TUNNEL)
 	)
 });
 

@@ -24,10 +24,10 @@ file dependency-free.
 
 ## 3. Schemas
 
-- Response: add or update a schema in `src/routes/response-schemas.ts`, typed
-  with `z.toZod<ContractType>()`, until `npm run typecheck` passes.
+- Response: add or update a schema in `src/api/response-schemas.ts`, typed with
+  `z.toZod<ContractType>()`, until `npm run typecheck` passes.
 - Input: reuse `collectionParams` and `paginationQuery` from
-  `src/routes/query-schemas.ts`, or add a schema there.
+  `src/api/query-schemas.ts`, or add a schema there.
 
 ## 4. Data access
 
@@ -42,18 +42,26 @@ In the router for its URL prefix (or a new one mounted in `src/app.ts`): parse
 the input, check the collection exists if it takes one, call `mongo-manager`,
 and send the body through `parseResponse`. Don't catch errors.
 
-## 6. Tests
+## 6. Access
+
+Routes need a logged-in editor by default (`.claude/docs/api.md`, "Access").
+Only if anyone should call it (public content reads), add it to `PUBLIC_ROUTES`
+in `src/api/public-routes.ts`. Ask the user if unsure.
+
+## 7. Tests
 
 Add tests in the router's `*.test.ts` (`.claude/rules/testing.md`): the success
 body, the `400` and `404` paths, and `expectContractError` for stored data
-missing a required field. Then run:
+missing a required field. For a private route, log in with `sessionCookie` from
+`test/session.ts`, and assert `401` without it. Writes send
+`Origin: testConfig.FRONTEND_URL`; assert `403` without it. Then run:
 
 ```bash
 npm run typecheck && npm run lint && npm test
 ```
 
-## 7. Finish
+## 8. Finish
 
-- Update the README's endpoint table.
+- Update the README's endpoint table, including its Access column.
 - Tell the user to run `npm run api:sync` in `../website` and update its
   services.

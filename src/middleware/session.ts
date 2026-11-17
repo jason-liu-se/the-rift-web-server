@@ -1,6 +1,6 @@
 import type { RequestHandler } from "express";
 import type { AppConfig } from "../config/env.ts";
-import { cookieValue } from "../routes/query-schemas.ts";
+import { cookieValue } from "../api/query-schemas.ts";
 import { verifySession } from "../auth/session.ts";
 import { SESSION_COOKIE } from "../auth/session-cookie.ts";
 

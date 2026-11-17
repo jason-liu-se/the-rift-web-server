@@ -1,0 +1,28 @@
+// Tunable rate limits. Three limiters (src/middleware/rate-limits.ts) keep
+// separate counts, so none uses up another's budget. Keep auth <= write <=
+// read, per window; rate-limits.test.ts fails otherwise.
+
+/** Auth limiter: the window it counts over, in ms. */
+export const AUTH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+
+/** Auth limiter: login and session requests per client IP per window. */
+export const AUTH_RATE_LIMIT = 15;
+
+/** Write limiter: the window it counts over, in ms. */
+export const WRITE_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+
+/** Write limiter: writes per editor (or client IP, logged out) per window. */
+export const WRITE_RATE_LIMIT = 30;
+
+/** Read limiter: the window it counts over, in ms. */
+export const READ_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+
+/** Read limiter: reads per editor (or client IP, logged out) per window. */
+export const READ_RATE_LIMIT = 200;
+
+/**
+ * Read limiter, without the Cloudflare Tunnel: the default for
+ * READ_RATE_LIMIT_WITHOUT_TUNNEL, the reads per editor (or client IP) per
+ * window. Higher, since the website's server rendering then shares an IP.
+ */
+export const DEFAULT_READ_RATE_LIMIT_WITHOUT_TUNNEL = 1000;
