@@ -31,12 +31,12 @@ export function createApp(config: AppConfig): Express {
 	app.use(requireFrontendOrigin(config.FRONTEND_URL));
 	app.use(cookieParser());
 	app.use(sessionMiddleware(config));
-	// Every request is a read or a write, logged in or not, so the limiters run
-	// before the gate; /auth also has its own budget.
+	// Every request is a read or a write, and /auth also has its own budget.
+	// The limiters run before the gate, so they count logged-out requests too.
 	app.use(writeRateLimit(config));
 	app.use(readRateLimit(config));
-	app.use(requireLogin(PUBLIC_ROUTES));
 	app.use("/auth", authRateLimit(config));
+	app.use(requireLogin(PUBLIC_ROUTES));
 	app.use(jsonBody());
 	for (const [prefix, router] of Object.entries(apiRouters(config))) {
 		app.use(prefix, router);

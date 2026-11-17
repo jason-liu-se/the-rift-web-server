@@ -59,7 +59,20 @@ describe("logged-out requests to private and unknown paths", () => {
 		expect(res.body).toEqual(TOO_MANY_REQUESTS);
 	});
 
-	it("don't count against the auth budget", async () => {
+	it("count against the auth budget under /auth, writes included", async () => {
+		const app = freshApp();
+		const unknownAuthWrite = () =>
+			request(app)
+				.post("/auth/anything")
+				.set("Origin", testConfig.FRONTEND_URL);
+		for (let i = 0; i < AUTH_RATE_LIMIT; i++) {
+			await unknownAuthWrite().expect(401);
+		}
+
+		await unknownAuthWrite().expect(429);
+	});
+
+	it("don't count against the auth budget elsewhere", async () => {
 		const app = freshApp();
 		for (let i = 0; i <= AUTH_RATE_LIMIT; i++) {
 			await request(app).get("/news/drafts").expect(401);
