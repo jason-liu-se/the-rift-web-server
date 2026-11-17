@@ -48,10 +48,9 @@ function clientIp(req: Request, config: AppConfig): string {
 	return ipKeyGenerator(ip ?? "");
 }
 
-// Auth limiter: slows down login abuse, refresh-token guessing, and logged-out
-// probing. Counts every /auth/* request and every logged-out request to a
-// private (or unknown) path, in one budget per client IP, since those callers
-// usually aren't logged in. createApp mounts the one instance for both.
+// Auth limiter: slows down login abuse and refresh-token guessing. Counts
+// every /auth/* request, in one budget per client IP, since those callers
+// usually aren't logged in.
 export function authRateLimit(config: AppConfig): RequestHandler {
 	return limiter(config, {
 		windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
@@ -73,9 +72,9 @@ function userOrClientKey(
 }
 
 // Write limiter: caps how fast anyone can change things. Counts every unsafe
-// request (not GET, HEAD, or OPTIONS) that gets past the login gate: an
-// editor's private writes and anyone's public ones (/auth/refresh,
-// /auth/logout). Keyed by userOrClientKey.
+// request (not GET, HEAD, or OPTIONS), before the login gate: an editor's
+// writes, anyone's public ones (/auth/refresh, /auth/logout), and logged-out
+// ones the gate then refuses. Keyed by userOrClientKey.
 export function writeRateLimit(config: AppConfig): RequestHandler {
 	return limiter(config, {
 		windowMs: WRITE_RATE_LIMIT_WINDOW_MS,
@@ -86,8 +85,8 @@ export function writeRateLimit(config: AppConfig): RequestHandler {
 }
 
 // Read limiter: caps how fast anyone can read, e.g. scraping. Counts every
-// GET and HEAD request that gets past the login gate: public reads (/auth/*
-// too) and an editor's private ones. Keyed by userOrClientKey, so behind the
+// GET and HEAD request, before the login gate: public reads (/auth/* too), an
+// editor's private ones, and logged-out ones the gate then refuses. Keyed by userOrClientKey, so behind the
 // Cloudflare Tunnel the website's server rendering counts against each
 // visitor, not one shared budget.
 // Without the tunnel it shares Cloudflare's IPs (or localhost in development),

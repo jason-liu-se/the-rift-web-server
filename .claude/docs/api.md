@@ -47,10 +47,9 @@ Never reveal internals (stack traces, queries, connection strings) in a body.
 ## Access
 
 Every request passes, in order (`createApp`): CORS → the CSRF origin check
-(`403`) → the session → the login gate (logged out on a private or unknown path:
-the auth limiter (`429`), then `401`) → the auth limiter for `/auth/*` → the
-write limiter, then the read limiter (`429`) → the JSON body check (`400`,
-`413`, `415`) → the routers (or `404`).
+(`403`) → the session → the write limiter, then the read limiter (`429`) → the
+login gate (`401`) → the auth limiter for `/auth/*` (`429`) → the JSON body
+check (`400`, `413`, `415`) → the routers (or `404`).
 
 Anyone may read public content; everything else needs a logged-in editor (anyone
 who can log in is an editor, see the README's "Sessions and access"). It's
@@ -103,22 +102,22 @@ two (a logged-out `/auth/refresh`, or `/auth/me`). Counts are per app instance,
 in memory. Each answers `429`, except that a rate-limited Discord callback
 redirects to the login page (`rate-limited`), whichever limiter stopped it.
 
-|                | Auth limiter                                                    | Write limiter                                        | Read limiter                                                                         |
-| -------------- | --------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Guards against | Login abuse, refresh-token guessing, logged-out probing         | Anyone flooding writes (incl. a stolen session)      | Scraping, flooding reads                                                             |
-| Counts         | Every `/auth/*` request; logged-out private or unknown requests | Requests other than GET, HEAD, OPTIONS past the gate | GET and HEAD past the gate                                                           |
-| Keyed by       | Client IP (see below; IPv6 /56)                                 | Logged-in user's ID (editors may share an IP), or IP | Same as the write limiter                                                            |
-| Mounted        | One instance: in `requireLogin` and on `/auth`                  | After `requireLogin`, app-wide                       | After the write limiter, app-wide                                                    |
-| Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS`                  | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS`     | `READ_RATE_LIMIT`, `READ_RATE_LIMIT_WINDOW_MS`; env `READ_RATE_LIMIT_WITHOUT_TUNNEL` |
+|                | Auth limiter                                   | Write limiter                                        | Read limiter                                                                         |
+| -------------- | ---------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Guards against | Login abuse, refresh-token guessing            | Anyone flooding writes (incl. a stolen session)      | Scraping, flooding reads                                                             |
+| Counts         | Every `/auth/*` request                        | Every request other than GET, HEAD, OPTIONS          | Every GET and HEAD                                                                   |
+| Keyed by       | Client IP (see below; IPv6 /56)                | Logged-in user's ID (editors may share an IP), or IP | Same as the write limiter                                                            |
+| Mounted        | On `/auth`                                     | Before `requireLogin`, app-wide                      | After the write limiter, app-wide                                                    |
+| Settings       | `AUTH_RATE_LIMIT`, `AUTH_RATE_LIMIT_WINDOW_MS` | `WRITE_RATE_LIMIT`, `WRITE_RATE_LIMIT_WINDOW_MS`     | `READ_RATE_LIMIT`, `READ_RATE_LIMIT_WINDOW_MS`; env `READ_RATE_LIMIT_WITHOUT_TUNNEL` |
 
 The auth limiter is keyed by IP because its callers usually aren't logged in.
 The client IP (`clientIp`) is `CF-Connecting-IP` when `BEHIND_CLOUDFLARE_TUNNEL`
 is set (the README's "Behind Cloudflare"), else `req.ip`, where a wrong
 `TRUST_PROXY_HOPS` either puts every client behind one budget (too low) or lets
-a client forge `X-Forwarded-For` (too high). It counts each request at most
-once: the gate counts only what it refuses, and `/auth/*` is public, so the gate
-passes it on. Logged-out private requests are refused by the gate, so they never
-reach the read or write limiter.
+a client forge `X-Forwarded-For` (too high). The read and write limiters run
+before the login gate, so every request counts as one or the other, logged in or
+not: logged-out probing of private or unknown paths uses up the visitor's own
+read or write budget, then gets `401`.
 
 Behind the tunnel, Cloudflare names the visitor even for the Worker's requests,
 so each visitor has their own read budget (`READ_RATE_LIMIT`). Without it, the
