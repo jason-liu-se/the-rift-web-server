@@ -84,6 +84,21 @@ describe("requireLogin, logged out", () => {
 
 		expect(res.body).toEqual({ error: "ERROR: not logged in" });
 	});
+
+	describe("with only GET /news public", () => {
+		const newsOnly = gate([{ method: "get", path: "/news" }]);
+
+		it.each(["/news", "/news/"])("lets %s through", async (url) => {
+			await request(newsOnly).get(url).expect(200);
+		});
+
+		it.each(["/news/drafts", "/news/drafts/", "/news/some-id/drafts"])(
+			"answers %s with 401",
+			async (url) => {
+				await request(newsOnly).get(url).expect(401);
+			}
+		);
+	});
 });
 
 describe("PUBLIC_ROUTES", () => {
@@ -105,13 +120,5 @@ describe("PUBLIC_ROUTES", () => {
 		}
 
 		expect(leaks).toEqual([]);
-	});
-
-	it("doesn't make the paths under a public route public", async () => {
-		const newsOnly = gate([{ method: "get", path: "/news" }]);
-
-		await request(newsOnly).get("/news").expect(200);
-		await request(newsOnly).get("/news/drafts").expect(401);
-		await request(newsOnly).get("/news/some-id/drafts").expect(401);
 	});
 });
