@@ -1,5 +1,6 @@
 // Tunable rate limits. Three limiters (src/middleware/rate-limits.ts) keep
-// separate counts, so neither uses up the other's budget.
+// separate counts, so none uses up another's budget. Keep auth <= write <=
+// read, per window; rate-limits.test.ts fails otherwise.
 
 /** Auth limiter: the window it counts over, in ms. */
 export const AUTH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
