@@ -58,6 +58,7 @@ export const mapSeasons = z.toZod<MapSeason[]>()(
 				z.object({
 					name: z.string(),
 					imageUrl: z.string(),
+					worldId: z.string(),
 					perspective: z.string()
 				})
 			)

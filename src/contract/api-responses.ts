@@ -60,6 +60,8 @@ export interface DownloadCollection {
 export interface MapDimension {
 	name: string;
 	imageUrl: string;
+	/** BlueMap map ID, the URL fragment that opens this dimension */
+	worldId: string;
 	/** BlueMap perspective (camera position) to open the map at */
 	perspective: string;
 }
