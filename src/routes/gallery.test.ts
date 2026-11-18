@@ -25,6 +25,26 @@ function seedGallery() {
 	return collection("gallery", "builds").insertMany(IMAGES);
 }
 
+describe("GET /gallery", () => {
+	it("returns every collection's name, sorted", async () => {
+		await Promise.all([
+			seedGallery(),
+			galleryDb.createCollection("art"),
+			galleryDb.createCollection("season-5")
+		]);
+
+		const res = await request(app).get("/gallery").expect(200);
+
+		expect(res.body).toEqual(["art", "builds", "season-5"]);
+	});
+
+	it("returns an empty list when there are no collections", async () => {
+		const res = await request(app).get("/gallery").expect(200);
+
+		expect(res.body).toEqual([]);
+	});
+});
+
 describe("GET /gallery/:collection", () => {
 	it("returns every image in the collection with the total", async () => {
 		await seedGallery();

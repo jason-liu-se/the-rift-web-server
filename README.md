@@ -68,6 +68,7 @@ its `check` job a required status check on `main`.
 | -------------------------------- | --------------------- | ---------------------------------------- | ------ |
 | `GET /news`                      | `startIndex`, `limit` | `{ items, total }`, newest first         | Public |
 | `GET /news/count`                |                       | `{ total }`                              | Public |
+| `GET /gallery`                   |                       | Every gallery collection's name, sorted  | Public |
 | `GET /gallery/:collection`       | `startIndex`, `limit` | `{ items, total }`                       | Public |
 | `GET /gallery/:collection/count` |                       | `{ total }`                              | Public |
 | `GET /downloads`                 |                       | `[{ name, items }]` for every group      | Public |

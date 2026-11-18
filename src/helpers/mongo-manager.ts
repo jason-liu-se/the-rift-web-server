@@ -49,12 +49,18 @@ export async function disconnect(): Promise<void> {
 	console.log("Disconnected from MongoDB");
 }
 
+// Sorted by name: MongoDB lists collections in no guaranteed order.
+async function listCollectionNames(db: Connection): Promise<string[]> {
+	const collections = await db.listCollections();
+	return collections.map(({ name }) => name).toSorted();
+}
+
 async function hasCollection(
 	db: Connection,
 	collectionName: string
 ): Promise<boolean> {
-	const collections = await db.listCollections();
-	return collections.some(({ name }) => name === collectionName);
+	const names = await listCollectionNames(db);
+	return names.includes(collectionName);
 }
 
 // Collections are never auto-created, so a query against a missing one just
@@ -69,6 +75,12 @@ export async function hasDownloadCollection(
 	collectionName: string
 ): Promise<boolean> {
 	return hasCollection(downloadsDb, collectionName);
+}
+
+// Every gallery's name, sorted. Unpaginated: there's one per gallery, not per
+// image.
+export async function getGalleryCollectionNames(): Promise<string[]> {
+	return listCollectionNames(galleryDb);
 }
 
 // Omitting `limit` returns every image from `startIndex` onwards.
@@ -118,12 +130,11 @@ export async function getDownloadCollection(
 }
 
 // Returns every collection in the downloads database with its items, sorted by
-// name (MongoDB lists collections in no guaranteed order).
+// name.
 export async function getAllDownloadCollections(): Promise<
 	DownloadCollection[]
 > {
-	const collections = await downloadsDb.listCollections();
-	const names = collections.map(({ name }) => name).toSorted();
+	const names = await listCollectionNames(downloadsDb);
 
 	return Promise.all(
 		names.map(async (name) => ({
