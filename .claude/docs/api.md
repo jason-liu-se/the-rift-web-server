@@ -6,12 +6,13 @@ and the rules for changing them. To add one, use the `add-endpoint` skill.
 ## Routes
 
 `createApp(config)` in `src/app.ts` wires the app together: the app-wide
-middleware from `src/middleware/` (CORS headers only for `FRONTEND_URL`, with
-credentials, so the website's cookies are sent; the session; the login gate, see
-[Access](#access); the rate limits; the error handler), and one router per URL
-prefix from `src/routes/` (`apiRouters`). Router-specific middleware, like the
-`/auth` routes' `no-store`, stays in its router. It doesn't connect or listen,
-so tests can drive it directly.
+middleware from `src/middleware/` (CORS allowing only `FRONTEND_URL`, with
+credentials, so the website's cookies are sent; the same headers whatever the
+`Origin`, since Cloudflare's cache ignores `Vary`; the session; the login gate,
+see [Access](#access); the rate limits; the error handler), and one router per
+URL prefix from `src/routes/` (`apiRouters`). Router-specific middleware, like
+the `/auth` routes' `no-store`, stays in its router. It doesn't connect or
+listen, so tests can drive it directly.
 
 A route:
 
