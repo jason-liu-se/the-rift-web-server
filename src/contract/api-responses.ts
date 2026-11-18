@@ -11,6 +11,7 @@
 //
 //   GET /news                    PaginatedResponse<NewsPost>, newest first
 //   GET /news/count              CountResponse
+//   GET /gallery                 GalleryCollectionNames, sorted
 //   GET /gallery/:collection     PaginatedResponse<GalleryImage>
 //   GET /gallery/:collection/count  CountResponse
 //   GET /downloads               DownloadCollection[], sorted by name
@@ -42,6 +43,9 @@ export interface GalleryImage {
 	url: string;
 	caption: string;
 }
+
+/** Every gallery collection's name, e.g. `["builds", "season-5"]`. */
+export type GalleryCollectionNames = string[];
 
 export interface DownloadItem {
 	id: string;

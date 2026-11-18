@@ -4,6 +4,7 @@ import * as mongoManager from "../helpers/mongo-manager.ts";
 import { collectionParams, paginationQuery } from "../api/query-schemas.ts";
 import {
 	countResponse,
+	galleryCollectionNames,
 	galleryPage,
 	parseResponse
 } from "../api/response-schemas.ts";
@@ -19,6 +20,16 @@ async function parseExistingCollection(params: unknown): Promise<string> {
 	}
 	return collection;
 }
+
+// Every gallery collection's name, for listing the galleries.
+galleryRouter.get("/", async (_req, res) => {
+	res.json(
+		parseResponse(
+			galleryCollectionNames,
+			await mongoManager.getGalleryCollectionNames()
+		)
+	);
+});
 
 // A page of a gallery collection's images, with the total for paginating.
 galleryRouter.get("/:collection", async (req, res) => {

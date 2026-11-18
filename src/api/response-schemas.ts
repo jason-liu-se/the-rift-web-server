@@ -11,6 +11,7 @@ import type {
 	CountResponse,
 	DownloadCollection,
 	DownloadItem,
+	GalleryCollectionNames,
 	GalleryImage,
 	MapSeason,
 	NewsPost,
@@ -30,6 +31,10 @@ const newsPost = z.toZod<NewsPost>()(
 
 const galleryImage = z.toZod<GalleryImage>()(
 	z.object({ id: z.string(), url: z.string(), caption: z.string() })
+);
+
+export const galleryCollectionNames = z.toZod<GalleryCollectionNames>()(
+	z.array(z.string())
 );
 
 export const downloadItems = z.toZod<DownloadItem[]>()(
