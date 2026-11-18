@@ -1,5 +1,7 @@
 import express from "express";
 import { NotFoundError } from "../errors/not-found-error.ts";
+import { STATIC_CONTENT_CACHE } from "../config/caching.ts";
+import { cacheFor } from "../middleware/cache-control.ts";
 import * as mongoManager from "../helpers/mongo-manager.ts";
 import { collectionParams, paginationQuery } from "../api/query-schemas.ts";
 import {
@@ -22,7 +24,7 @@ async function parseExistingCollection(params: unknown): Promise<string> {
 }
 
 // Every gallery collection's name, for listing the galleries.
-galleryRouter.get("/", async (_req, res) => {
+galleryRouter.get("/", cacheFor(STATIC_CONTENT_CACHE), async (_req, res) => {
 	res.json(
 		parseResponse(
 			galleryCollectionNames,
@@ -32,24 +34,34 @@ galleryRouter.get("/", async (_req, res) => {
 });
 
 // A page of a gallery collection's images, with the total for paginating.
-galleryRouter.get("/:collection", async (req, res) => {
-	const { startIndex, limit } = paginationQuery.parse(req.query);
-	const collection = await parseExistingCollection(req.params);
+galleryRouter.get(
+	"/:collection",
+	cacheFor(STATIC_CONTENT_CACHE),
+	async (req, res) => {
+		const { startIndex, limit } = paginationQuery.parse(req.query);
+		const collection = await parseExistingCollection(req.params);
 
-	const [items, total] = await Promise.all([
-		mongoManager.getGalleryCollection(collection, startIndex, limit),
-		mongoManager.countGalleryCollectionItems(collection)
-	]);
-	res.json(parseResponse(galleryPage, { items, total }));
-});
+		const [items, total] = await Promise.all([
+			mongoManager.getGalleryCollection(collection, startIndex, limit),
+			mongoManager.countGalleryCollectionItems(collection)
+		]);
+		res.json(parseResponse(galleryPage, { items, total }));
+	}
+);
 
 // Just the total, for callers that don't need any images.
-galleryRouter.get("/:collection/count", async (req, res) => {
-	const collection = await parseExistingCollection(req.params);
+galleryRouter.get(
+	"/:collection/count",
+	cacheFor(STATIC_CONTENT_CACHE),
+	async (req, res) => {
+		const collection = await parseExistingCollection(req.params);
 
-	res.json(
-		parseResponse(countResponse, {
-			total: await mongoManager.countGalleryCollectionItems(collection)
-		})
-	);
-});
+		res.json(
+			parseResponse(countResponse, {
+				total: await mongoManager.countGalleryCollectionItems(
+					collection
+				)
+			})
+		);
+	}
+);

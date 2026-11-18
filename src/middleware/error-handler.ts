@@ -3,6 +3,7 @@ import * as z from "zod";
 import { ForbiddenError } from "../errors/forbidden-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
+import { forbidCaching } from "./cache-control.ts";
 import { UnsupportedMediaTypeError } from "../errors/unsupported-media-type-error.ts";
 
 // What express.json (body-parser) throws when the caller sent a bad body,
@@ -38,6 +39,8 @@ export const handleError: ErrorRequestHandler = (error, req, res, next) => {
 		next(error);
 		return;
 	}
+	// Overrides a route's public caching: an error mustn't outlive its cause.
+	forbidCaching(res);
 
 	if (error instanceof z.ZodError) {
 		const problems = error.issues.map(

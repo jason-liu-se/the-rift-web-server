@@ -4,6 +4,7 @@ import express, { type Express, type Router } from "express";
 import cookieParser from "cookie-parser";
 import type { AppConfig } from "./config/env.ts";
 import { NotFoundError } from "./errors/not-found-error.ts";
+import { noCachingByDefault } from "./middleware/cache-control.ts";
 import { allowFrontendOrigin } from "./middleware/cors.ts";
 import { handleError } from "./middleware/error-handler.ts";
 import { jsonBody } from "./middleware/json-body.ts";
@@ -28,6 +29,7 @@ export function createApp(config: AppConfig): Express {
 	app.disable("x-powered-by");
 	app.set("trust proxy", config.TRUST_PROXY_HOPS);
 
+	app.use(noCachingByDefault);
 	app.use(allowFrontendOrigin(config.FRONTEND_URL));
 	app.use(requireFrontendOrigin(config.FRONTEND_URL));
 	app.use(cookieParser());

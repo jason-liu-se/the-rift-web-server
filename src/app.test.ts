@@ -7,38 +7,38 @@ import { app, testConfig } from "../test/app.ts";
 import { EDITOR, sessionCookie } from "../test/session.ts";
 
 describe("CORS", () => {
+	const FRONTEND_CORS_HEADERS = {
+		"access-control-allow-origin": testConfig.FRONTEND_URL,
+		"access-control-allow-credentials": "true",
+		"access-control-allow-methods": "GET,POST,OPTIONS",
+		"access-control-allow-headers": "Content-Type"
+	};
+
 	it("allows the frontend, with credentials", async () => {
 		const res = await request(app)
 			.options("/news")
 			.set("Origin", testConfig.FRONTEND_URL)
 			.expect(204);
 
-		expect(res.headers).toMatchObject({
-			"access-control-allow-origin": testConfig.FRONTEND_URL,
-			"access-control-allow-credentials": "true",
-			"access-control-allow-methods": "GET,POST,OPTIONS",
-			"access-control-allow-headers": "Content-Type",
-			vary: "Origin"
-		});
+		expect(res.headers).toMatchObject(FRONTEND_CORS_HEADERS);
 	});
 
-	it("sends no CORS headers to other origins", async () => {
-		const res = await request(app)
-			.options("/news")
-			.set("Origin", "https://example.com")
-			.expect(204);
+	// Same headers for every Origin, so a cached response suits any caller.
+	it.each([
+		["another origin", "https://example.com"],
+		["no Origin (server-to-server)", undefined]
+	])(
+		"allows only the frontend for %s, without varying",
+		async (_name, origin) => {
+			const req = request(app).get("/health");
+			const res = await (origin ? req.set("Origin", origin) : req).expect(
+				200
+			);
 
-		expect(res.headers).not.toHaveProperty("access-control-allow-origin");
-		expect(res.headers).not.toHaveProperty(
-			"access-control-allow-credentials"
-		);
-	});
-
-	it("serves requests without an Origin (server-to-server)", async () => {
-		const res = await request(app).get("/health").expect(200);
-
-		expect(res.headers).not.toHaveProperty("access-control-allow-origin");
-	});
+			expect(res.headers).toMatchObject(FRONTEND_CORS_HEADERS);
+			expect(res.headers).not.toHaveProperty("vary");
+		}
+	);
 });
 
 describe("private routes", () => {
