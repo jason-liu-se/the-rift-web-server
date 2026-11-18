@@ -30,12 +30,12 @@ describe("GET /gallery", () => {
 		await Promise.all([
 			seedGallery(),
 			galleryDb.createCollection("art"),
-			galleryDb.createCollection("season-5")
+			galleryDb.createCollection("season5")
 		]);
 
 		const res = await request(app).get("/gallery").expect(200);
 
-		expect(res.body).toEqual(["art", "builds", "season-5"]);
+		expect(res.body).toEqual(["art", "builds", "season5"]);
 	});
 
 	it("returns an empty list when there are no collections", async () => {

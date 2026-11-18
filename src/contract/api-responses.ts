@@ -44,7 +44,7 @@ export interface GalleryImage {
 	caption: string;
 }
 
-/** Every gallery collection's name, e.g. `["builds", "season-5"]`. */
+/** Every gallery collection's name, e.g. `["season5", "season6"]`. */
 export type GalleryCollectionNames = string[];
 
 export interface DownloadItem {
