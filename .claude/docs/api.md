@@ -44,6 +44,7 @@ The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 | Anything else, incl. a broken contract   | `500`  | Generic message; details only logged |
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
+Every error is sent `Cache-Control: no-store`, even from a cacheable route.
 
 ## Access
 

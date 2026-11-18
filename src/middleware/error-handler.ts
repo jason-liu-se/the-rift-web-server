@@ -38,6 +38,8 @@ export const handleError: ErrorRequestHandler = (error, req, res, next) => {
 		next(error);
 		return;
 	}
+	// Overrides a route's public caching: an error mustn't outlive its cause.
+	res.set("Cache-Control", "no-store");
 
 	if (error instanceof z.ZodError) {
 		const problems = error.issues.map(
