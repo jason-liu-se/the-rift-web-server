@@ -19,8 +19,6 @@ export function requireLogin(publicRoutes: readonly PublicRoute[]): Router {
 		if (!res.locals.user) {
 			throw new UnauthorizedError();
 		}
-		// What a logged-in editor sees is theirs alone: never cache it.
-		res.set("Cache-Control", "no-store");
 		next();
 	});
 

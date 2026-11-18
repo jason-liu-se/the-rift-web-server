@@ -75,17 +75,21 @@ describe("Cache-Control", () => {
 
 			expect(loggedOut.headers).toMatchObject(headers);
 			expect(loggedIn.headers).toMatchObject(headers);
+			// A shared copy mustn't carry one caller's rate-limit state.
+			expect(loggedOut.headers).not.toHaveProperty("ratelimit");
+			expect(loggedOut.headers).not.toHaveProperty("ratelimit-policy");
 		}
 	);
 
 	it.each([
-		["a missing collection (404)", "/gallery/missing"],
-		["bad parameters (400)", "/news?limit=-1"],
-		["a private route, logged out (401)", "/news/drafts"],
-		["/health", "/health"],
-		["/auth/me (401)", "/auth/me"]
-	])("isn't public for %s", async (_name, url) => {
-		const res = await request(app).get(url);
+		["a missing collection (404)", "get", "/gallery/missing"],
+		["bad parameters (400)", "get", "/news?limit=-1"],
+		["a private route, logged out (401)", "get", "/news/drafts"],
+		["/health", "get", "/health"],
+		["/auth/me (401)", "get", "/auth/me"],
+		["a preflight", "options", "/news"]
+	] as const)("isn't public for %s", async (_name, method, url) => {
+		const res = await request(app)[method](url);
 
 		expect(res.headers["cache-control"]).toBe("no-store");
 		expect(res.headers).not.toHaveProperty("cdn-cache-control");

@@ -10,9 +10,9 @@ middleware from `src/middleware/` (CORS allowing only `FRONTEND_URL`, with
 credentials, so the website's cookies are sent; the same headers whatever the
 `Origin`, since Cloudflare's cache ignores `Vary`; the session; the login gate,
 see [Access](#access); the rate limits; the error handler), and one router per
-URL prefix from `src/routes/` (`apiRouters`). Router-specific middleware, like
-the `/auth` routes' `no-store`, stays in its router. It doesn't connect or
-listen, so tests can drive it directly.
+URL prefix from `src/routes/` (`apiRouters`). Router- or route-specific
+middleware, like a public read's `cacheFor`, stays in its router. It doesn't
+connect or listen, so tests can drive it directly.
 
 A route:
 
@@ -49,10 +49,11 @@ Every error is sent `Cache-Control: no-store`, even from a cacheable route
 
 ## Access
 
-Every request passes, in order (`createApp`): CORS → the CSRF origin check
-(`403`) → the session → the write limiter, the read limiter, and the auth
-limiter for `/auth/*` but `/auth/me` (`429`) → the login gate (`401`) → the JSON
-body check (`400`, `413`, `415`) → the routers (or `404`).
+Every request passes, in order (`createApp`): the `no-store` default → CORS →
+the CSRF origin check (`403`) → the session → the write limiter, the read
+limiter, and the auth limiter for `/auth/*` but `/auth/me` (`429`) → the login
+gate (`401`) → the JSON body check (`400`, `413`, `415`) → the routers (or
+`404`).
 
 Anyone may read public content; everything else needs a logged-in editor (anyone
 who can log in is an editor, see the README's "Sessions and access"). It's
@@ -60,9 +61,8 @@ default deny: `requireLogin` (`src/middleware/require-login.ts`) runs before
 every router and answers `401` unless the request matches `PUBLIC_ROUTES`
 (`src/api/public-routes.ts`). So a new route is private until it's added to that
 list, and logged-out callers get `401` for unknown paths too (they can't map the
-private routes). Private and `/auth` responses get `Cache-Control: no-store`;
-public reads stay cacheable even for a logged-in editor (see
-[Caching](#caching)).
+private routes). Every response is `Cache-Control: no-store` but public reads,
+which stay cacheable even for a logged-in editor (see [Caching](#caching)).
 
 To make a route public, add it to `PUBLIC_ROUTES`; the gate's tests
 (`src/middleware/require-login.test.ts`) cover every entry, check each is a
@@ -147,10 +147,13 @@ Each public read but `/health` and `/auth/*` mounts `cacheFor(policy)`
 browsers, and a longer `CDN-Cache-Control` with `stale-while-revalidate` for
 Cloudflare, which reads it first. Not `s-maxage`, which stops Cloudflare serving
 stale. The policies are in `src/config/caching.ts` (news briefly, the rest
-longer). Mount it on the route, never with `router.use`, or it would override a
-private route's `no-store`. Everything else is `no-store`: private and `/auth`
-responses, `/health`, and every error (`handleError` calls `forbidCaching`,
-which also drops `CDN-Cache-Control`), so a `404` or `500` is never cached.
+longer). Mount it on the route, never with `router.use`, or private routes under
+the same prefix would be cached too. Everything else is `no-store`:
+`noCachingByDefault` runs first in `createApp`, so private, `/auth`, `/health`,
+preflight, and `429` responses are never cached, and `handleError` calls
+`forbidCaching` (which also drops `CDN-Cache-Control`), so neither is a `404` or
+`500` from a public read. `cacheFor` also drops the rate limiters' `RateLimit`
+headers, which describe one caller's budget.
 `src/middleware/cache-control.test.ts` fails if a public read has no policy.
 
 A cached response is shared by every caller, so it mustn't depend on who asks:
