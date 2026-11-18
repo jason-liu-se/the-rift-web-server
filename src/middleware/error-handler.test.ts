@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import request from "supertest";
 import { NotFoundError } from "../errors/not-found-error.ts";
+import { cacheFor } from "./cache-control.ts";
 import { handleError } from "./error-handler.ts";
 
 // Body errors themselves are covered in json-body.test.ts.
@@ -32,8 +33,7 @@ describe("handleError", () => {
 
 	it("never lets an error be cached, even from a cacheable route", async () => {
 		const app = express();
-		app.get("/", (_req, res) => {
-			res.set("Cache-Control", "public, max-age=3600");
+		app.get("/", cacheFor({ browserSeconds: 60, edgeSeconds: 60 }), () => {
 			throw new NotFoundError("thing");
 		});
 		app.use(handleError);
@@ -41,5 +41,6 @@ describe("handleError", () => {
 		const res = await request(app).get("/").expect(404);
 
 		expect(res.headers["cache-control"]).toBe("no-store");
+		expect(res.headers).not.toHaveProperty("cdn-cache-control");
 	});
 });

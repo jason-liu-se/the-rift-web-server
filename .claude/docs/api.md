@@ -44,7 +44,8 @@ The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 | Anything else, incl. a broken contract   | `500`  | Generic message; details only logged |
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
-Every error is sent `Cache-Control: no-store`, even from a cacheable route.
+Every error is sent `Cache-Control: no-store`, even from a cacheable route
+([Caching](#caching)).
 
 ## Access
 
@@ -60,7 +61,8 @@ every router and answers `401` unless the request matches `PUBLIC_ROUTES`
 (`src/api/public-routes.ts`). So a new route is private until it's added to that
 list, and logged-out callers get `401` for unknown paths too (they can't map the
 private routes). Private and `/auth` responses get `Cache-Control: no-store`;
-public reads stay cacheable even for a logged-in editor.
+public reads stay cacheable even for a logged-in editor (see
+[Caching](#caching)).
 
 To make a route public, add it to `PUBLIC_ROUTES`; the gate's tests
 (`src/middleware/require-login.test.ts`) cover every entry, check each is a
@@ -137,6 +139,27 @@ localhost in development), so every read gets the higher
 That's still one budget for every visitor's rendered pages: one person
 requesting pages fast enough could get `429`s for everyone, so production should
 run behind the tunnel.
+
+### Caching
+
+Each public read but `/health` and `/auth/*` mounts `cacheFor(policy)`
+(`src/middleware/cache-control.ts`): `Cache-Control: public, max-age=…` for
+browsers, and a longer `CDN-Cache-Control` with `stale-while-revalidate` for
+Cloudflare, which reads it first. Not `s-maxage`, which stops Cloudflare serving
+stale. The policies are in `src/config/caching.ts` (news briefly, the rest
+longer). Mount it on the route, never with `router.use`, or it would override a
+private route's `no-store`. Everything else is `no-store`: private and `/auth`
+responses, `/health`, and every error (`handleError` calls `forbidCaching`,
+which also drops `CDN-Cache-Control`), so a `404` or `500` is never cached.
+`src/middleware/cache-control.test.ts` fails if a public read has no policy.
+
+A cached response is shared by every caller, so it mustn't depend on who asks:
+no `Set-Cookie`, nothing from the session, and CORS headers that don't vary by
+`Origin` (`src/middleware/cors.ts`; Cloudflare ignores `Vary`). Cloudflare
+caches only what its Cache Rule allows, and the rule defers to these headers
+(the README's "Behind Cloudflare"). Content is edited directly in MongoDB, so an
+edit shows once the edge and browser copies expire, or after purging
+Cloudflare's cache.
 
 ## Sessions
 

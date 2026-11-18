@@ -145,6 +145,12 @@ use it up for everyone.
 4. Add a WAF custom rule on the zone that blocks other zones' Workers:
    `not (cf.worker.upstream_zone in {"" "<domain>"})` → Block.
 5. Point the website's `API_URL` and `DISCORD_REDIRECT_URI` at `api.<domain>`.
+6. Add a Cache Rule for `api.<domain>`: Eligible for cache, Edge TTL "Use
+   cache-control header if present, bypass cache if not". Cloudflare doesn't
+   cache JSON by default, and the API sends `no-store` on everything that
+   mustn't be shared ([Caching](./.claude/docs/api.md#caching)). Check that a
+   second `GET /news` answers `cf-cache-status: HIT`, and purge the cache after
+   editing content to show it at once.
 
 ## Data
 
