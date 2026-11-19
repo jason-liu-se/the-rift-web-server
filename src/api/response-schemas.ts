@@ -30,18 +30,7 @@ const newsPost = z.toZod<NewsPost>()(
 );
 
 const galleryImage = z.toZod<GalleryImage>()(
-	z.object({
-		id: z.string(),
-		url: z.string(),
-		caption: z.string(),
-		variants: z
-			.object({
-				mobile: z.string().optional(),
-				tablet: z.string().optional(),
-				desktop: z.string().optional()
-			})
-			.optional()
-	})
+	z.object({ id: z.string(), url: z.string(), caption: z.string() })
 );
 
 export const galleryCollectionNames = z.toZod<GalleryCollectionNames>()(
