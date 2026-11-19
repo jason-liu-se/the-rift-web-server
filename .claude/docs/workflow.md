@@ -22,11 +22,11 @@ by evidence: tests that fail when the behaviour breaks, the website's callers
 checked, a manual run. Confidence can only move a task up a tier, never down:
 Medium moves it up one, Low makes it High.
 
-| Tier   | User before starting | Checks                                                                                      | Review                                                     | User before merge                           |
-| ------ | -------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
-| Low    | —                    | typecheck, lint, format, tests                                                              | `code-reviewer`                                            | None into a feature branch; see below       |
-| Medium | —                    | + the website's callers checked (`../website/src/app/services/`)                            | `code-reviewer`                                            | Reviews the PR                              |
-| High   | Approves the plan    | + a manual run against real MongoDB and Redis (`npm run dev`, curl) where tests can't reach | + `/security-review` if sensitive, a read of the full diff | Reviews the draft PR and approves the merge |
+| Tier   | User before starting | Checks                                                                                      | Review                                                     | User before merge                                                     |
+| ------ | -------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------- |
+| Low    | —                    | typecheck, lint, format, tests                                                              | `code-reviewer`                                            | None into a feature branch if confidence is High, CI and review clean |
+| Medium | —                    | + the website's callers checked (`../website/src/app/services/`)                            | `code-reviewer`                                            | Reviews the PR                                                        |
+| High   | Approves the plan    | + a manual run against real MongoDB and Redis (`npm run dev`, curl) where tests can't reach | + `/security-review` if sensitive, a read of the full diff | Reviews the draft PR and approves the merge                           |
 
 The tests need no services, so every tier runs the whole suite.
 
@@ -64,7 +64,8 @@ The tests need no services, so every tier runs the whole suite.
   merge to the user, whatever the tier.
 - Merge your own PR into a feature branch only when it's Low tier with High
   confidence, CI passed, and review left nothing Critical or Important
-  (`gh pr merge --squash --delete-branch`). Everything else waits for the user.
+  (`gh pr merge --squash --delete-branch`, which always prompts the user, so
+  check the PR's base first). Everything else waits for the user.
 - Never force-push or push to `main`.
 - A contract change is two PRs, one per repo: this server's first, additive (new
   fields or routes, nothing removed), then the website's `npm run api:sync` and

@@ -77,9 +77,9 @@ High-tier plans always need the user's approval.
   targets it). Create the base branch if needed and check it out before
   launching: worktrees start from your `HEAD` (`worktree.baseRef: "head"`).
 - Names follow `.claude/docs/workflow.md`: `<type>/<n>-<slug>`.
-- Give each agent `k` its own dev server port, `PORT=40<k>0`, for manual runs.
-  They share your MongoDB and Redis, so manual runs only read, never seed or
-  flush.
+- Give agent `k` (from 1) its own dev server port, `PORT=40<k>0` (`4010`,
+  `4020`, …; `4000` is yours), for manual runs. They share your MongoDB and
+  Redis, so manual runs only read, never seed or flush.
 
 ## 5. Record the plan, then launch
 
