@@ -1,5 +1,8 @@
 {
 	"$schema": "https://json.schemastore.org/claude-code-settings.json",
+	"worktree": {
+		"baseRef": "head"
+	},
 	"permissions": {
 		"allow": [
 			"Bash(npm test:*)",
@@ -16,14 +19,26 @@
 			"Bash(git log:*)",
 			"Bash(git show:*)",
 			"Bash(git blame:*)",
-			"Bash(git branch:*)"
+			"Bash(git branch:*)",
+			"Bash(git add:*)",
+			"Bash(git commit:*)",
+			"Bash(git push -u origin:*)",
+			"Bash(git branch -m:*)",
+			"Bash(gh issue view:*)",
+			"Bash(gh issue comment:*)",
+			"Bash(gh pr view:*)",
+			"Bash(gh pr create:*)",
+			"Bash(gh pr diff:*)",
+			"Bash(gh api -X PATCH repos/jason-liu-se/the-rift-web-server/issues/comments/:*)",
+			"Bash(npm ci:*)"
 		],
 		"deny": [
 			"Bash(git push --force:*)",
 			"Bash(git push -f:*)",
 			"Bash(git reset --hard:*)",
 			"Read(./.env)",
-			"Read(./.env.*)"
+			"Read(./.env.*)",
+			"Bash(git push origin main:*)"
 		]
 	},
 	"hooks": {

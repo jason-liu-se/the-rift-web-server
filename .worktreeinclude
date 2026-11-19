@@ -1,0 +1,4 @@
+# Gitignored files Claude Code copies into each new worktree (same syntax as
+# .gitignore). node_modules is installed per worktree instead: see
+# .claude/agents/implementer.md.
+.env

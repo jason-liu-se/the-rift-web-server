@@ -5,3 +5,6 @@ dist
 # Claude Code (personal overrides)
 .claude/settings.local.json
 .claude/logs/
+
+# Claude Code worktrees (parallel agents)
+.claude/worktrees/
