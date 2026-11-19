@@ -9,6 +9,7 @@
 // src/api/response-schemas.ts, which z.toZod checks against these types, so
 // the server can't send a different shape.
 //
+//   GET /content/version         ContentVersion, never cached
 //   GET /news                    PaginatedResponse<NewsPost>, newest first
 //   GET /news/count              CountResponse
 //   GET /gallery                 GalleryCollectionNames, sorted
@@ -28,6 +29,10 @@
 //                                redirects to the website's /admin, or to
 //                                /admin/login?error=LoginErrorCode
 //   any error (400, 401, 404, 500)  ErrorResponse
+//
+// Every GET above from /news to /maps/seasons takes an optional `v`, the
+// current ContentVersion's `version`: with it, responses are cached under that
+// version, so send it on every public read to see edits on the next page load.
 
 export interface NewsPost {
 	id: string;
@@ -76,6 +81,11 @@ export interface MapSeason {
 	season: number;
 	imageUrl: string;
 	dimensions: MapDimension[];
+}
+
+/** Changes on every edit to the site's content. */
+export interface ContentVersion {
+	version: number;
 }
 
 export interface CountResponse {

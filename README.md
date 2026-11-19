@@ -69,6 +69,7 @@ its `check` job a required status check on `main`.
 
 | Endpoint                         | Query                 | Returns                                  | Access |
 | -------------------------------- | --------------------- | ---------------------------------------- | ------ |
+| `GET /content/version`           |                       | `{ version }`, never cached              | Public |
 | `GET /news`                      | `startIndex`, `limit` | `{ items, total }`, newest first         | Public |
 | `GET /news/count`                |                       | `{ total }`                              | Public |
 | `GET /gallery`                   |                       | Every gallery collection's name, sorted  | Public |
@@ -83,6 +84,11 @@ its `check` job a required status check on `main`.
 | `GET /auth/me`                   |                       | The logged-in user, or `401`             | Public |
 | `POST /auth/refresh`             |                       | `204` with new session cookies, or `401` | Public |
 | `POST /auth/logout`              |                       | `204`                                    | Public |
+
+Content reads (`/news` to `/maps/seasons`) also take `v`, the current `version`:
+responses for it are cached a day at Cloudflare's edge, and an edit changes it,
+so it shows on the next page load
+([Content versions](./.claude/docs/api.md#content-versions)).
 
 Every other request, including any unknown path, needs a logged-in editor and
 answers `401` otherwise: public routes are an allow list in
@@ -152,14 +158,16 @@ use it up for everyone.
    cache-control header if present, bypass cache if not". Cloudflare doesn't
    cache JSON by default, and the API sends `no-store` on everything that
    mustn't be shared ([Caching](./.claude/docs/api.md#caching)). Check that a
-   second `GET /news` answers `cf-cache-status: HIT`, and purge the cache after
-   editing content to show it at once.
+   second `GET /news` answers `cf-cache-status: HIT`. Keep the query string in
+   the cache key (the default), or every content version shares one entry.
 
 ## Data
 
 **MongoDB:** databases `news` (collection `posts`), `gallery` (one collection
 per gallery), `downloads` (one per group), `maps` (`seasons`), and `auth`
-(`accessGrants`). Add content directly. See
+(`accessGrants`), and `content` (`meta`: the content version). Add content
+directly, then set the `contentVersion` document's `version` to any new whole
+number (e.g. the current time in ms) so the edit shows at once. See
 [database.md](./.claude/rules/database.md).
 
 **Redis:** one hash per login session, key `session:<session ID>`, expiring with
