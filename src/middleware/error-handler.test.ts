@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import request from "supertest";
+import { NEWS_CACHE } from "../config/caching.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import { cacheFor } from "./cache-control.ts";
 import { handleError } from "./error-handler.ts";
@@ -33,7 +34,7 @@ describe("handleError", () => {
 
 	it("never lets an error be cached, even from a cacheable route", async () => {
 		const app = express();
-		app.get("/", cacheFor({ browserSeconds: 60, edgeSeconds: 60 }), () => {
+		app.get("/", cacheFor(NEWS_CACHE), () => {
 			throw new NotFoundError("thing");
 		});
 		app.use(handleError);
