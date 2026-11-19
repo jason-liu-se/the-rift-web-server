@@ -98,11 +98,14 @@ describe("GET /gallery/:collection", () => {
 		]);
 	});
 
-	it("answers 500 when a stored variant isn't a string", async () => {
+	it.each([
+		{ name: "a variant isn't a string", variants: { mobile: 4 } },
+		{ name: "variants is null", variants: null }
+	])("answers 500 when $name", async ({ variants }) => {
 		await collection("gallery", "builds").insertOne({
 			caption: "Fourth",
 			url: "4.png",
-			variants: { mobile: 4 }
+			variants
 		});
 
 		await expectContractError("/gallery/builds");
