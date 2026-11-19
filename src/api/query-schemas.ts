@@ -20,9 +20,10 @@ export const paginationQuery = z.object({
 	limit: z.coerce.number().int().min(1).optional()
 });
 
-// A public read's `v`, the content version the caller last saw (see cacheFor).
-// Kept as the digits sent and compared as text, so `01…` or `1e12` can't add
-// cache entries for the version a client normally writes.
+// A public read's `v`, the content version the caller last saw (see
+// cacheByContentVersion). Kept as the digits sent and compared as text, so
+// `01…` or `1e12` can't add cache entries for the version a client normally
+// writes.
 export const contentVersionQuery = z.object({
 	v: z
 		.string({ error: "v must be a content version" })

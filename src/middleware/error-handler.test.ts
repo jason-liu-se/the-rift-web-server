@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import request from "supertest";
-import { NEWS_CACHE } from "../config/caching.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
-import { cacheFor } from "./cache-control.ts";
+import { cacheByContentVersion } from "./cache-control.ts";
 import { handleError } from "./error-handler.ts";
+
+const CONTENT_VERSION = 1;
+
+vi.mock(import("../helpers/mongo-manager.ts"), () => ({
+	getContentVersion: () => Promise.resolve(CONTENT_VERSION)
+}));
 
 // Body errors themselves are covered in json-body.test.ts.
 describe("handleError", () => {
@@ -34,12 +39,16 @@ describe("handleError", () => {
 
 	it("never lets an error be cached, even from a cacheable route", async () => {
 		const app = express();
-		app.get("/", cacheFor(NEWS_CACHE), () => {
+		app.get("/", cacheByContentVersion, (_req, res) => {
+			// Caching was allowed, so the handler must undo it.
+			expect(res.get("CDN-Cache-Control")).toBeDefined();
 			throw new NotFoundError("thing");
 		});
 		app.use(handleError);
 
-		const res = await request(app).get("/").expect(404);
+		const res = await request(app)
+			.get(`/?v=${CONTENT_VERSION}`)
+			.expect(404);
 
 		expect(res.headers["cache-control"]).toBe("no-store");
 		expect(res.headers).not.toHaveProperty("cdn-cache-control");

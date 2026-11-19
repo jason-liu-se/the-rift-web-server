@@ -4,8 +4,9 @@ import { contentVersion, parseResponse } from "../api/response-schemas.ts";
 
 export const contentRouter = express.Router();
 
-// The version public reads send as `v` (see cacheFor). Never cached (the
-// app-wide default), so a change shows on the caller's next page load.
+// The version public reads send as `v` (see cacheByContentVersion). Never
+// cached (the app-wide default), so a change shows on the caller's next page
+// load.
 contentRouter.get("/version", async (_req, res) => {
 	res.json(
 		parseResponse(contentVersion, {

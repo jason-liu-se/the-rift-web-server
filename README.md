@@ -86,8 +86,8 @@ its `check` job a required status check on `main`.
 | `POST /auth/logout`              |                       | `204`                                    | Public |
 
 Content reads (`/news` to `/maps/seasons`) also take `v`, the current `version`:
-responses for it are cached a day at Cloudflare's edge, and an edit changes it,
-so it shows on the next page load
+only responses for it are cached (a day at Cloudflare's edge), and an edit
+changes it, so it shows on the next page load. Without `v`, they're never cached
 ([Content versions](./.claude/docs/api.md#content-versions)).
 
 Every other request, including any unknown path, needs a logged-in editor and
@@ -158,8 +158,9 @@ use it up for everyone.
    cache-control header if present, bypass cache if not". Cloudflare doesn't
    cache JSON by default, and the API sends `no-store` on everything that
    mustn't be shared ([Caching](./.claude/docs/api.md#caching)). Check that a
-   second `GET /news` answers `cf-cache-status: HIT`. Keep the query string in
-   the cache key (the default), or every content version shares one entry.
+   second `GET /news?v=<version>` answers `cf-cache-status: HIT`. Keep the query
+   string in the cache key (the default), or every content version shares one
+   entry.
 
 ## Data
 

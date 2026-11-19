@@ -11,8 +11,8 @@ credentials, so the website's cookies are sent; the same headers whatever the
 `Origin`, since Cloudflare's cache ignores `Vary`; the session; the login gate,
 see [Access](#access); the rate limits; the error handler), and one router per
 URL prefix from `src/routes/` (`apiRouters`). Router- or route-specific
-middleware, like a public read's `cacheFor`, stays in its router. It doesn't
-connect or listen, so tests can drive it directly.
+middleware, like a public read's `cacheByContentVersion`, stays in its router.
+It doesn't connect or listen, so tests can drive it directly.
 
 A route:
 
@@ -143,33 +143,32 @@ run behind the tunnel.
 ### Caching
 
 Each public read but `/health`, `/content/version`, and `/auth/*` mounts
-`cacheFor(policy)` (`src/middleware/cache-control.ts`):
-`Cache-Control: public, max-age=…` for browsers, and a longer
-`CDN-Cache-Control` with `stale-while-revalidate` for Cloudflare, which reads it
-first. Not `s-maxage`, which stops Cloudflare serving stale. The policies are in
-`src/config/caching.ts` (news briefly, the rest longer). Mount it on the route,
-never with `router.use`, or private routes under the same prefix would be cached
-too. Everything else is `no-store`: `noCachingByDefault` runs first in
-`createApp`, so private, `/auth`, `/health`, preflight, and `429` responses are
-never cached, and `handleError` calls `forbidCaching` (which also drops
-`CDN-Cache-Control`), so neither is a `404` or `500` from a public read.
-`cacheFor` also drops the rate limiters' `RateLimit` headers, which describe one
-caller's budget. `src/middleware/cache-control.test.ts` fails if a public read
-has no policy, and checks every one handles `v` (below).
+`cacheByContentVersion` (`src/middleware/cache-control.ts`), which caches it
+only under the current content version (below), for `VERSIONED_CACHE`
+(`src/config/caching.ts`): `Cache-Control: public, max-age=…` for browsers, and
+a longer `CDN-Cache-Control` for Cloudflare, which reads it first. Mount it on
+the route, never with `router.use`, or private routes under the same prefix
+would be cached too. Everything else is `no-store`: `noCachingByDefault` runs
+first in `createApp`, so private, `/auth`, `/health`, preflight, and `429`
+responses are never cached, and `handleError` calls `forbidCaching` (which also
+drops `CDN-Cache-Control`), so neither is a `404` or `500` from a public read.
+`cacheByContentVersion` also drops the rate limiters' `RateLimit` headers, which
+describe one caller's budget. `src/middleware/cache-control.test.ts` fails if a
+public read doesn't mount it, and checks every one handles `v` (below).
 
 #### Content versions
 
 So an edit shows on the next page load without purging Cloudflare, public reads
 are versioned: one site-wide content version (`GET /content/version`, never
-cached), which callers send as `?v=` on every public read. `cacheFor` handles
-`v` for every route that mounts it, so no route can forget it:
+cached), which callers send as `?v=` on every public read.
+`cacheByContentVersion` handles `v` for every route that mounts it, so no route
+can forget it:
 
-| `v`                 | Response                                                          |
-| ------------------- | ----------------------------------------------------------------- |
-| The current version | `VERSIONED_CACHE`: a day at the edge, no `stale-while-revalidate` |
-| Any other number    | Current content, `no-store` (made-up values can't fill the cache) |
-| Missing             | The route's policy, until the website always sends `v`            |
-| Not digits          | `400`                                                             |
+| `v`                          | Response                                                          |
+| ---------------------------- | ----------------------------------------------------------------- |
+| The current version          | `VERSIONED_CACHE`: a day at the edge                              |
+| Any other number, or missing | Current content, `no-store` (made-up values can't fill the cache) |
+| Not digits                   | `400`                                                             |
 
 `v` is compared as the digits sent, so `0…` variants don't match. The version is
 read before the content, so a response is never older than the version it's

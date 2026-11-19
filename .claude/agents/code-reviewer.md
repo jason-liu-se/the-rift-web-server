@@ -65,7 +65,8 @@ findings. You are **strictly read-only**.
   `src/auth/session-cookie.ts`, Redis access outside `redis-manager`, changes to
   the Redis script not mirrored in `test/redis.ts`, timing-unsafe comparisons.
 - A cacheable response that depends on the caller (session data, `Set-Cookie`,
-  `Origin`-dependent headers), or `cacheFor` mounted with `router.use`.
+  `Origin`-dependent headers), or `cacheByContentVersion` mounted with
+  `router.use`.
 
 **Contract and compatibility**
 
