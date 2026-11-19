@@ -18,8 +18,9 @@ npm test -- <path/to/file.test.ts>     # one test file
 npm run lint / format                  # ESLint / Prettier (lint:fix, format:check)
 ```
 
-Run `typecheck`, `lint`, and `test` before calling work done. A Husky pre-commit
-hook lints and formats staged files.
+Run `typecheck`, `lint`, and `test` before calling work done, then commit, push,
+and open a PR (`.claude/docs/workflow.md`); never merge into `main`, which
+deploys. A Husky pre-commit hook lints and formats staged files.
 
 ## Docs and rules
 
@@ -29,6 +30,8 @@ sets `paths` frontmatter so it loads only when matching files are read or
 edited.
 
 @.claude/docs/api.md
+
+@.claude/docs/workflow.md
 
 ## Architecture
 
