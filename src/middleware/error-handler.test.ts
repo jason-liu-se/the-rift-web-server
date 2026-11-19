@@ -39,7 +39,9 @@ describe("handleError", () => {
 
 	it("never lets an error be cached, even from a cacheable route", async () => {
 		const app = express();
-		app.get("/", cacheByContentVersion, () => {
+		app.get("/", cacheByContentVersion, (_req, res) => {
+			// Caching was allowed, so the handler must undo it.
+			expect(res.get("CDN-Cache-Control")).toBeDefined();
 			throw new NotFoundError("thing");
 		});
 		app.use(handleError);
