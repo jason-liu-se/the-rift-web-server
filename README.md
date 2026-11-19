@@ -59,6 +59,9 @@ meant to be edited directly.
 
 In Docker, reach MongoDB or Redis on your machine at `host.docker.internal`.
 
+New git worktrees get `.env` copied in by Claude Code (`.worktreeinclude`); run
+`npm ci` in each, and give each `npm run dev` its own `PORT`.
+
 CI (`.github/workflows/ci.yml`) runs lint, format, typecheck, and tests; make
 its `check` job a required status check on `main`.
 
