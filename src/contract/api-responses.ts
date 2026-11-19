@@ -38,10 +38,19 @@ export interface NewsPost {
 	bannerImg?: string;
 }
 
+/** Optimized copies of a gallery image, one URL per screen size. */
+export interface GalleryImageVariants {
+	mobile?: string;
+	tablet?: string;
+	desktop?: string;
+}
+
 export interface GalleryImage {
 	id: string;
+	/** The original image, for any variant that's missing. */
 	url: string;
 	caption: string;
+	variants?: GalleryImageVariants;
 }
 
 /** Every gallery collection's name, e.g. `["season5", "season6"]`. */
