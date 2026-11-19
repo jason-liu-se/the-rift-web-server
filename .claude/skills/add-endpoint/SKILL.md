@@ -47,7 +47,7 @@ and send the body through `parseResponse`. Don't catch errors.
 Routes need a logged-in editor by default (`.claude/docs/api.md`, "Access").
 Only if anyone should call it (public content reads), add it to `PUBLIC_ROUTES`
 in `src/api/public-routes.ts`. Ask the user if unsure. A public read also mounts
-`cacheFor` with a policy from `src/config/caching.ts`, and gets a row in
+`cacheByContentVersion`, and gets a row in
 `src/middleware/cache-control.test.ts` (`.claude/docs/api.md`, "Caching").
 
 ## 7. Tests
