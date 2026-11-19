@@ -16,14 +16,6 @@ afterEach(clearDatabase);
 afterAll(stopDatabase);
 
 // From src/config/caching.ts: what browsers and what Cloudflare may keep.
-const NEWS = {
-	"cache-control": "public, max-age=60",
-	"cdn-cache-control": "public, max-age=300, stale-while-revalidate=300"
-};
-const STATIC_CONTENT = {
-	"cache-control": "public, max-age=300",
-	"cdn-cache-control": "public, max-age=3600, stale-while-revalidate=3600"
-};
 const VERSIONED = {
 	"cache-control": "public, max-age=300",
 	"cdn-cache-control": "public, max-age=86400"
@@ -37,14 +29,14 @@ const NEVER_CACHED = ["/health", "/content/version"];
 
 // Every other public read, with a URL that answers 200.
 const CACHEABLE_ROUTES = [
-	["/news", "/news", NEWS],
-	["/news/count", "/news/count", NEWS],
-	["/gallery", "/gallery", STATIC_CONTENT],
-	["/gallery/:collection", "/gallery/season5", STATIC_CONTENT],
-	["/gallery/:collection/count", "/gallery/season5/count", STATIC_CONTENT],
-	["/downloads", "/downloads", STATIC_CONTENT],
-	["/downloads/:collection", "/downloads/season5", STATIC_CONTENT],
-	["/maps/seasons", "/maps/seasons", STATIC_CONTENT]
+	["/news", "/news"],
+	["/news/count", "/news/count"],
+	["/gallery", "/gallery"],
+	["/gallery/:collection", "/gallery/season5"],
+	["/gallery/:collection/count", "/gallery/season5/count"],
+	["/downloads", "/downloads"],
+	["/downloads/:collection", "/downloads/season5"],
+	["/maps/seasons", "/maps/seasons"]
 ] as const;
 
 function seedCollections() {
@@ -79,54 +71,44 @@ describe("Cache-Control", () => {
 		expect(CACHEABLE_ROUTES.map(([path]) => path)).toEqual(publicReads);
 	});
 
-	it.each(CACHEABLE_ROUTES)(
-		"%s is cacheable, even for a logged-in editor",
-		async (_path, url, headers) => {
+	// The test above fails if a public read doesn't mount
+	// cacheByContentVersion, so every public read handles `v`.
+	describe.each(CACHEABLE_ROUTES)("%s", (_path, url) => {
+		const withVersion = (v: string) =>
+			`${url}${url.includes("?") ? "&" : "?"}v=${v}`;
+
+		it("is cached under the current version, even for a logged-in editor", async () => {
 			await seedCollections();
+			const current = withVersion(String(VERSION));
 
 			const [loggedOut, loggedIn] = await Promise.all([
-				request(app).get(url).expect(200),
+				request(app).get(current).expect(200),
 				request(app)
-					.get(url)
+					.get(current)
 					.set("Cookie", await sessionCookie())
 					.expect(200)
 			]);
 
-			expect(loggedOut.headers).toMatchObject(headers);
-			expect(loggedIn.headers).toMatchObject(headers);
+			expect(loggedOut.headers).toMatchObject(VERSIONED);
+			expect(loggedIn.headers).toMatchObject(VERSIONED);
 			// A shared copy mustn't carry one caller's rate-limit state.
 			expect(loggedOut.headers).not.toHaveProperty("ratelimit");
 			expect(loggedOut.headers).not.toHaveProperty("ratelimit-policy");
-		}
-	);
-
-	// Every public read is versioned: cacheFor applies `v`, and the test
-	// above fails if a public read doesn't mount cacheFor.
-	describe.each(CACHEABLE_ROUTES)("%s with ?v=", (_path, url) => {
-		const withVersion = (v: string) =>
-			`${url}${url.includes("?") ? "&" : "?"}v=${v}`;
-
-		it("is cached under the current version", async () => {
-			await seedCollections();
-
-			const res = await request(app)
-				.get(withVersion(String(VERSION)))
-				.expect(200);
-
-			expect(res.headers).toMatchObject(VERSIONED);
-			expect(res.headers).not.toHaveProperty("ratelimit");
 		});
 
 		it.each([
-			["an old version", String(VERSION - 1)],
-			["the version written differently", `0${VERSION}`]
+			["no version", url],
+			["an old version", withVersion(String(VERSION - 1))],
+			["the version written differently", withVersion(`0${VERSION}`)]
 		])(
 			"answers %s with current content, never cached",
-			async (_name, v) => {
+			async (_name, uncachedUrl) => {
 				await seedCollections();
-				const current = await request(app).get(url).expect(200);
+				const current = await request(app)
+					.get(withVersion(String(VERSION)))
+					.expect(200);
 
-				const res = await request(app).get(withVersion(v)).expect(200);
+				const res = await request(app).get(uncachedUrl).expect(200);
 
 				expect(res.body).toEqual(current.body);
 				expect(res.headers["cache-control"]).toBe("no-store");
