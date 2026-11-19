@@ -16,9 +16,9 @@ afterEach(clearDatabase);
 afterAll(stopDatabase);
 
 const IMAGES = [
-	{ _id: new Types.ObjectId(), caption: "First", url: "1.png" },
-	{ _id: new Types.ObjectId(), caption: "Second", url: "2.png" },
-	{ _id: new Types.ObjectId(), caption: "Third", url: "3.png" }
+	{ _id: new Types.ObjectId(), caption: "First", imageUrl: "1.png" },
+	{ _id: new Types.ObjectId(), caption: "Second", imageUrl: "2.png" },
+	{ _id: new Types.ObjectId(), caption: "Third", imageUrl: "3.png" }
 ];
 
 function seedGallery() {
@@ -76,7 +76,9 @@ describe("GET /gallery/:collection", () => {
 	});
 
 	it("answers 500 when a stored image breaks the contract", async () => {
-		await collection("gallery", "builds").insertOne({ caption: "No url" });
+		await collection("gallery", "builds").insertOne({
+			caption: "No image URL"
+		});
 
 		await expectContractError("/gallery/builds");
 	});

@@ -38,12 +38,15 @@ const CACHEABLE_ROUTES = [
 
 function seedCollections() {
 	return Promise.all([
-		collection("gallery", "season5").insertOne({ caption: "c", url: "u" }),
+		collection("gallery", "season5").insertOne({
+			caption: "c",
+			imageUrl: "i"
+		}),
 		collection("downloads", "season5").insertOne({
 			title: "t",
 			desc: "d",
 			downloadUrl: "u",
-			backgroundUrl: "b"
+			imageUrl: "i"
 		})
 	]);
 }

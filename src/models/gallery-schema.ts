@@ -2,12 +2,12 @@ import mongoose from "mongoose";
 
 export interface GalleryImage {
 	readonly caption: string;
-	readonly url: string;
+	readonly imageUrl: string;
 }
 
 const gallerySchema = new mongoose.Schema<GalleryImage>({
 	caption: { type: String, required: true },
-	url: { type: String, required: true }
+	imageUrl: { type: String, required: true }
 });
 
 export const galleryDb = mongoose.connection.useDb("gallery");

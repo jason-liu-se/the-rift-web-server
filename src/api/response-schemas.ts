@@ -25,12 +25,12 @@ const newsPost = z.toZod<NewsPost>()(
 		title: z.string(),
 		date: z.date().transform((date) => date.toISOString()),
 		content: z.string(),
-		bannerImg: z.string().optional()
+		imageUrl: z.string().optional()
 	})
 );
 
 const galleryImage = z.toZod<GalleryImage>()(
-	z.object({ id: z.string(), url: z.string(), caption: z.string() })
+	z.object({ id: z.string(), imageUrl: z.string(), caption: z.string() })
 );
 
 export const galleryCollectionNames = z.toZod<GalleryCollectionNames>()(
@@ -44,7 +44,7 @@ export const downloadItems = z.toZod<DownloadItem[]>()(
 			title: z.string(),
 			desc: z.string(),
 			downloadUrl: z.string(),
-			backgroundUrl: z.string()
+			imageUrl: z.string()
 		})
 	)
 );
