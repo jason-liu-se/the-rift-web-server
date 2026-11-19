@@ -8,6 +8,7 @@
 // the two can't drift apart without a compile error.
 import * as z from "zod";
 import type {
+	ContentVersion,
 	CountResponse,
 	DownloadCollection,
 	DownloadItem,
@@ -69,6 +70,10 @@ export const mapSeasons = z.toZod<MapSeason[]>()(
 			)
 		})
 	)
+);
+
+export const contentVersion = z.toZod<ContentVersion>()(
+	z.object({ version: z.number().int() })
 );
 
 export const countResponse = z.toZod<CountResponse>()(

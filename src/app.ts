@@ -18,6 +18,7 @@ import { requireLogin } from "./middleware/require-login.ts";
 import { sessionMiddleware } from "./middleware/session.ts";
 import { PUBLIC_ROUTES } from "./api/public-routes.ts";
 import { authRouter } from "./routes/auth.ts";
+import { contentRouter } from "./routes/content.ts";
 import { newsRouter } from "./routes/news.ts";
 import { downloadsRouter } from "./routes/downloads.ts";
 import { galleryRouter } from "./routes/gallery.ts";
@@ -60,6 +61,7 @@ export function apiRouters(config: AppConfig): Record<string, Router> {
 	return {
 		"/health": healthRouter,
 		"/auth": authRouter(config),
+		"/content": contentRouter,
 		"/news": newsRouter,
 		"/downloads": downloadsRouter,
 		"/gallery": galleryRouter,

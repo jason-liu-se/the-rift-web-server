@@ -5,6 +5,10 @@
 import mongoose, { type Connection, type Types } from "mongoose";
 import { accessGrantModel } from "../models/access-grant-schema.ts";
 import {
+	CONTENT_VERSION_ID,
+	contentVersionModel
+} from "../models/content-version-schema.ts";
+import {
 	downloadsDb,
 	getDownloadModel,
 	type DownloadItem
@@ -148,6 +152,54 @@ export async function getAllDownloadCollections(): Promise<
 export async function getMapSeasons(): Promise<WithId<MapSeason>[]> {
 	const seasons = await mapSeasonModel.find().sort({ season: 1 }).lean();
 	return seasons.map(withId);
+}
+
+// The current content version. Creates it with the current time if it's
+// missing (first run, or deleted by hand): an upsert that only inserts, so
+// concurrent first reads agree on one value.
+export async function getContentVersion(): Promise<number> {
+	const stored = await contentVersionModel
+		.findById(CONTENT_VERSION_ID)
+		.lean();
+	if (stored) {
+		return stored.version;
+	}
+
+	const { version } = await contentVersionModel
+		.findOneAndUpdate(
+			{ _id: CONTENT_VERSION_ID },
+			{ $setOnInsert: { version: Date.now() } },
+			{ upsert: true, returnDocument: "after" }
+		)
+		.orFail()
+		.lean();
+	return version;
+}
+
+// Changes the content version, so public reads get new cache entries, and
+// returns it. Call it only once a write has committed: bumped first, a read in
+// between could cache the old content under the new version for a day. The current time, or one more than the current
+// version if that's not later (writes in the same millisecond, a clock that
+// went back, or a hand-set future value), so it always changes.
+export async function updateContentVersion(): Promise<number> {
+	const { version } = await contentVersionModel
+		.findOneAndUpdate(
+			{ _id: CONTENT_VERSION_ID },
+			[
+				{
+					$set: {
+						version: {
+							$max: [Date.now(), { $add: ["$version", 1] }]
+						}
+					}
+				}
+			],
+			// Mongoose doesn't cast pipelines, so it only runs them when asked.
+			{ upsert: true, returnDocument: "after", updatePipeline: true }
+		)
+		.orFail()
+		.lean();
+	return version;
 }
 
 export interface AccessGrantSubjects {
