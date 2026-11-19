@@ -35,12 +35,12 @@ export interface NewsPost {
 	/** ISO 8601 date-time, e.g. 2025-01-01T00:00:00.000Z */
 	date: string;
 	content: string;
-	bannerImg?: string;
+	imageUrl?: string;
 }
 
 export interface GalleryImage {
 	id: string;
-	url: string;
+	imageUrl: string;
 	caption: string;
 }
 
@@ -52,7 +52,7 @@ export interface DownloadItem {
 	title: string;
 	desc: string;
 	downloadUrl: string;
-	backgroundUrl: string;
+	imageUrl: string;
 }
 
 export interface DownloadCollection {

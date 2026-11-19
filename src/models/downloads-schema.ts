@@ -4,14 +4,14 @@ export interface DownloadItem {
 	readonly title: string;
 	readonly desc: string;
 	readonly downloadUrl: string;
-	readonly backgroundUrl: string;
+	readonly imageUrl: string;
 }
 
 const downloadsSchema = new mongoose.Schema<DownloadItem>({
 	title: { type: String, required: true },
 	desc: { type: String, required: true },
 	downloadUrl: { type: String, required: true },
-	backgroundUrl: { type: String, required: true }
+	imageUrl: { type: String, required: true }
 });
 
 export const downloadsDb = mongoose.connection.useDb("downloads");

@@ -19,14 +19,14 @@ const MAP = {
 	title: "Map",
 	desc: "A map",
 	downloadUrl: "map.zip",
-	backgroundUrl: "map.png"
+	imageUrl: "map.png"
 };
 const PACK = {
 	_id: new Types.ObjectId(),
 	title: "Pack",
 	desc: "A pack",
 	downloadUrl: "pack.zip",
-	backgroundUrl: "pack.png"
+	imageUrl: "pack.png"
 };
 
 describe("GET /downloads", () => {
