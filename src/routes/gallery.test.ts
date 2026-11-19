@@ -21,6 +21,12 @@ const IMAGES = [
 	{ _id: new Types.ObjectId(), caption: "Third", url: "3.png" }
 ];
 
+const VARIANTS = {
+	mobile: "4-mobile.png",
+	tablet: "4-tablet.png",
+	desktop: "4-desktop.png"
+};
+
 function seedGallery() {
 	return collection("gallery", "builds").insertMany(IMAGES);
 }
@@ -54,6 +60,55 @@ describe("GET /gallery/:collection", () => {
 		expect(res.body.total).toBe(3);
 		// toEqual: only the contract's fields, with _id as id and no __v
 		expect(res.body.items).toEqual(IMAGES.map(withId));
+	});
+
+	it.each([
+		{ name: "every variant", variants: VARIANTS },
+		{ name: "some variants", variants: { mobile: VARIANTS.mobile } },
+		{ name: "no variants", variants: {} }
+	])("returns an image's variants ($name)", async ({ variants }) => {
+		const image = {
+			_id: new Types.ObjectId(),
+			caption: "Fourth",
+			url: "4.png",
+			variants
+		};
+		await collection("gallery", "builds").insertOne(image);
+
+		const res = await request(app).get("/gallery/builds").expect(200);
+
+		expect(res.body.items).toEqual([withId(image)]);
+	});
+
+	it("drops variants outside the contract", async () => {
+		const image = {
+			_id: new Types.ObjectId(),
+			caption: "Fourth",
+			url: "4.png"
+		};
+		await collection("gallery", "builds").insertOne({
+			...image,
+			variants: { ...VARIANTS, watch: "4-watch.png" }
+		});
+
+		const res = await request(app).get("/gallery/builds").expect(200);
+
+		expect(res.body.items).toEqual([
+			{ ...withId(image), variants: VARIANTS }
+		]);
+	});
+
+	it.each([
+		{ name: "a variant isn't a string", variants: { mobile: 4 } },
+		{ name: "variants is null", variants: null }
+	])("answers 500 when $name", async ({ variants }) => {
+		await collection("gallery", "builds").insertOne({
+			caption: "Fourth",
+			url: "4.png",
+			variants
+		});
+
+		await expectContractError("/gallery/builds");
 	});
 
 	it("returns the page selected by startIndex and limit", async () => {
