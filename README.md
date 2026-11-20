@@ -120,8 +120,9 @@ same, on every read; higher without the tunnel, see
   and `example.com`), or browsers won't send the cookies.
 - **Register** `DISCORD_REDIRECT_URI` under OAuth2 → Redirects in the Discord
   application.
-- **Log everyone out:** delete the `session:*` keys in Redis (and rotate
-  `JWT_SECRET` to end access tokens immediately).
+- **Log everyone out:** rotate `JWT_SECRET`, which invalidates every access and
+  refresh token at once; also delete the `session:*` keys in Redis to clear the
+  sessions it leaves behind.
 
 **Who can log in:** documents in the `auth` database's `accessGrants`
 collection, matching a Discord user ID or a role in The Rift's server. No grants
