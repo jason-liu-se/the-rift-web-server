@@ -522,7 +522,10 @@ describe("POST /auth/refresh", () => {
 
 		const res = await refresh(token).expect(204);
 
-		expect(error).toHaveBeenCalledOnce();
+		expect(error).toHaveBeenCalledExactlyOnceWith(
+			`ERROR: couldn't extend a session of Discord user ${USER.id}:`,
+			expect.any(Error)
+		);
 		expect([...storedSessions().values()][0]?.expiresAt).toBe(
 			LOGIN_AT + SESSION_IDLE_TIMEOUT_MS
 		);

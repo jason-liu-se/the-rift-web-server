@@ -140,7 +140,11 @@ export async function refreshSession(
 		case "repeated": {
 			// Either way the user is active, so restart the idle timeout.
 			const session = toSession(parseStoredSession(result.fields));
-			await extendSession(sessionId, sessionEndsAt(session.loginAt, now));
+			await extendSession(
+				sessionId,
+				sessionEndsAt(session.loginAt, now),
+				session.user.id
+			);
 			return { session, refreshToken: `${sessionId}.${newSecret}` };
 		}
 	}
@@ -149,14 +153,19 @@ export async function refreshSession(
 // The rotation has already committed, so failing the refresh here would leave
 // the browser with a used token, ending the session once the grace window
 // passes. Logged instead: the session keeps its earlier, still future, expiry.
+// Logs the Discord user, never the session ID or token.
 async function extendSession(
 	sessionId: string,
-	expiresAt: number
+	expiresAt: number,
+	discordUserId: string
 ): Promise<void> {
 	try {
 		await redisManager.extendSession(sessionId, expiresAt);
 	} catch (error) {
-		console.error(`ERROR: couldn't extend session ${sessionId}:`, error);
+		console.error(
+			`ERROR: couldn't extend a session of Discord user ${discordUserId}:`,
+			error
+		);
 	}
 }
 
