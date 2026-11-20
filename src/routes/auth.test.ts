@@ -263,7 +263,10 @@ describe("POST /auth/refresh", () => {
 		expect(storedSessions().size).toBe(0);
 		// The latest token is revoked too, whoever holds it.
 		await refresh(userToken).expect(401);
-		expect(String(warn.mock.calls[0])).toContain(`Discord user ${USER.id}`);
+		const [warning] = warn.mock.calls[0] ?? [];
+		expect(warning).toBe(
+			`Refresh token reuse detected; ended a session of Discord user ${USER.id}`
+		);
 	});
 
 	it("keeps a user's sessions separate", async () => {

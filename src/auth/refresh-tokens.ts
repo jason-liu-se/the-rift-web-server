@@ -166,9 +166,10 @@ export async function refreshSession(
 		case "missing":
 			return undefined;
 		case "reused":
+			// Never the session ID or token: logs aren't for credentials.
 			console.warn(
-				`A used refresh token was presented again; ended session ${sessionId}` +
-					` of Discord user ${result.discordUserId || "(unknown)"}`
+				"Refresh token reuse detected; ended a session of Discord user" +
+					` ${result.discordUserId || "(unknown)"}`
 			);
 			return undefined;
 		case "rotated":
