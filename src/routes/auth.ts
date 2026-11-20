@@ -57,11 +57,12 @@ export function authRouter(config: AppConfig): Router {
 	});
 
 	// Ends this session only; the user's other sessions go on. Idempotent:
-	// logging out without a session still succeeds.
+	// logging out without a session (or with a token that doesn't end one)
+	// still succeeds and clears the cookies.
 	router.post("/logout", async (req, res) => {
 		const refreshToken = refreshTokenCookie(req);
 		if (refreshToken) {
-			await endSession(refreshToken);
+			await endSession(refreshToken, config.JWT_SECRET);
 		}
 		clearSessionCookies(res, config);
 		res.sendStatus(204);

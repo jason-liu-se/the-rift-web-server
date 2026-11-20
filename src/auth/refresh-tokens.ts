@@ -4,8 +4,14 @@
 // its current refresh token. A user can have any number of sessions (devices,
 // browsers), each refreshed and ended on its own.
 //
-// A refresh token is `<session ID>.<secret>`. POST /auth/refresh trades it for
-// a new one, and the old one stops working. If an old one comes back, two
+// A refresh token is `<session ID>.<secret>.<tag>`, the tag an HMAC (keyed by
+// JWT_SECRET) of the rest, so only tokens we issued are ever looked up: a
+// made-up secret for a known session ID ends nothing, while a genuinely used
+// token still trips reuse detection. Rotating JWT_SECRET therefore invalidates
+// every refresh token too.
+//
+// POST /auth/refresh trades a token for a new one, and the old one stops
+// working. If an old one comes back, two
 // parties hold the session's tokens (one stole them), and there's no telling
 // which is the user, so the whole session is ended: both must log in again.
 //
@@ -22,7 +28,12 @@
 // (sessionEndsAt): SESSION_IDLE_TIMEOUT_MS after its last refresh, and
 // SESSION_MAX_AGE_MS after its login at the latest. It can't be refreshed after
 // that.
-import { createHash, createHmac, randomBytes } from "node:crypto";
+import {
+	createHash,
+	createHmac,
+	randomBytes,
+	timingSafeEqual
+} from "node:crypto";
 import * as z from "zod";
 import { REFRESH_GRACE_MS } from "../config/auth.ts";
 import * as redisManager from "../helpers/redis-manager.ts";
@@ -30,8 +41,9 @@ import { sessionEndsAt, type Session } from "./session.ts";
 
 const SESSION_ID_BYTES = 16;
 const SECRET_BYTES = 32;
-// base64url without padding: 16 bytes are 22 characters, 32 bytes are 43.
-const REFRESH_TOKEN_FORMAT = /^([\w-]{22})\.([\w-]{43})$/;
+// base64url without padding: 16 bytes are 22 characters, 32 bytes (a secret or
+// an HMAC-SHA256 tag) are 43.
+const REFRESH_TOKEN_FORMAT = /^([\w-]{22})\.([\w-]{43})\.([\w-]{43})$/;
 
 // What Redis holds for a session, all strings. The profile lets a refresh sign
 // a new access token without asking Discord again.
@@ -72,18 +84,48 @@ function nextSecret(secret: string, key: string): string {
 		.digest("base64url");
 }
 
-function parseRefreshToken(
-	token: string
-): { sessionId: string; secret: string } | undefined {
-	const [, sessionId, secret] = REFRESH_TOKEN_FORMAT.exec(token) ?? [];
-	return sessionId && secret ? { sessionId, secret } : undefined;
+// Labelled like nextSecret, so neither can produce the other's values.
+function tag(sessionId: string, secret: string, key: string): string {
+	return createHmac("sha256", key)
+		.update(`refresh-token-tag:${sessionId}.${secret}`)
+		.digest("base64url");
 }
 
-// Starts a session at its login; returns its first refresh token.
-export async function startSession({
-	user,
-	loginAt
-}: Session): Promise<string> {
+function formatRefreshToken(
+	sessionId: string,
+	secret: string,
+	key: string
+): string {
+	return `${sessionId}.${secret}.${tag(sessionId, secret, key)}`;
+}
+
+// Undefined for a malformed token or one we didn't issue (a wrong tag).
+function parseRefreshToken(
+	token: string,
+	key: string
+): { sessionId: string; secret: string } | undefined {
+	const [, sessionId, secret, tagText] =
+		REFRESH_TOKEN_FORMAT.exec(token) ?? [];
+	if (!sessionId || !secret || !tagText) {
+		return undefined;
+	}
+
+	// Compared as text, not decoded: a 43-character tag's last character has
+	// bits decoding ignores, so decoded bytes would accept other spellings.
+	// The format makes both 43 ASCII bytes, as timingSafeEqual requires.
+	const isOurs = timingSafeEqual(
+		Buffer.from(tagText),
+		Buffer.from(tag(sessionId, secret, key))
+	);
+	return isOurs ? { sessionId, secret } : undefined;
+}
+
+// Starts a session at its login; returns its first refresh token. `key` is
+// JWT_SECRET.
+export async function startSession(
+	{ user, loginAt }: Session,
+	key: string
+): Promise<string> {
 	const sessionId = randomToken(SESSION_ID_BYTES);
 	const secret = randomToken(SECRET_BYTES);
 	const now = Date.now();
@@ -101,17 +143,17 @@ export async function startSession({
 		stored,
 		sessionEndsAt(loginAt, now)
 	);
-	return `${sessionId}.${secret}`;
+	return formatRefreshToken(sessionId, secret, key);
 }
 
 // Rotates the token, returning its session and the new token; undefined if
-// the token is malformed, its session is over, or it was already used (which
-// ends its session). `key` is JWT_SECRET.
+// the token is malformed or not ours, its session is over, or it was already
+// used (which ends its session). `key` is JWT_SECRET.
 export async function refreshSession(
 	token: string,
 	key: string
 ): Promise<RefreshedSession | undefined> {
-	const parsed = parseRefreshToken(token);
+	const parsed = parseRefreshToken(token, key);
 	if (!parsed) {
 		return undefined;
 	}
@@ -131,9 +173,10 @@ export async function refreshSession(
 		case "missing":
 			return undefined;
 		case "reused":
+			// Never the session ID or token: logs aren't for credentials.
 			console.warn(
-				`A used refresh token was presented again; ended session ${sessionId}` +
-					` of Discord user ${result.discordUserId || "(unknown)"}`
+				"Refresh token reuse detected; ended a session of Discord user" +
+					` ${result.discordUserId || "(unknown)"}`
 			);
 			return undefined;
 		case "rotated":
@@ -145,7 +188,10 @@ export async function refreshSession(
 				sessionEndsAt(session.loginAt, now),
 				session.user.id
 			);
-			return { session, refreshToken: `${sessionId}.${newSecret}` };
+			return {
+				session,
+				refreshToken: formatRefreshToken(sessionId, newSecret, key)
+			};
 		}
 	}
 }
@@ -169,9 +215,11 @@ async function extendSession(
 	}
 }
 
-// Idempotent: an unknown or malformed token has no session to end.
-export async function endSession(token: string): Promise<void> {
-	const parsed = parseRefreshToken(token);
+// Ends the token's session, if it's a token we issued for it (current or
+// not). Idempotent: a malformed, forged, or unknown token has no session to
+// end. `key` is JWT_SECRET.
+export async function endSession(token: string, key: string): Promise<void> {
+	const parsed = parseRefreshToken(token, key);
 	if (parsed) {
 		await redisManager.deleteSession(parsed.sessionId);
 	}

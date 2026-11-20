@@ -130,7 +130,8 @@ async function logIn(
 	}
 
 	const session = { user, loginAt: Date.now() };
-	await setSessionCookies(res, session, await startSession(session), config);
+	const refreshToken = await startSession(session, config.JWT_SECRET);
+	await setSessionCookies(res, session, refreshToken, config);
 }
 
 function isExpectedState(state: string, req: Request): boolean {
