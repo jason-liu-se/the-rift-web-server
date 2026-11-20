@@ -7,6 +7,7 @@ import { startSession } from "../auth/refresh-tokens.ts";
 import { signSession } from "../auth/session.ts";
 import {
 	REFRESH_GRACE_MS,
+	SESSION_IDLE_TIMEOUT_MS,
 	SESSION_MAX_AGE_MS,
 	SESSION_TOKEN_TTL_SECONDS
 } from "../config/auth.ts";
@@ -74,6 +75,18 @@ function refresh(token?: string) {
 function setNow(ms: number) {
 	vi.useFakeTimers({ toFake: ["Date"] });
 	vi.setSystemTime(ms);
+}
+
+// Refreshes every idle timeout less 1 ms (so always in time) until `until`, as
+// an active user would; returns the latest refresh token.
+async function keepRefreshing(token: string, until: number) {
+	let latest = token;
+	for (let now = Date.now(); now < until;) {
+		now = Math.min(now + SESSION_IDLE_TIMEOUT_MS - 1, until);
+		setNow(now);
+		latest = cookieValue(await refresh(latest).expect(204), REFRESH_COOKIE);
+	}
+	return latest;
 }
 
 // A fresh app per test: its rate-limit counts are in memory, and these tests
@@ -185,11 +198,11 @@ describe("POST /auth/refresh", () => {
 				`Max-Age=${SESSION_TOKEN_TTL_SECONDS};.*Path=/;.*HttpOnly.*SameSite=Lax`
 			)
 		);
-		// The refresh cookie lasts until the session ends and only goes to /auth.
-		const remainingSeconds = Math.floor((SESSION_ENDS_AT - now) / 1000);
+		// The refresh cookie lasts until the session ends (a new idle timeout
+		// from now) and only goes to /auth.
 		expect(setCookie(res, REFRESH_COOKIE)).toMatch(
 			new RegExp(
-				`Max-Age=${remainingSeconds};.*Path=/auth;.*HttpOnly.*SameSite=Lax`
+				`Max-Age=${SESSION_IDLE_TIMEOUT_MS / 1000};.*Path=/auth;.*HttpOnly.*SameSite=Lax`
 			)
 		);
 
@@ -214,7 +227,7 @@ describe("POST /auth/refresh", () => {
 						graceEndsAt: String(now + REFRESH_GRACE_MS),
 						loginAt: new Date(LOGIN_AT).toISOString()
 					},
-					expiresAt: SESSION_ENDS_AT
+					expiresAt: now + SESSION_IDLE_TIMEOUT_MS
 				}
 			]
 		]);
@@ -331,18 +344,161 @@ describe("POST /auth/refresh", () => {
 		expect(setCookie(res, REFRESH_COOKIE)).toMatch(CLEARED);
 	});
 
-	it("ends the session SESSION_MAX_AGE_MS after the login, however often it's refreshed", async () => {
-		let token = await logIn();
-		setNow(SESSION_ENDS_AT - 1);
-		token = cookieValue(await refresh(token).expect(204), REFRESH_COOKIE);
-		setNow(SESSION_ENDS_AT);
+	it("ends the session SESSION_IDLE_TIMEOUT_MS after the login without a refresh", async () => {
+		const token = await logIn();
+		setNow(LOGIN_AT + SESSION_IDLE_TIMEOUT_MS + 1);
 
+		await refresh(token).expect(401);
+		expect(storedSessions().size).toBe(0);
+	});
+
+	describe("at the idle timeout", () => {
+		const IDLE_ENDS_AT = LOGIN_AT + SESSION_IDLE_TIMEOUT_MS;
+
+		it.each([
+			["just before it", IDLE_ENDS_AT - 1, 204],
+			// Redis expires a key only once its time has passed.
+			["at it", IDLE_ENDS_AT, 204],
+			["just after it", IDLE_ENDS_AT + 1, 401]
+		])("answers a refresh %s", async (_, now, status) => {
+			const token = await logIn();
+			setNow(now);
+
+			await refresh(token).expect(status);
+
+			expect(storedSessions().size).toBe(status === 204 ? 1 : 0);
+		});
+
+		it("restarts it for concurrent refreshes just before it", async () => {
+			const token = await logIn();
+			setNow(IDLE_ENDS_AT - 1);
+
+			const [first, second] = await Promise.all([
+				refresh(token).expect(204),
+				refresh(token).expect(204)
+			]);
+
+			const next = cookieValue(first, REFRESH_COOKIE);
+			expect(cookieValue(second, REFRESH_COOKIE)).toBe(next);
+			setNow(IDLE_ENDS_AT - 1 + SESSION_IDLE_TIMEOUT_MS - 1);
+			await refresh(next).expect(204);
+		});
+
+		it("refuses concurrent refreshes just after it", async () => {
+			const token = await logIn();
+			setNow(IDLE_ENDS_AT + 1);
+
+			await Promise.all([
+				refresh(token).expect(401),
+				refresh(token).expect(401)
+			]);
+		});
+
+		// Holds the next refresh between its rotation and extending the
+		// session, until `release` is called.
+		function pauseNextExtend() {
+			const extend = redisManager.extendSession;
+			let reached!: () => void;
+			let release!: () => void;
+			const hasReached = new Promise<void>(
+				(resolve) => (reached = resolve)
+			);
+			const released = new Promise<void>(
+				(resolve) => (release = resolve)
+			);
+			vi.spyOn(redisManager, "extendSession").mockImplementationOnce(
+				async (...args) => {
+					reached();
+					await released;
+					await extend(...args);
+				}
+			);
+			return { hasReached, release };
+		}
+
+		it("keeps the later expiry when a slower refresh extends last", async () => {
+			const token = await logIn();
+			const firstAt = IDLE_ENDS_AT - 2;
+			const secondAt = IDLE_ENDS_AT - 1;
+			setNow(firstAt);
+			const { hasReached, release } = pauseNextExtend();
+			const first = refresh(token)
+				.expect(204)
+				.then((res) => res);
+			await hasReached;
+
+			// A retry within the grace window extends the session first.
+			setNow(secondAt);
+			await refresh(token).expect(204);
+			release();
+			const next = cookieValue(await first, REFRESH_COOKIE);
+
+			expect([...storedSessions().values()][0]?.expiresAt).toBe(
+				secondAt + SESSION_IDLE_TIMEOUT_MS
+			);
+			setNow(secondAt + SESSION_IDLE_TIMEOUT_MS - 1);
+			await refresh(next).expect(204);
+		});
+
+		it("doesn't revive a session that expires before its refresh extends it", async () => {
+			const token = await logIn();
+			setNow(IDLE_ENDS_AT - 1);
+			const { hasReached, release } = pauseNextExtend();
+			const pending = refresh(token)
+				.expect(204)
+				.then((res) => res);
+			await hasReached;
+
+			setNow(IDLE_ENDS_AT + 1);
+			release();
+			const next = cookieValue(await pending, REFRESH_COOKIE);
+
+			expect(storedSessions().size).toBe(0);
+			await refresh(next).expect(401);
+		});
+	});
+
+	it("restarts the idle timeout on every refresh", async () => {
+		const refreshedAt = LOGIN_AT + SESSION_IDLE_TIMEOUT_MS - 1;
+		let token = await keepRefreshing(await logIn(), refreshedAt);
+
+		// Still active one idle timeout after the login, so it can refresh.
+		setNow(refreshedAt + SESSION_IDLE_TIMEOUT_MS - 1);
+		token = cookieValue(await refresh(token).expect(204), REFRESH_COOKIE);
+		setNow(Date.now() + SESSION_IDLE_TIMEOUT_MS + 1);
+
+		await refresh(token).expect(401);
+	});
+
+	it("ends the session SESSION_MAX_AGE_MS after the login, however often it's refreshed", async () => {
+		// The idle timeout from this refresh would run past the maximum age.
+		const refreshedAt = SESSION_ENDS_AT - SESSION_IDLE_TIMEOUT_MS / 2;
+		let token = await keepRefreshing(await logIn(), refreshedAt - 1);
+		setNow(refreshedAt);
+
+		const res = await refresh(token).expect(204);
+
+		expect([...storedSessions().values()][0]?.expiresAt).toBe(
+			SESSION_ENDS_AT
+		);
+		const remainingSeconds = (SESSION_ENDS_AT - refreshedAt) / 1000;
+		expect(setCookie(res, REFRESH_COOKIE)).toContain(
+			`Max-Age=${remainingSeconds};`
+		);
+		token = await keepRefreshing(
+			cookieValue(res, REFRESH_COOKIE),
+			SESSION_ENDS_AT - 1
+		);
+		setNow(SESSION_ENDS_AT + 1);
 		await refresh(token).expect(401);
 	});
 
 	it("doesn't let an access token outlast the session", async () => {
 		const secondsLeft = 60;
-		const token = await logIn();
+		const token = await keepRefreshing(
+			await logIn(),
+			SESSION_ENDS_AT - secondsLeft * MS_PER_SECOND - 1
+		);
 		setNow(SESSION_ENDS_AT - secondsLeft * MS_PER_SECOND);
 
 		const res = await refresh(token).expect(204);
@@ -352,6 +508,25 @@ describe("POST /auth/refresh", () => {
 		);
 		setNow(SESSION_ENDS_AT);
 		await getMe(cookieValue(res, SESSION_COOKIE)).expect(401);
+	});
+
+	it("still refreshes if extending the session fails, keeping its expiry", async () => {
+		const error = vi
+			.spyOn(console, "error")
+			.mockImplementation(() => undefined);
+		vi.spyOn(redisManager, "extendSession").mockRejectedValueOnce(
+			new Error("connection lost")
+		);
+		const token = await logIn();
+		setNow(LOGIN_AT + TOKEN_TTL_MS);
+
+		const res = await refresh(token).expect(204);
+
+		expect(error).toHaveBeenCalledOnce();
+		expect([...storedSessions().values()][0]?.expiresAt).toBe(
+			LOGIN_AT + SESSION_IDLE_TIMEOUT_MS
+		);
+		await refresh(cookieValue(res, REFRESH_COOKIE)).expect(204);
 	});
 
 	it("answers 500 for a malformed stored session", async () => {

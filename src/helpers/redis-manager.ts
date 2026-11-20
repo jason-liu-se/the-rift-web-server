@@ -117,6 +117,16 @@ export async function createSession(
 		.exec();
 }
 
+// Moves a session's expiry to `expiresAt` (ms since the epoch), never
+// earlier: a slower concurrent refresh can't shorten it. A no-op if the session
+// has ended.
+export async function extendSession(
+	sessionId: string,
+	expiresAt: number
+): Promise<void> {
+	await connectedClient().pExpireAt(sessionKey(sessionId), expiresAt, "GT");
+}
+
 export async function rotateRefreshToken(
 	sessionId: string,
 	{ presentedHash, nextHash, createdAt, now, graceEndsAt }: RotateRequest

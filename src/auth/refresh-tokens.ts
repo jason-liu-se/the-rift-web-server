@@ -18,8 +18,10 @@
 // the database ever holding a usable token.
 //
 // Only the secret's SHA-256 hash is stored, so a leaked database holds no
-// usable tokens. A session's record expires SESSION_MAX_AGE_MS after its login,
-// so it can't be refreshed past that.
+// usable tokens. A session's record expires when the session ends
+// (sessionEndsAt): SESSION_IDLE_TIMEOUT_MS after its last refresh, and
+// SESSION_MAX_AGE_MS after its login at the latest. It can't be refreshed after
+// that.
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import * as z from "zod";
 import { REFRESH_GRACE_MS } from "../config/auth.ts";
@@ -43,7 +45,7 @@ const storedSession = z.object({
 	createdAt: z.iso.datetime(),
 	/** Until when (ms) the previous token is accepted again; unset before the first refresh. */
 	graceEndsAt: z.string().optional(),
-	/** When the user logged in through Discord; the session ends SESSION_MAX_AGE_MS on. */
+	/** When the user logged in through Discord; the session ends SESSION_MAX_AGE_MS on at the latest. */
 	loginAt: z.iso.datetime()
 });
 
@@ -84,16 +86,21 @@ export async function startSession({
 }: Session): Promise<string> {
 	const sessionId = randomToken(SESSION_ID_BYTES);
 	const secret = randomToken(SECRET_BYTES);
+	const now = Date.now();
 	const stored: StoredSession = {
 		discordUserId: user.id,
 		username: user.username,
 		...(user.avatarUrl && { avatarUrl: user.avatarUrl }),
 		refreshTokenHash: hash(secret),
-		createdAt: new Date().toISOString(),
+		createdAt: new Date(now).toISOString(),
 		loginAt: new Date(loginAt).toISOString()
 	};
 
-	await redisManager.createSession(sessionId, stored, sessionEndsAt(loginAt));
+	await redisManager.createSession(
+		sessionId,
+		stored,
+		sessionEndsAt(loginAt, now)
+	);
 	return `${sessionId}.${secret}`;
 }
 
@@ -130,11 +137,26 @@ export async function refreshSession(
 			);
 			return undefined;
 		case "rotated":
-		case "repeated":
-			return {
-				session: toSession(parseStoredSession(result.fields)),
-				refreshToken: `${sessionId}.${newSecret}`
-			};
+		case "repeated": {
+			// Either way the user is active, so restart the idle timeout.
+			const session = toSession(parseStoredSession(result.fields));
+			await extendSession(sessionId, sessionEndsAt(session.loginAt, now));
+			return { session, refreshToken: `${sessionId}.${newSecret}` };
+		}
+	}
+}
+
+// The rotation has already committed, so failing the refresh here would leave
+// the browser with a used token, ending the session once the grace window
+// passes. Logged instead: the session keeps its earlier, still future, expiry.
+async function extendSession(
+	sessionId: string,
+	expiresAt: number
+): Promise<void> {
+	try {
+		await redisManager.extendSession(sessionId, expiresAt);
+	} catch (error) {
+		console.error(`ERROR: couldn't extend session ${sessionId}:`, error);
 	}
 }
 

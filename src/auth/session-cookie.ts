@@ -32,7 +32,7 @@ function refreshCookieOptions(config: AppConfig): CookieOptions {
 }
 
 // Each cookie expires with what it holds: the access cookie with its token,
-// the refresh cookie with the session.
+// the refresh cookie with the session (it's only set at a login or refresh).
 export async function setSessionCookies(
 	res: Response,
 	session: Session,
@@ -48,7 +48,7 @@ export async function setSessionCookies(
 	});
 	res.cookie(REFRESH_COOKIE, refreshToken, {
 		...refreshCookieOptions(config),
-		maxAge: sessionEndsAt(session.loginAt) - now
+		maxAge: sessionEndsAt(session.loginAt, now) - now
 	});
 }
 
