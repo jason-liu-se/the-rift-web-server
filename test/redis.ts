@@ -1,6 +1,7 @@
 // An in-memory stand-in for src/helpers/redis-manager.ts, so tests need no
-// Redis. It keeps the same contract: sessions expire at their time (by
-// Date.now(), so fake timers apply) and rotation is a compare-and-swap. Use it
+// Redis. It keeps the same contract: sessions expire once their time has passed
+// (by Date.now(), so fake timers apply), extending never shortens one, and
+// rotation is a compare-and-swap. Use it
 // with
 //   vi.mock(import("<path to>/helpers/redis-manager.ts"), () => import("<path to>/test/redis.ts"))
 // and clearRedis in afterEach.
@@ -15,7 +16,7 @@ const sessions = new Map<string, Entry>();
 
 function live(sessionId: string): Entry | undefined {
 	const entry = sessions.get(sessionId);
-	return entry && entry.expiresAt > Date.now() ? entry : undefined;
+	return entry && Date.now() <= entry.expiresAt ? entry : undefined;
 }
 
 export const connect: typeof RedisManager.connect = async () => undefined;
@@ -28,6 +29,16 @@ export const createSession: typeof RedisManager.createSession = async (
 	expiresAt
 ) => {
 	sessions.set(sessionId, { fields: { ...fields }, expiresAt });
+};
+
+export const extendSession: typeof RedisManager.extendSession = async (
+	sessionId,
+	expiresAt
+) => {
+	const entry = live(sessionId);
+	if (entry && expiresAt > entry.expiresAt) {
+		sessions.set(sessionId, { ...entry, expiresAt });
+	}
 };
 
 // Mirrors ROTATE_SCRIPT in redis-manager.ts.

@@ -4,12 +4,14 @@
 //
 // When one expires, the website calls POST /auth/refresh, which trades the
 // refresh token (refresh-tokens.ts) for a new access token. A session ends
-// SESSION_MAX_AGE_MS after the Discord login, however often it's refreshed.
+// SESSION_IDLE_TIMEOUT_MS after its last refresh (or the login), and
+// SESSION_MAX_AGE_MS after the Discord login however often it's refreshed.
 // Access isn't re-checked with Discord on a refresh: a removed role or access
 // grant only takes effect at the next login.
 import { SignJWT, jwtVerify } from "jose";
 import * as z from "zod";
 import {
+	SESSION_IDLE_TIMEOUT_MS,
 	SESSION_MAX_AGE_MS,
 	SESSION_TOKEN_TTL_SECONDS
 } from "../config/auth.ts";
@@ -43,8 +45,13 @@ function encodeSecret(secret: string): Uint8Array {
 	return new TextEncoder().encode(secret);
 }
 
-export function sessionEndsAt(loginAt: number): number {
-	return loginAt + SESSION_MAX_AGE_MS;
+// When a session refreshed (or logged in) at `refreshedAt` ends unless
+// refreshed again: idle for SESSION_IDLE_TIMEOUT_MS, or at its maximum age.
+export function sessionEndsAt(loginAt: number, refreshedAt: number): number {
+	return Math.min(
+		refreshedAt + SESSION_IDLE_TIMEOUT_MS,
+		loginAt + SESSION_MAX_AGE_MS
+	);
 }
 
 // Never valid past the end of the session.
@@ -52,9 +59,10 @@ export async function signSession(
 	{ user, loginAt }: Session,
 	secret: string
 ): Promise<AccessToken> {
+	const now = Date.now();
 	const expiresAt = Math.min(
-		Date.now() + SESSION_TOKEN_TTL_SECONDS * MS_PER_SECOND,
-		sessionEndsAt(loginAt)
+		now + SESSION_TOKEN_TTL_SECONDS * MS_PER_SECOND,
+		sessionEndsAt(loginAt, now)
 	);
 	const token = await new SignJWT({
 		username: user.username,
