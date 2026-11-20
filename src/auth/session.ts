@@ -1,6 +1,6 @@
 // Access tokens: a short-lived signed JWT (HS512) holding the logged-in user,
 // so routes need no lookup. Rotating JWT_SECRET invalidates every access token
-// at once.
+// (and refresh token, refresh-tokens.ts) at once.
 //
 // When one expires, the website calls POST /auth/refresh, which trades the
 // refresh token (refresh-tokens.ts) for a new access token. A session ends

@@ -28,9 +28,10 @@ const SESSION_ENDS_AT = LOGIN_AT + SESSION_MAX_AGE_MS;
 const MS_PER_SECOND = 1000;
 const TOKEN_TTL_MS = SESSION_TOKEN_TTL_SECONDS * MS_PER_SECOND;
 const CLEARED = /Expires=Thu, 01 Jan 1970/;
-// A refresh token is `<session ID>.<secret>`, both base64url.
+// A refresh token is `<session ID>.<secret>.<tag>`, all base64url.
 const SESSION_ID_LENGTH = 22;
 const SECRET_LENGTH = 43;
+const TAG_LENGTH = 43;
 
 async function accessToken(secret = testConfig.JWT_SECRET) {
 	return (await signSession(SESSION, secret)).token;
@@ -38,8 +39,15 @@ async function accessToken(secret = testConfig.JWT_SECRET) {
 
 // Starts a session as the Discord login does, at the current time; returns its
 // refresh token.
-function logIn() {
-	return startSession(SESSION);
+function logIn(key = testConfig.JWT_SECRET) {
+	return startSession(SESSION, key);
+}
+
+// The token's session ID with a made-up secret and tag, as someone who only
+// knows the session ID (e.g. from the logs) could send.
+function forge(token: string) {
+	const [sessionId] = token.split(".");
+	return `${sessionId}.${"a".repeat(SECRET_LENGTH)}.${"b".repeat(TAG_LENGTH)}`;
 }
 
 function sha256(text: string) {
@@ -69,6 +77,13 @@ function refresh(token?: string) {
 		.post("/auth/refresh")
 		.set("Origin", testConfig.FRONTEND_URL);
 	return token ? req.set("Cookie", `${REFRESH_COOKIE}=${token}`) : req;
+}
+
+function logOut(token: string) {
+	return request(app)
+		.post("/auth/logout")
+		.set("Origin", testConfig.FRONTEND_URL)
+		.set("Cookie", `${REFRESH_COOKIE}=${token}`);
 }
 
 function setNow(ms: number) {
@@ -316,12 +331,59 @@ describe("POST /auth/refresh", () => {
 		});
 	});
 
+	describe("a token we didn't issue", () => {
+		it.each([
+			["a made-up secret for a known session ID", forge],
+			[
+				"an unsigned token (from before tokens were signed)",
+				(token: string) => token.split(".").slice(0, 2).join(".")
+			]
+		])("answers 401 to %s, keeping the session", async (_, alter) => {
+			const token = await logIn();
+
+			await refresh(alter(token)).expect(401);
+
+			expect(storedSessions().size).toBe(1);
+			await refresh(token).expect(204);
+		});
+
+		it("answers 401 to another spelling of a token's tag", async () => {
+			const token = await logIn();
+			// Changes only bits a base64url decoder ignores in the last character.
+			const alphabet =
+				"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+			const last = alphabet[alphabet.indexOf(token.slice(-1)) ^ 1];
+
+			await refresh(`${token.slice(0, -1)}${last}`).expect(401);
+
+			expect(storedSessions().size).toBe(1);
+		});
+
+		it("answers 401 to a tag moved to another session", async () => {
+			const [, secret, tagText] = (await logIn()).split(".");
+			const [otherId] = (await logIn()).split(".");
+
+			await refresh(`${otherId}.${secret}.${tagText}`).expect(401);
+
+			expect(storedSessions().size).toBe(2);
+		});
+
+		it("answers 401 to a token signed with another key", async () => {
+			// Its session is stored, so only the signature check refuses it.
+			const token = await logIn("x".repeat(64));
+
+			await refresh(token).expect(401);
+
+			expect(storedSessions().size).toBe(1);
+		});
+	});
+
 	it.each([
 		["no refresh token", undefined],
 		["a malformed refresh token", "not-a-refresh-token"],
 		[
 			"an unknown session",
-			`${"a".repeat(SESSION_ID_LENGTH)}.${"b".repeat(SECRET_LENGTH)}`
+			`${"a".repeat(SESSION_ID_LENGTH)}.${"b".repeat(SECRET_LENGTH)}.${"c".repeat(TAG_LENGTH)}`
 		]
 	])("answers 401 and clears the cookies for %s", async (_, token) => {
 		const res = await refresh(token).expect(401);
@@ -392,6 +454,33 @@ describe("POST /auth/logout", () => {
 		);
 		await refresh(token).expect(401);
 		await refresh(otherDevice).expect(204);
+	});
+
+	it("doesn't end a session given only its ID", async () => {
+		const token = await logIn();
+
+		const res = await logOut(forge(token)).expect(204);
+
+		expect(setCookie(res, REFRESH_COOKIE)).toMatch(CLEARED);
+		expect(storedSessions().size).toBe(1);
+		await refresh(token).expect(204);
+	});
+
+	it("ends the session with any token issued for it, current or not", async () => {
+		const oldest = await logIn();
+		const previous = cookieValue(
+			await refresh(oldest).expect(204),
+			REFRESH_COOKIE
+		);
+		const current = cookieValue(
+			await refresh(previous).expect(204),
+			REFRESH_COOKIE
+		);
+
+		await logOut(oldest).expect(204);
+
+		expect(storedSessions().size).toBe(0);
+		await refresh(current).expect(401);
 	});
 
 	it.each([
