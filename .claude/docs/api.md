@@ -198,14 +198,19 @@ or clears a cookie, so it can't clash with the refresh's. Rejecting is
 
 Refresh tokens (`src/auth/refresh-tokens.ts`) are `<session ID>.<secret>`,
 single-use, and rotated on every refresh. Each login is a session: one Redis
-hash holding the current secret's hash, until `SESSION_MAX_AGE_MS`
-(`src/config/auth.ts`) after the login. A user may have many. Presenting an
-already-used token ends its whole session (reuse detection), except the previous
-token within a short grace window, which gets the same new token again (so the
-next secret is an HMAC of the previous one, not random). Rotation, grace, and
-reuse are one atomic Redis script. Every Redis command goes through
-`src/helpers/redis-manager.ts`, as every MongoDB query goes through
-`mongo-manager`.
+hash holding the current secret's hash. It expires `SESSION_IDLE_TIMEOUT_MS`
+after the login or its last refresh, but never past `SESSION_MAX_AGE_MS` after
+the login (`sessionEndsAt`, `src/auth/session.ts`; settings in
+`src/config/auth.ts`). A user may have many. Presenting an already-used token
+ends its whole session (reuse detection), except the previous token within a
+short grace window, which gets the same new token again (so the next secret is
+an HMAC of the previous one, not random). Rotation, grace, and reuse are one
+atomic Redis script; a refresh then pushes the expiry later with
+`PEXPIREAT … GT` (Redis 7+), which never shortens it if a slower concurrent
+refresh lands last and does nothing to a session already ended. If it fails, the
+refresh still succeeds (the rotation has committed) and the error is logged.
+Every Redis command goes through `src/helpers/redis-manager.ts`, as every
+MongoDB query goes through `mongo-manager`.
 
 The Discord login lives in `src/auth/discord-login.ts`, and every call to
 Discord in `src/helpers/discord.ts`, which throws `DiscordApiError` for any

@@ -9,7 +9,7 @@ import {
 	vi
 } from "vitest";
 import request from "supertest";
-import { SESSION_MAX_AGE_MS } from "../config/auth.ts";
+import { SESSION_IDLE_TIMEOUT_MS } from "../config/auth.ts";
 import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
 import { createApp } from "../app.ts";
 import { testConfig } from "../../test/app.ts";
@@ -202,8 +202,13 @@ describe("GET /auth/discord/callback", () => {
 			});
 
 			// A session is stored under the refresh token's session ID.
+			// It lasts one idle timeout unless refreshed, as does its cookie.
 			const refreshCookie = findCookie(res, REFRESH_COOKIE);
-			expect(refreshCookie).toMatch(/Path=\/auth;.*HttpOnly/);
+			expect(refreshCookie).toMatch(
+				new RegExp(
+					`Max-Age=${SESSION_IDLE_TIMEOUT_MS / 1000};.*Path=/auth;.*HttpOnly`
+				)
+			);
 			const sessionId = /^refresh_token=([\w-]+)\./.exec(
 				refreshCookie ?? ""
 			)?.[1];
@@ -219,7 +224,7 @@ describe("GET /auth/discord/callback", () => {
 							createdAt: new Date(loginAt).toISOString(),
 							loginAt: new Date(loginAt).toISOString()
 						},
-						expiresAt: loginAt + SESSION_MAX_AGE_MS
+						expiresAt: loginAt + SESSION_IDLE_TIMEOUT_MS
 					}
 				]
 			]);
