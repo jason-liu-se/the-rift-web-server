@@ -11,7 +11,7 @@ import {
 
 export const downloadsRouter = express.Router();
 
-// Every download collection with its items, sorted by collection name.
+// Every visible download collection with its public items, sorted by slug.
 downloadsRouter.get("/", cacheByContentVersion, async (req, res) => {
 	res.json(
 		parseResponse(
@@ -24,7 +24,8 @@ downloadsRouter.get("/", cacheByContentVersion, async (req, res) => {
 downloadsRouter.get("/:collection", cacheByContentVersion, async (req, res) => {
 	const { collection } = collectionParams.parse(req.params);
 
-	if (!(await mongoManager.hasDownloadCollection(collection))) {
+	// A hidden collection is the same 404 as a missing one.
+	if (!(await mongoManager.hasPublicDownloadCollection(collection))) {
 		throw new NotFoundError(`download collection '${collection}'`);
 	}
 

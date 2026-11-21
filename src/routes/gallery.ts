@@ -2,44 +2,52 @@ import express from "express";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import { cacheByContentVersion } from "../middleware/cache-control.ts";
 import * as mongoManager from "../helpers/mongo-manager.ts";
-import { collectionParams, paginationQuery } from "../api/query-schemas.ts";
+import {
+	collectionParams,
+	galleryTagsQuery,
+	paginationQuery
+} from "../api/query-schemas.ts";
 import {
 	countResponse,
-	galleryCollectionNames,
+	galleryCollections,
 	galleryPage,
+	galleryTags,
 	parseResponse
 } from "../api/response-schemas.ts";
 
 export const galleryRouter = express.Router();
 
-// Parses the `:collection` path parameter and checks the collection exists.
-async function parseExistingCollection(params: unknown): Promise<string> {
+// Parses the `:collection` path parameter and checks the collection is public.
+// A hidden one is the same 404 as a missing one.
+async function parsePublicCollection(params: unknown): Promise<string> {
 	const { collection } = collectionParams.parse(params);
 
-	if (!(await mongoManager.hasGalleryCollection(collection))) {
+	if (!(await mongoManager.hasPublicGalleryCollection(collection))) {
 		throw new NotFoundError(`gallery collection '${collection}'`);
 	}
 	return collection;
 }
 
-// Every gallery collection's name, for listing the galleries.
+// Every visible gallery's slug and title, for listing the galleries.
 galleryRouter.get("/", cacheByContentVersion, async (_req, res) => {
 	res.json(
 		parseResponse(
-			galleryCollectionNames,
-			await mongoManager.getGalleryCollectionNames()
+			galleryCollections,
+			await mongoManager.getPublicGalleryCollections()
 		)
 	);
 });
 
-// A page of a gallery collection's images, with the total for paginating.
+// A page of a gallery's public images, newest first, with the total for
+// paginating; `tags` keeps only images with every tag.
 galleryRouter.get("/:collection", cacheByContentVersion, async (req, res) => {
 	const { startIndex, limit } = paginationQuery.parse(req.query);
-	const collection = await parseExistingCollection(req.params);
+	const { tags } = galleryTagsQuery.parse(req.query);
+	const collection = await parsePublicCollection(req.params);
 
 	const [items, total] = await Promise.all([
-		mongoManager.getGalleryCollection(collection, startIndex, limit),
-		mongoManager.countGalleryCollectionItems(collection)
+		mongoManager.getGalleryCollection(collection, tags, startIndex, limit),
+		mongoManager.countGalleryCollectionItems(collection, tags)
 	]);
 	res.json(parseResponse(galleryPage, { items, total }));
 });
@@ -49,14 +57,32 @@ galleryRouter.get(
 	"/:collection/count",
 	cacheByContentVersion,
 	async (req, res) => {
-		const collection = await parseExistingCollection(req.params);
+		const { tags } = galleryTagsQuery.parse(req.query);
+		const collection = await parsePublicCollection(req.params);
 
 		res.json(
 			parseResponse(countResponse, {
 				total: await mongoManager.countGalleryCollectionItems(
-					collection
+					collection,
+					tags
 				)
 			})
+		);
+	}
+);
+
+// The tags on the gallery's public images, sorted, for its tag filter.
+galleryRouter.get(
+	"/:collection/tags",
+	cacheByContentVersion,
+	async (req, res) => {
+		const collection = await parsePublicCollection(req.params);
+
+		res.json(
+			parseResponse(
+				galleryTags,
+				await mongoManager.getGalleryTags(collection)
+			)
 		);
 	}
 );

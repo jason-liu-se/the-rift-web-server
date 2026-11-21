@@ -40,6 +40,7 @@ export type WithId<T> = T & { readonly id: string };
 
 export interface DownloadCollection {
 	readonly name: string;
+	readonly title: string;
 	readonly items: WithId<DownloadItem>[];
 }
 
@@ -75,36 +76,79 @@ export async function createIndexes(): Promise<void> {
 	await Promise.all(MODELS.map((model) => model.createIndexes()));
 }
 
-// A query for a missing collection just returns nothing; these let routes
-// answer 404 instead.
-export async function hasGalleryCollection(slug: string): Promise<boolean> {
-	return (await galleryCollectionModel.exists({ slug })) !== null;
+// Missing `visible` (documents from before the editor tools) counts as
+// visible.
+const VISIBLE = { visible: { $ne: false } };
+
+// News posts anyone may read: visible, and dated now or earlier (a later date
+// is scheduled).
+function publicNewsFilter() {
+	return { ...VISIBLE, date: { $lte: new Date() } };
 }
 
-export async function hasDownloadCollection(slug: string): Promise<boolean> {
-	return (await downloadCollectionModel.exists({ slug })) !== null;
+// A gallery's public images, optionally only those with every tag.
+function publicImagesFilter(slug: string, tags: readonly string[]) {
+	return {
+		collection: slug,
+		...VISIBLE,
+		...(tags.length > 0 && { tags: { $all: tags } })
+	};
 }
 
-// Every gallery's slug, sorted. Unpaginated: there's one per gallery, not per
-// image.
-export async function getGalleryCollectionNames(): Promise<string[]> {
-	const collections = await galleryCollectionModel
-		.find({}, { slug: 1 })
+// Download items in order: by sortOrder, then the items without one by title.
+// A plain sort puts missing values first, hence the computed field.
+function sortedDownloadItems(match: object) {
+	return downloadItemModel.aggregate<DownloadItem & { _id: Types.ObjectId }>([
+		{ $match: match },
+		{ $addFields: { unordered: { $not: [{ $isNumber: "$sortOrder" }] } } },
+		{ $sort: { unordered: 1, sortOrder: 1, title: 1, _id: 1 } },
+		{ $unset: "unordered" }
+	]);
+}
+
+export interface CollectionSummary {
+	readonly slug: string;
+	readonly title: string;
+}
+
+// Hidden and missing collections both answer false, so routes give the same
+// 404 for both.
+export async function hasPublicGalleryCollection(
+	slug: string
+): Promise<boolean> {
+	return (await galleryCollectionModel.exists({ slug, ...VISIBLE })) !== null;
+}
+
+export async function hasPublicDownloadCollection(
+	slug: string
+): Promise<boolean> {
+	return (
+		(await downloadCollectionModel.exists({ slug, ...VISIBLE })) !== null
+	);
+}
+
+// Every visible gallery, sorted by slug. Unpaginated: there's one per gallery,
+// not per image.
+export async function getPublicGalleryCollections(): Promise<
+	CollectionSummary[]
+> {
+	return galleryCollectionModel
+		.find(VISIBLE, { _id: 0, slug: 1, title: 1 })
 		.sort({ slug: 1 })
 		.lean();
-	return collections.map(({ slug }) => slug);
 }
 
-// Omitting `limit` returns every image from `startIndex` onwards.
+// A gallery's public images, newest first (by `_id`, which holds the creation
+// time). Omitting `limit` returns every image from `startIndex` onwards.
 export async function getGalleryCollection(
 	slug: string,
+	tags: readonly string[],
 	startIndex: number,
 	limit?: number
 ): Promise<WithId<GalleryImage>[]> {
 	const images = await galleryImageModel
-		.find({ collection: slug })
-		// Explicit, or the order follows whichever index the query uses.
-		.sort({ _id: 1 })
+		.find(publicImagesFilter(slug, tags))
+		.sort({ _id: -1 })
 		.skip(startIndex)
 		.limit(limit ?? NO_LIMIT)
 		.lean();
@@ -112,20 +156,30 @@ export async function getGalleryCollection(
 }
 
 export async function countGalleryCollectionItems(
-	slug: string
+	slug: string,
+	tags: readonly string[]
 ): Promise<number> {
-	return galleryImageModel.countDocuments({ collection: slug });
+	return galleryImageModel.countDocuments(publicImagesFilter(slug, tags));
 }
 
-// Returns news posts newest first. Omitting `limit` returns every item from
-// `startIndex` onwards.
+// The tags on a gallery's public images, sorted.
+export async function getGalleryTags(slug: string): Promise<string[]> {
+	const tags = await galleryImageModel.distinct(
+		"tags",
+		publicImagesFilter(slug, [])
+	);
+	return tags.toSorted();
+}
+
+// Returns public news posts newest first. Omitting `limit` returns every item
+// from `startIndex` onwards.
 export async function getNewsPosts(
 	startIndex: number,
 	limit?: number
 ): Promise<WithId<NewsPost>[]> {
 	const items = await newsPostModel
-		.find()
-		.sort({ date: -1 })
+		.find(publicNewsFilter())
+		.sort({ date: -1, _id: -1 })
 		.skip(startIndex)
 		.limit(limit ?? NO_LIMIT)
 		.lean();
@@ -133,36 +187,45 @@ export async function getNewsPosts(
 }
 
 export async function countNewsPosts(): Promise<number> {
-	return newsPostModel.countDocuments();
+	return newsPostModel.countDocuments(publicNewsFilter());
 }
 
+// A download collection's public items, in order.
 export async function getDownloadCollection(
 	slug: string
 ): Promise<WithId<DownloadItem>[]> {
-	const items = await downloadItemModel.find({ collection: slug }).lean();
+	const items = await sortedDownloadItems({ collection: slug, ...VISIBLE });
 	return items.map(withId);
 }
 
-// Returns every download collection with its items, sorted by slug: two
-// queries, grouped here.
+// Every visible download collection with its public items, sorted by slug:
+// two queries, grouped here.
 export async function getAllDownloadCollections(): Promise<
 	DownloadCollection[]
 > {
-	const [collections, items] = await Promise.all([
-		downloadCollectionModel.find({}, { slug: 1 }).sort({ slug: 1 }).lean(),
-		downloadItemModel.find().lean()
-	]);
-	const itemsBySlug = Map.groupBy(items, (item) => item.collection);
+	const collections = await downloadCollectionModel
+		.find(VISIBLE, { _id: 0, slug: 1, title: 1 })
+		.sort({ slug: 1 })
+		.lean();
+	const items = await sortedDownloadItems({
+		collection: { $in: collections.map(({ slug }) => slug) },
+		...VISIBLE
+	});
 
-	return collections.map(({ slug }) => ({
+	return collections.map(({ slug, title }) => ({
 		name: slug,
-		items: (itemsBySlug.get(slug) ?? []).map(withId)
+		title,
+		items: items.filter((item) => item.collection === slug).map(withId)
 	}));
 }
 
-// Returns every map season, oldest first. Unpaginated: there's one per season.
+// Returns every visible map season, oldest first. Unpaginated: there's one per
+// season.
 export async function getMapSeasons(): Promise<WithId<MapSeason>[]> {
-	const seasons = await mapSeasonModel.find().sort({ season: 1 }).lean();
+	const seasons = await mapSeasonModel
+		.find(VISIBLE)
+		.sort({ season: 1 })
+		.lean();
 	return seasons.map(withId);
 }
 

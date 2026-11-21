@@ -75,6 +75,66 @@ describe("GET /news", () => {
 		]);
 	});
 
+	it("leaves out hidden and scheduled posts", async () => {
+		await Promise.all([
+			seedNewsPosts(),
+			collection("news", "posts").insertMany([
+				{
+					title: "Hidden",
+					date: new Date("2024-03-01"),
+					content: "h",
+					visible: false
+				},
+				{
+					title: "Scheduled",
+					date: new Date(Date.now() + 60_000),
+					content: "s",
+					visible: true
+				}
+			])
+		]);
+
+		const [page, count] = await Promise.all([
+			request(app).get("/news").expect(200),
+			request(app).get("/news/count").expect(200)
+		]);
+
+		expect(
+			page.body.items.map(({ title }: { title: string }) => title)
+		).toEqual(["Newest", "Middle", "Oldest"]);
+		expect(page.body.total).toBe(3);
+		expect(count.body).toEqual({ total: 3 });
+	});
+
+	it("shows a scheduled post once its date has come", async () => {
+		await collection("news", "posts").insertOne({
+			title: "Soon",
+			date: new Date(Date.now() + 50),
+			content: "s"
+		});
+		await request(app).get("/news").expect(200, { items: [], total: 0 });
+
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		const res = await request(app).get("/news").expect(200);
+
+		expect(res.body.items).toMatchObject([{ title: "Soon" }]);
+	});
+
+	it("sends editedAt when the post has one", async () => {
+		await collection("news", "posts").insertOne({
+			title: "Edited",
+			date: new Date("2024-01-01"),
+			editedAt: new Date("2024-02-01"),
+			content: "e"
+		});
+
+		const res = await request(app).get("/news").expect(200);
+
+		expect(res.body.items).toMatchObject([
+			{ title: "Edited", editedAt: "2024-02-01T00:00:00.000Z" }
+		]);
+	});
+
 	it("returns the page selected by startIndex and limit", async () => {
 		await seedNewsPosts();
 
@@ -95,8 +155,8 @@ describe("GET /news", () => {
 
 	it("answers 500 when a stored item breaks the contract", async () => {
 		await collection("news", "posts").insertOne({
-			title: "No date",
-			content: "a"
+			title: "No content",
+			date: new Date("2024-01-01")
 		});
 
 		await expectContractError("/news");
