@@ -160,3 +160,89 @@ export type LoginErrorCode =
 export interface ErrorResponse {
 	error: string;
 }
+
+// Request bodies the editor tools send (see the /editor routes). Every write
+// is checked against the limits in the server's src/config/content-limits.ts,
+// image URLs against its src/config/images.ts allowlist, and news markdown
+// for raw HTML and unsafe links or images. A 400 names each wrong field and
+// why.
+
+/**
+ * When a news post goes live: `"now"` (the server's time), or an ISO 8601
+ * date-time in the future (scheduled). An update may also send the post's
+ * current date (unchanged); any other past date is 400.
+ */
+export type NewsDate = "now" | string;
+
+/** A news post's own fields. `title` is inline markdown, `content` markdown. */
+export interface NewsPostFields {
+	title: string;
+	content: string;
+	/** null removes it (updates). */
+	imageUrl?: string | null;
+}
+
+export interface GalleryImageFields {
+	/** The gallery's slug. */
+	collection: string;
+	caption: string;
+	imageUrl: string;
+	/** Lowercased, trimmed, and deduplicated by the server. */
+	tags?: string[];
+}
+
+export interface DownloadItemFields {
+	/** The download collection's slug. */
+	collection: string;
+	title: string;
+	desc: string;
+	downloadUrl: string;
+	imageUrl: string;
+	/** Ascending; items without one come last, by title. null removes it. */
+	sortOrder?: number | null;
+}
+
+export interface MapSeasonFields {
+	season: number;
+	imageUrl: string;
+	dimensions: MapDimension[];
+}
+
+/** Publishing options every create and update may set. */
+export interface VisibilityFields {
+	/** Hidden items are only in the editor tools. Creates default to true. */
+	visible?: boolean;
+}
+
+/**
+ * A create. `createId` is a UUID the client makes per new item (a draft's ID
+ * doubles as it): repeating the create returns the item already made.
+ */
+export type CreateRequest<Fields> = Fields &
+	VisibilityFields & { createId: string };
+
+/** An update: any of the fields, plus the revision the editor started from. */
+export type UpdateRequest<Fields> = Partial<Fields> &
+	VisibilityFields & { revision: number };
+
+export type NewsPostCreateRequest = CreateRequest<NewsPostFields> & {
+	/** Absent: now. */
+	date?: NewsDate;
+};
+
+export type NewsPostUpdateRequest = UpdateRequest<NewsPostFields> & {
+	/** Absent: unchanged. */
+	date?: NewsDate;
+};
+
+/** A gallery or download collection. */
+export interface CollectionCreateRequest extends VisibilityFields {
+	/** Kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`); fixed once created. */
+	slug: string;
+	title: string;
+}
+
+export interface CollectionUpdateRequest extends VisibilityFields {
+	revision: number;
+	title?: string;
+}
