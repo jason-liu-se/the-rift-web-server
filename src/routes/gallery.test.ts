@@ -2,7 +2,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { Types } from "mongoose";
 import { app } from "../../test/app.ts";
-import { galleryDb } from "../models/gallery-schema.ts";
 import {
 	clearDatabase,
 	collection,
@@ -21,17 +20,24 @@ const IMAGES = [
 	{ _id: new Types.ObjectId(), caption: "Third", imageUrl: "3.png" }
 ];
 
+function seedCollections(...slugs: string[]) {
+	return collection("gallery", "collections").insertMany(
+		slugs.map((slug) => ({ slug, title: slug }))
+	);
+}
+
 function seedGallery() {
-	return collection("gallery", "builds").insertMany(IMAGES);
+	return Promise.all([
+		seedCollections("builds"),
+		collection("gallery", "images").insertMany(
+			IMAGES.map((image) => ({ ...image, collection: "builds" }))
+		)
+	]);
 }
 
 describe("GET /gallery", () => {
 	it("returns every collection's name, sorted", async () => {
-		await Promise.all([
-			seedGallery(),
-			galleryDb.createCollection("art"),
-			galleryDb.createCollection("season5")
-		]);
+		await seedCollections("season5", "builds", "art");
 
 		const res = await request(app).get("/gallery").expect(200);
 
@@ -56,6 +62,23 @@ describe("GET /gallery/:collection", () => {
 		expect(res.body.items).toEqual(IMAGES.map(withId));
 	});
 
+	it("returns only the collection's own images", async () => {
+		await Promise.all([
+			seedGallery(),
+			seedCollections("art"),
+			collection("gallery", "images").insertOne({
+				collection: "art",
+				caption: "Art",
+				imageUrl: "art.png"
+			})
+		]);
+
+		const res = await request(app).get("/gallery/builds").expect(200);
+
+		expect(res.body.total).toBe(3);
+		expect(res.body.items).toEqual(IMAGES.map(withId));
+	});
+
 	it("returns the page selected by startIndex and limit", async () => {
 		await seedGallery();
 
@@ -68,7 +91,7 @@ describe("GET /gallery/:collection", () => {
 	});
 
 	it("returns an empty page for an existing, empty collection", async () => {
-		await galleryDb.createCollection("empty");
+		await seedCollections("empty");
 
 		const res = await request(app).get("/gallery/empty").expect(200);
 
@@ -76,9 +99,13 @@ describe("GET /gallery/:collection", () => {
 	});
 
 	it("answers 500 when a stored image breaks the contract", async () => {
-		await collection("gallery", "builds").insertOne({
-			caption: "No image URL"
-		});
+		await Promise.all([
+			seedCollections("builds"),
+			collection("gallery", "images").insertOne({
+				collection: "builds",
+				caption: "No image URL"
+			})
+		]);
 
 		await expectContractError("/gallery/builds");
 	});

@@ -17,6 +17,7 @@ export async function startDatabase() {
 	server = await MongoMemoryServer.create();
 	// Connect through the app's own code so its Mongoose settings apply.
 	await mongoManager.connect(server.getUri());
+	await mongoManager.createIndexes();
 }
 
 export async function stopDatabase() {
@@ -24,8 +25,10 @@ export async function stopDatabase() {
 	await server?.stop();
 }
 
+// Drops every database, then rebuilds the indexes, which the drop removes too.
 export async function clearDatabase() {
 	await Promise.all(DATABASES.map((db) => db.dropDatabase()));
+	await mongoManager.createIndexes();
 }
 
 // Raw driver access for seeding, bypassing the app's schemas.
