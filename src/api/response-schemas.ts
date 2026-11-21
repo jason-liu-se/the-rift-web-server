@@ -159,7 +159,9 @@ export const editorDownloadItemSummary = z.toZod<EditorDownloadItemSummary>()(
 );
 
 export const editorMapSeasonSummary = z.toZod<EditorMapSeasonSummary>()(
-	editorMapSeason.omit({ dimensions: true })
+	editorMapSeason
+		.omit({ dimensions: true })
+		.extend({ dimensionCount: z.number().int().min(0) })
 );
 
 // A page of any editor item type.

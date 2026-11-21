@@ -53,8 +53,8 @@ interface ContentType {
 	readonly searchFields: Readonly<Record<string, SearchField>>;
 	/** The public order. */
 	readonly sort: PipelineStage[];
-	/** Fields lists leave out (only `getItem` sends the whole item). */
-	readonly listOmits: readonly string[];
+	/** What makes an item a list's summary (only `getItem` sends it whole). */
+	readonly summary: PipelineStage[];
 	/** For gallery and downloads: their collections' metadata. */
 	readonly collectionModel?: Model<ContentCollection>;
 }
@@ -79,7 +79,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			content: textSearch("content")
 		},
 		sort: [{ $sort: { date: -1, _id: -1 } }],
-		listOmits: ["content"]
+		summary: [{ $unset: "content" }]
 	},
 	gallery: {
 		model: storedItems(galleryImageModel),
@@ -89,7 +89,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			tags: textSearch("tags")
 		},
 		sort: [{ $sort: { _id: -1 } }],
-		listOmits: [],
+		summary: [],
 		collectionModel: galleryCollectionModel
 	},
 	downloads: {
@@ -110,7 +110,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			{ $sort: { unordered: 1, sortOrder: 1, title: 1, _id: 1 } },
 			{ $unset: "unordered" }
 		],
-		listOmits: ["desc"],
+		summary: [{ $unset: "desc" }],
 		collectionModel: downloadCollectionModel
 	},
 	maps: {
@@ -123,7 +123,14 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			dimensions: textSearch("dimensions.name")
 		},
 		sort: [{ $sort: { season: 1 } }],
-		listOmits: ["dimensions"]
+		summary: [
+			{
+				$set: {
+					dimensionCount: { $size: { $ifNull: ["$dimensions", []] } }
+				}
+			},
+			{ $unset: "dimensions" }
+		]
 	}
 };
 
@@ -207,7 +214,7 @@ function toEditorItem({ _id, ...fields }: StoredItem, now: Date): EditorItem {
 }
 
 // A page of a type's items, public or not, in the public order, with the
-// number matching. Without the type's `listOmits`: see getItem for those.
+// number matching. As the type's summaries: see getItem for whole items.
 export async function listItems(
 	typeName: ContentTypeName,
 	query: EditorListQuery,
@@ -219,15 +226,13 @@ export async function listItems(
 	if (query.limit !== undefined) {
 		page.push({ $limit: query.limit });
 	}
-	if (type.listOmits.length > 0) {
-		page.push({ $unset: [...type.listOmits] });
-	}
 
 	const [items, total] = await Promise.all([
 		type.model.aggregate<StoredItem>([
 			{ $match: filter },
 			...type.sort,
-			...page
+			...page,
+			...type.summary
 		]),
 		type.model.countDocuments(filter)
 	]);
