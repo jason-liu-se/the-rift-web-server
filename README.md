@@ -122,6 +122,7 @@ gets `403`. Request bodies must be JSON (`415` otherwise).
 | `GET /editor/drafts`, `GET /editor/drafts/:id`                                                  | `type`                                                                                 | The caller's drafts (summaries), or one whole draft           |
 | `PUT /editor/drafts/:id`, `DELETE /editor/drafts/:id`                                           | Body: `type`, `fields`, `startingRevision`                                             | The draft (`201` created), or `204`                           |
 | `POST /editor/drafts/:id/publish`                                                               | Body: `visible`, `date`, `asNew`                                                       | The published item                                            |
+| `POST /editor/images`                                                                           | Multipart: `use`, `collection`, `files`                                                | `{ results }`: each file's imgbb URL or error                 |
 
 Errors are `{ "error": string }`. Request types (each endpoint's query and
 body): [`src/contract/api-requests.ts`](./src/contract/api-requests.ts);
