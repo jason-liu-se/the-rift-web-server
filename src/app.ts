@@ -19,6 +19,7 @@ import { sessionMiddleware } from "./middleware/session.ts";
 import { PUBLIC_ROUTES } from "./api/public-routes.ts";
 import { authRouter } from "./routes/auth/auth.ts";
 import { contentRouter } from "./routes/content/content.ts";
+import { editorCollectionsRouter, editorItemsRouter } from "./routes/editor.ts";
 import { newsRouter } from "./routes/news/news.ts";
 import { downloadsRouter } from "./routes/downloads/downloads.ts";
 import { galleryRouter } from "./routes/gallery/gallery.ts";
@@ -65,6 +66,13 @@ export function apiRouters(config: AppConfig): Record<string, Router> {
 		"/news": newsRouter,
 		"/downloads": downloadsRouter,
 		"/gallery": galleryRouter,
-		"/maps": mapsRouter
+		"/maps": mapsRouter,
+		// Each editor router has its own prefix, so tests list every route.
+		"/editor/news": editorItemsRouter("news"),
+		"/editor/gallery/collections": editorCollectionsRouter("gallery"),
+		"/editor/gallery/images": editorItemsRouter("gallery"),
+		"/editor/downloads/collections": editorCollectionsRouter("downloads"),
+		"/editor/downloads/items": editorItemsRouter("downloads"),
+		"/editor/maps/seasons": editorItemsRouter("maps")
 	};
 }
