@@ -6,6 +6,7 @@ import { BadRequestError } from "../errors/bad-request-error.ts";
 import { ConflictError } from "../errors/conflict-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import type { EditorRef } from "../models/audit-fields.ts";
+import { parseCreate } from "../api/editor-requests.ts";
 import {
 	EDITOR_ITEM_SCHEMAS,
 	editorCollection,
@@ -18,6 +19,7 @@ import {
 	type CreateResult,
 	type FieldChanges,
 	type WriteResult,
+	createItem,
 	hasCollection
 } from "../managers/editor-content.ts";
 
@@ -61,6 +63,17 @@ export async function checkCollection(
 	) {
 		throw new BadRequestError("collection: no such collection");
 	}
+}
+
+// Checks a create body fully, then creates its item.
+export async function createFromBody(
+	typeName: ContentTypeName,
+	body: unknown,
+	editor: EditorRef
+): Promise<CreateResult> {
+	const { createId, fields } = parseCreate(typeName, body, new Date());
+	await checkCollection(typeName, fields);
+	return createItem(typeName, createId, fields, editor);
 }
 
 // The item a successful write returns, or the error for any other outcome.
