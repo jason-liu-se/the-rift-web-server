@@ -20,6 +20,7 @@ import { PUBLIC_ROUTES } from "./api/public-routes.ts";
 import { authRouter } from "./routes/auth/auth.ts";
 import { contentRouter } from "./routes/content/content.ts";
 import { draftsRouter } from "./routes/editor/drafts.ts";
+import { IMAGE_UPLOAD_PATH, imagesRouter } from "./routes/images.ts";
 import { editorCollectionsRouter } from "./routes/editor/collections.ts";
 import { editorItemsRouter } from "./routes/editor/items.ts";
 import { newsRouter } from "./routes/news/news.ts";
@@ -44,7 +45,7 @@ export function createApp(config: AppConfig): Express {
 	app.use(readRateLimit(config));
 	app.use("/auth", authRateLimit(config));
 	app.use(requireLogin(PUBLIC_ROUTES));
-	app.use(jsonBody());
+	app.use(jsonBody([IMAGE_UPLOAD_PATH]));
 	for (const [prefix, router] of Object.entries(apiRouters(config))) {
 		app.use(prefix, router);
 	}
@@ -76,6 +77,7 @@ export function apiRouters(config: AppConfig): Record<string, Router> {
 		"/editor/downloads/collections": editorCollectionsRouter("downloads"),
 		"/editor/downloads/items": editorItemsRouter("downloads"),
 		"/editor/maps/seasons": editorItemsRouter("maps"),
-		"/editor/drafts": draftsRouter
+		"/editor/drafts": draftsRouter,
+		[IMAGE_UPLOAD_PATH]: imagesRouter(config)
 	};
 }

@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler } from "express";
+import multer from "multer";
 import * as z from "zod";
 import { BadRequestError } from "../errors/bad-request-error.ts";
 import { ConflictError } from "../errors/conflict-error.ts";
@@ -60,6 +61,18 @@ export const handleError: ErrorRequestHandler = (error, req, res, next) => {
 		const { status } = bodyError.data;
 		const message = BODY_ERROR_MESSAGES[status] ?? "malformed request body";
 		res.status(status).json({ error: `ERROR: ${message}` });
+		return;
+	}
+
+	// An upload's multipart body broke a limit (src/config/uploads.ts). Its
+	// message can name the client's file, so callers get ours.
+	if (error instanceof multer.MulterError) {
+		const tooLarge = error.code === "LIMIT_FILE_SIZE";
+		res.status(tooLarge ? 413 : 400).json({
+			error: tooLarge
+				? "ERROR: an image is too large"
+				: "ERROR: invalid upload (too many files, or an unexpected field)"
+		});
 		return;
 	}
 
