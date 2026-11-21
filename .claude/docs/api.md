@@ -284,7 +284,8 @@ To change a response:
   one was wrong.
 - **Editor lists send summaries.** A list (an editor table) sends only what it
   shows, leaving out long fields (news content, a download's description, map
-  dimensions, a draft's fields); opening an item fetches all of it (`/:id`).
+  dimensions, which become a `dimensionCount`, a draft's fields); opening an
+  item fetches all of it (`/:id`).
 - **Pagination.** Collections that can grow take `startIndex`/`limit`
   (`paginationQuery`) and return `{ items, total }`, plus a `/count` endpoint.
 - **Compatibility.** Keep responses backward compatible. Check

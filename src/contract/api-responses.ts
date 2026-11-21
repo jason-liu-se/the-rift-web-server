@@ -328,8 +328,10 @@ export type EditorNewsPostSummary = Omit<EditorNewsPost, "content">;
 /** A download item in a list: everything but its description. */
 export type EditorDownloadItemSummary = Omit<EditorDownloadItem, "desc">;
 
-/** A map season in a list: everything but its dimensions. */
-export type EditorMapSeasonSummary = Omit<EditorMapSeason, "dimensions">;
+/** A map season in a list: how many dimensions it has, not the dimensions. */
+export type EditorMapSeasonSummary = Omit<EditorMapSeason, "dimensions"> & {
+	dimensionCount: number;
+};
 
 /** A gallery or download collection, public or not. */
 export interface EditorCollection {

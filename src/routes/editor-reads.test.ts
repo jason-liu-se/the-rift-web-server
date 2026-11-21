@@ -363,6 +363,32 @@ describe("GET /editor/maps/seasons", () => {
 			expect(item).not.toHaveProperty("dimensions");
 		}
 	});
+
+	it("counts each season's dimensions, and reads none as zero", async () => {
+		await collection("maps", "seasons").insertMany([
+			{
+				season: 6,
+				imageUrl: "i",
+				dimensions: [
+					{
+						name: "a",
+						imageUrl: "i",
+						worldId: "w",
+						perspective: "p"
+					},
+					{ name: "b", imageUrl: "i", worldId: "w", perspective: "p" }
+				]
+			},
+			{ season: 7, imageUrl: "i" }
+		]);
+
+		const res = await get("/editor/maps/seasons").expect(200);
+
+		expect(res.body.items).toMatchObject([
+			{ season: 6, dimensionCount: 2 },
+			{ season: 7, dimensionCount: 0 }
+		]);
+	});
 });
 
 describe("GET /editor/gallery/collections", () => {
