@@ -43,6 +43,8 @@
 // it's cached under the current content version: see VersionQuery in
 // api-requests.ts.
 
+import type { DraftContent, DraftTarget } from "./api-requests.ts";
+
 export interface NewsPost {
 	id: string;
 	title: string;
@@ -281,3 +283,37 @@ export type BulkItemResult<T> =
 export interface BulkResponse<T> {
 	results: BulkItemResult<T>[];
 }
+
+// Drafts: an editor's unpublished work, saved as they type, private to them
+// (anyone else's draft is 404). Never cached.
+//
+//   GET    /editor/drafts             Draft[], most recently saved first
+//   GET    /editor/drafts/:id         Draft
+//   PUT    /editor/drafts/:id         DraftSaveRequest → Draft (201 created,
+//                                     200 saved); 409 ConflictResponse<Draft>
+//                                     when another device saved since, or
+//                                     when an edit draft of that item exists
+//   DELETE /editor/drafts/:id         204
+//   POST   /editor/drafts/:id/publish DraftPublishRequest → the published
+//                                     Editor* item; repeating it returns the
+//                                     same item. 409 ConflictResponse with the
+//                                     item as it is now when it changed since
+//                                     the draft started; 404 when it was
+//                                     deleted (publish with asNew, or discard)
+//
+// Drafts are checked only for types and limits; publishing checks them fully
+// (400 names each problem). An editor may keep 100 drafts of up to 64 KB of
+// fields each.
+
+export type Draft = DraftContent & {
+	/** The client's UUID; doubles as the published item's createId. */
+	id: string;
+	/** The draft's own revision; send it with the next save. */
+	revision: number;
+	/** Absent for a new item. */
+	target?: DraftTarget;
+	/** ISO 8601 */
+	createdAt: string;
+	/** ISO 8601 */
+	updatedAt: string;
+};

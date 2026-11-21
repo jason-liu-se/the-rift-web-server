@@ -104,7 +104,7 @@ describe("editor writes, refused", () => {
 		const res = await request(app).options("/editor/news").expect(204);
 
 		expect(res.headers["access-control-allow-methods"]).toBe(
-			"GET,POST,PATCH,DELETE,OPTIONS"
+			"GET,POST,PUT,PATCH,DELETE,OPTIONS"
 		);
 	});
 });

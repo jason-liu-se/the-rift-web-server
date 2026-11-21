@@ -192,11 +192,11 @@ use it up for everyone.
 
 **MongoDB:** databases `news` (collection `posts`), `gallery` (`images`, plus
 `collections`: each gallery's `slug` and `title`), `downloads` (`items`, plus
-`collections`), `maps` (`seasons`), `auth` (`accessGrants`), and `content`
-(`meta`: the content version). Add content directly, then set the
-`contentVersion` document's `version` to any new whole number (e.g. the current
-time in ms) so the edit shows at once. See
-[database.md](./.claude/rules/database.md).
+`collections`), `maps` (`seasons`), `auth` (`accessGrants`), `content` (`meta`:
+the content version), and `editor` (`drafts`: editors' unpublished work, private
+to each). Add content directly, then set the `contentVersion` document's
+`version` to any new whole number (e.g. the current time in ms) so the edit
+shows at once. See [database.md](./.claude/rules/database.md).
 
 **Redis:** one hash per login session, key `session:<session ID>`, expiring with
 the session; fields in
