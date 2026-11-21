@@ -91,7 +91,7 @@ describe("editor reads, logged out", () => {
 });
 
 describe("GET /editor/news", () => {
-	it("returns every post, public or not, newest first, with its status", async () => {
+	it("returns every post, public or not, newest first, with its status but not its content", async () => {
 		await seedNews();
 
 		const res = await get("/editor/news").expect(200);
@@ -102,7 +102,6 @@ describe("GET /editor/news", () => {
 				id: NEWS.scheduled._id.toHexString(),
 				title: "Scheduled post",
 				date: LATER.toISOString(),
-				content: "Soon",
 				visible: true,
 				revision: 0,
 				status: "scheduled",
@@ -112,7 +111,6 @@ describe("GET /editor/news", () => {
 				id: NEWS.live._id.toHexString(),
 				title: "Live post",
 				date: "2026-01-01T00:00:00.000Z",
-				content: "Season 8 is here",
 				visible: true,
 				revision: 2,
 				status: "live",
@@ -231,6 +229,7 @@ describe("GET /editor/news/:id", () => {
 
 		expect(res.body).toMatchObject({
 			id: NEWS.hidden._id.toHexString(),
+			content: "Draft-ish",
 			status: "hidden",
 			revision: 1
 		});
@@ -328,6 +327,7 @@ describe("GET /editor/downloads/items", () => {
 			{ title: "z", sortOrder: 1 },
 			{ title: "b" }
 		]);
+		expect(res.body.items[0]).not.toHaveProperty("desc");
 	});
 });
 
@@ -359,6 +359,9 @@ describe("GET /editor/maps/seasons", () => {
 		expect(
 			res.body.items.map(({ season }: { season: number }) => season)
 		).toEqual(seasons);
+		for (const item of res.body.items) {
+			expect(item).not.toHaveProperty("dimensions");
+		}
 	});
 });
 

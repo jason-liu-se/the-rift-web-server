@@ -255,17 +255,18 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 // or not, with its edit history. Sent `Cache-Control: private, no-cache` with
 // an ETag, so the browser revalidates (304 when unchanged).
 //
-//   GET /editor/news                     PaginatedResponse<EditorNewsPost>
-//   GET /editor/news/:id                 EditorNewsPost
-//   GET /editor/gallery/collections      EditorCollection[], by slug
-//   GET /editor/gallery/images           PaginatedResponse<EditorGalleryImage>
-//   GET /editor/gallery/images/:id       EditorGalleryImage
-//   GET /editor/downloads/collections    EditorCollection[], by slug
-//   GET /editor/downloads/items          PaginatedResponse<EditorDownloadItem>
-//   GET /editor/downloads/items/:id      EditorDownloadItem
-//   GET /editor/maps/seasons             PaginatedResponse<EditorMapSeason>
-//   GET /editor/maps/seasons/:id         EditorMapSeason
+//   GET /editor/news                PaginatedResponse<EditorNewsPostSummary>
+//   GET /editor/news/:id            EditorNewsPost
+//   GET /editor/gallery/collections EditorCollection[], by slug
+//   GET /editor/gallery/images      PaginatedResponse<EditorGalleryImage>
+//   GET /editor/gallery/images/:id  EditorGalleryImage
+//   GET /editor/downloads/collections  EditorCollection[], by slug
+//   GET /editor/downloads/items     PaginatedResponse<EditorDownloadItemSummary>
+//   GET /editor/downloads/items/:id EditorDownloadItem
+//   GET /editor/maps/seasons        PaginatedResponse<EditorMapSeasonSummary>
+//   GET /editor/maps/seasons/:id    EditorMapSeason
 //
+// Lists carry what a table shows; open an item (`/:id`) for all of it.
 // Lists are in the public order and take `startIndex`, `limit` (at most 100,
 // the default), and filters: `mine=true` (created by the caller), `status` (a
 // ContentStatus; `scheduled` only for news), `collection` (a slug; gallery and
@@ -320,6 +321,15 @@ export type EditorDownloadItem = DownloadItem &
 	};
 
 export type EditorMapSeason = MapSeason & EditorFields;
+
+/** A news post in a list: everything but its content. */
+export type EditorNewsPostSummary = Omit<EditorNewsPost, "content">;
+
+/** A download item in a list: everything but its description. */
+export type EditorDownloadItemSummary = Omit<EditorDownloadItem, "desc">;
+
+/** A map season in a list: everything but its dimensions. */
+export type EditorMapSeasonSummary = Omit<EditorMapSeason, "dimensions">;
 
 /** A gallery or download collection, public or not. */
 export interface EditorCollection {

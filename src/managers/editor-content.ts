@@ -53,6 +53,8 @@ interface ContentType {
 	readonly searchFields: Readonly<Record<string, SearchField>>;
 	/** The public order. */
 	readonly sort: PipelineStage[];
+	/** Fields lists leave out (only `getItem` sends the whole item). */
+	readonly listOmits: readonly string[];
 	/** For gallery and downloads: their collections' metadata. */
 	readonly collectionModel?: Model<ContentCollection>;
 }
@@ -76,7 +78,8 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			title: textSearch("title"),
 			content: textSearch("content")
 		},
-		sort: [{ $sort: { date: -1, _id: -1 } }]
+		sort: [{ $sort: { date: -1, _id: -1 } }],
+		listOmits: ["content"]
 	},
 	gallery: {
 		model: storedItems(galleryImageModel),
@@ -86,6 +89,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			tags: textSearch("tags")
 		},
 		sort: [{ $sort: { _id: -1 } }],
+		listOmits: [],
 		collectionModel: galleryCollectionModel
 	},
 	downloads: {
@@ -106,6 +110,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			{ $sort: { unordered: 1, sortOrder: 1, title: 1, _id: 1 } },
 			{ $unset: "unordered" }
 		],
+		listOmits: ["desc"],
 		collectionModel: downloadCollectionModel
 	},
 	maps: {
@@ -117,7 +122,8 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 				/^\d+$/.test(query) ? { season: Number(query) } : { _id: null },
 			dimensions: textSearch("dimensions.name")
 		},
-		sort: [{ $sort: { season: 1 } }]
+		sort: [{ $sort: { season: 1 } }],
+		listOmits: ["dimensions"]
 	}
 };
 
@@ -201,7 +207,7 @@ function toEditorItem({ _id, ...fields }: StoredItem, now: Date): EditorItem {
 }
 
 // A page of a type's items, public or not, in the public order, with the
-// number matching.
+// number matching. Without the type's `listOmits`: see getItem for those.
 export async function listItems(
 	typeName: ContentTypeName,
 	query: EditorListQuery,
@@ -212,6 +218,9 @@ export async function listItems(
 	const page: PipelineStage[] = [{ $skip: query.startIndex }];
 	if (query.limit !== undefined) {
 		page.push({ $limit: query.limit });
+	}
+	if (type.listOmits.length > 0) {
+		page.push({ $unset: [...type.listOmits] });
 	}
 
 	const [items, total] = await Promise.all([
