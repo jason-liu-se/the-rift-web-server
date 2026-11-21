@@ -8,11 +8,15 @@ export const AUTH_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 /** Auth limiter: login and session requests per client IP per window. */
 export const AUTH_RATE_LIMIT = 15;
 
-/** Write limiter: the window it counts over, in ms. */
-export const WRITE_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+/**
+ * Write limiter: the window it counts over, in ms. Short, so drafts can
+ * autosave in bursts (up to 60 writes a minute) without one burst using up
+ * the minute.
+ */
+export const WRITE_RATE_LIMIT_WINDOW_MS = 15 * 1000;
 
 /** Write limiter: writes per editor (or client IP, logged out) per window. */
-export const WRITE_RATE_LIMIT = 30;
+export const WRITE_RATE_LIMIT = 15;
 
 /** Read limiter: the window it counts over, in ms. */
 export const READ_RATE_LIMIT_WINDOW_MS = 60 * 1000;
