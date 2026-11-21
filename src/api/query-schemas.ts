@@ -7,6 +7,7 @@ import {
 	MAX_SEARCH_QUERY_LENGTH,
 	MAX_TAGS_PER_IMAGE
 } from "../config/content-limits.ts";
+import { MAX_EDITOR_PAGE_SIZE } from "../config/requests.ts";
 
 // A gallery or download collection's slug: kebab-case, as in the website's
 // URLs.
@@ -74,6 +75,13 @@ export function editorListQuery<
 	const Field extends string
 >(statuses: readonly Status[], searchFields: readonly Field[]) {
 	return paginationQuery.extend({
+		// Capped, as editors see every item, hidden ones too.
+		limit: z.coerce
+			.number()
+			.int()
+			.min(1)
+			.max(MAX_EDITOR_PAGE_SIZE)
+			.default(MAX_EDITOR_PAGE_SIZE),
 		mine: z.stringbool().optional(),
 		status: z.enum(statuses).optional(),
 		collection: collectionSlug.optional(),

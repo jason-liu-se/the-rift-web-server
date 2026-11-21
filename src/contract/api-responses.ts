@@ -266,9 +266,10 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 //   GET /editor/maps/seasons             PaginatedResponse<EditorMapSeason>
 //   GET /editor/maps/seasons/:id         EditorMapSeason
 //
-// Lists are in the public order and take `startIndex`, `limit`, and filters:
-// `mine=true` (created by the caller), `status` (a ContentStatus; `scheduled`
-// only for news), `collection` (a slug; gallery and downloads), and a search,
+// Lists are in the public order and take `startIndex`, `limit` (at most 100,
+// the default), and filters: `mine=true` (created by the caller), `status` (a
+// ContentStatus; `scheduled` only for news), `collection` (a slug; gallery and
+// downloads; an unknown one matches nothing), and a search,
 // `q` (case-insensitive, at most 100 characters) in the fields `in` names
 // (comma-separated, default all): news `title,content`, gallery
 // `caption,tags`, downloads `title,desc`, maps `season,dimensions` (season

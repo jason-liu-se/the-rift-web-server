@@ -2,9 +2,10 @@
 // router per content type's items, and one per gallery or download
 // collections, all built from the same pieces: what differs per type lives in
 // CONTENT_TYPES (src/managers/editor-content.ts).
-import express, { type Router } from "express";
+import express, { type Response, type Router } from "express";
 import type * as z from "zod";
 import { NotFoundError } from "../errors/not-found-error.ts";
+import { UnauthorizedError } from "../errors/unauthorized-error.ts";
 import * as editorContent from "../managers/editor-content.ts";
 import type {
 	CollectionTypeName,
@@ -44,6 +45,16 @@ function listQuery(typeName: ContentTypeName) {
 	return collectionModel ? schema : schema.omit({ collection: true });
 }
 
+// The logged-in editor's ID. requireLogin makes sure there is one; throwing
+// keeps an ownership filter from ever silently matching everyone.
+function currentEditorId(res: Response): string {
+	const id = res.locals.user?.id;
+	if (id === undefined) {
+		throw new UnauthorizedError();
+	}
+	return id;
+}
+
 // A type's items: GET / (filtered, searched, and paginated) and GET /:id.
 export function editorItemsRouter(typeName: ContentTypeName): Router {
 	const router = express.Router();
@@ -57,7 +68,7 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 
 		const page = await editorContent.listItems(typeName, {
 			...filters,
-			createdBy: mine ? res.locals.user?.id : undefined,
+			createdBy: mine ? currentEditorId(res) : undefined,
 			searchIn
 		});
 		res.json(parseResponse(pageSchema, page));
