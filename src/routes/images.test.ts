@@ -200,6 +200,43 @@ describe("POST /editor/images", () => {
 		expect(res.body.error).toMatch(message);
 	});
 
+	it("uploads through the path however Express routes it", async () => {
+		await request(app)
+			.post("/Editor/Images/")
+			.set("Cookie", cookie)
+			.set("Origin", testConfig.FRONTEND_URL)
+			.field("use", "news")
+			.attach("files", PNG, "a.png")
+			.expect(200);
+	});
+
+	it("answers 400 for a malformed multipart body", async () => {
+		const res = await upload()
+			.set("Content-Type", "multipart/form-data; boundary=x")
+			.send(
+				'--x\r\nContent-Disposition: form-data; name="use"\r\n\r\nnews'
+			)
+			.expect(400);
+
+		expect(res.body).toEqual({ error: "ERROR: malformed multipart body" });
+	});
+
+	it("reports an image URL the allowlist wouldn't accept as a failure", async () => {
+		imgbb.mockResolvedValueOnce(
+			Response.json({ data: { url: "https://elsewhere.example/a.png" } })
+		);
+		vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+		const res = await upload()
+			.field("use", "news")
+			.attach("files", PNG, "a.png")
+			.expect(200);
+
+		expect(res.body.results[0].error).toBe(
+			"the image host failed; try again"
+		);
+	});
+
 	it("still refuses multipart bodies on other routes", async () => {
 		await request(app)
 			.post("/editor/news")

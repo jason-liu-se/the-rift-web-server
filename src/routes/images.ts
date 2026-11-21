@@ -2,24 +2,29 @@
 // imgbb, since the API key must stay secret. multer parses this route's
 // multipart body (after the login gate; jsonBody lets it through), keeping
 // files in memory within the limits in src/config/uploads.ts.
-import express, { type Router } from "express";
+import express, { type RequestHandler, type Router } from "express";
 import multer from "multer";
 import * as z from "zod";
 import type { AppConfig } from "../config/env.ts";
-import { MAX_UPLOAD_BYTES, MAX_UPLOAD_FILES } from "../config/uploads.ts";
+import {
+	IMGBB_CONCURRENT_UPLOADS,
+	MAX_UPLOAD_BYTES,
+	MAX_UPLOAD_FILES
+} from "../config/uploads.ts";
 import type { ImageUploadForm } from "../contract/api-requests.ts";
 import type { ImageUploadResult } from "../contract/api-responses.ts";
 import { BadRequestError } from "../errors/bad-request-error.ts";
 import { imageTypeOf } from "../helpers/image-files.ts";
 import { ImgbbError, uploadImage } from "../managers/imgbb.ts";
 import { collectionSlug } from "../api/query-schemas.ts";
+import { imageUploadResponse, parseResponse } from "../api/response-schemas.ts";
 
 /** Where uploads are sent; jsonBody skips this path's multipart body. */
 export const IMAGE_UPLOAD_PATH = "/editor/images";
 
 const MAX_NAME_LENGTH = 60;
 
-const parseFiles = multer({
+const upload = multer({
 	storage: multer.memoryStorage(),
 	limits: {
 		fileSize: MAX_UPLOAD_BYTES,
@@ -27,6 +32,35 @@ const parseFiles = multer({
 		fields: 2
 	}
 }).array("files", MAX_UPLOAD_FILES);
+
+// multer's own errors are broken limits (the error handler maps them); any
+// other is busboy's, for a malformed or cut-off body: the caller's mistake.
+const parseFiles: RequestHandler = (req, res, next) => {
+	upload(req, res, (error: unknown) => {
+		next(
+			error && !(error instanceof multer.MulterError)
+				? new BadRequestError("malformed multipart body", {
+						cause: error
+					})
+				: error
+		);
+	});
+};
+
+// Runs `work` on every item, at most `limit` at a time, keeping their order.
+async function mapLimited<T, R>(
+	items: readonly T[],
+	limit: number,
+	work: (item: T) => Promise<R>
+): Promise<R[]> {
+	const results: R[] = [];
+	for (let start = 0; start < items.length; start += limit) {
+		results.push(
+			...(await Promise.all(items.slice(start, start + limit).map(work)))
+		);
+	}
+	return results;
+}
 
 // What the upload is for, which picks the name prefix: `g-<slug>-`, `n-`,
 // `d-`, or `m-`.
@@ -66,8 +100,10 @@ export function imagesRouter(config: AppConfig): Router {
 		}
 		const prefix = namePrefix(fields);
 
-		const results = await Promise.all(
-			files.map(async (file): Promise<ImageUploadResult> => {
+		const results = await mapLimited(
+			files,
+			IMGBB_CONCURRENT_UPLOADS,
+			async (file): Promise<ImageUploadResult> => {
 				const name = `${prefix}${baseName(file.originalname)}`;
 				if (!imageTypeOf(file.buffer)) {
 					return {
@@ -93,9 +129,9 @@ export function imagesRouter(config: AppConfig): Router {
 					}
 					throw error;
 				}
-			})
+			}
 		);
-		res.json({ results });
+		res.json(parseResponse(imageUploadResponse, { results }));
 	});
 
 	return router;

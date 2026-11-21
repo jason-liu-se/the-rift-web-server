@@ -32,6 +32,7 @@ import type {
 	GalleryCollection,
 	GalleryImage,
 	GalleryTags,
+	ImageUploadResponse,
 	MapSeason,
 	NewsPost,
 	PaginatedResponse,
@@ -292,6 +293,17 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 			})
 		])
 	)
+);
+
+export const imageUploadResponse = z.toZod<ImageUploadResponse>()(
+	z.object({
+		results: z.array(
+			z.union([
+				z.object({ name: z.string(), url: z.string() }),
+				z.object({ name: z.string(), error: z.string() })
+			])
+		)
+	})
 );
 
 export const sessionUser = z.toZod<SessionUser>()(

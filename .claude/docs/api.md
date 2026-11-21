@@ -101,9 +101,10 @@ The one exception is `POST /editor/images` (`IMAGE_UPLOAD_PATH`), whose
 (memory storage, `src/config/uploads.ts` limits), which runs after the login
 gate, so logged-out uploads are never read either. Multer's limit errors are
 `413` (a file too large) or `400`, with our own message (theirs can quote the
-client's file name). Files are checked by their first bytes, not their name, and
-uploaded through `src/managers/imgbb.ts`, which logs imgbb's failures (never the
-key) and reports them generically.
+client's file name), and a malformed body is `400`. Files are checked by their
+first bytes, not their name, and uploaded a few at a time through
+`src/managers/imgbb.ts`, which logs imgbb's failures (never the key), including
+a URL outside the image allowlist, and reports them generically.
 
 CORS allows `GET,POST,PUT,PATCH,DELETE,OPTIONS` (`src/middleware/cors.ts`): a
 route with any other method must add it there, or browsers block it.
