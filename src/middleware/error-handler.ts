@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from "express";
 import * as z from "zod";
+import { BadRequestError } from "../errors/bad-request-error.ts";
 import { ForbiddenError } from "../errors/forbidden-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
@@ -29,7 +30,8 @@ const BODY_ERROR_MESSAGES: Readonly<Record<number, string>> = {
 
 // Express 5 sends errors thrown by any route (including rejected promises)
 // here. Zod errors come from routes parsing their path and query parameters,
-// so they're the caller's mistake (400), as are bad bodies (400, 413, 415).
+// and bodies, so they're the caller's mistake (400), as are bad bodies (400,
+// 413, 415) and BadRequestError (400).
 // UnauthorizedError means nobody is logged in (401), ForbiddenError means it's
 // refused whoever asks (403), and NotFoundError means the resource doesn't
 // exist (404). Anything else is logged but not exposed (500).
@@ -57,6 +59,11 @@ export const handleError: ErrorRequestHandler = (error, req, res, next) => {
 		const { status } = bodyError.data;
 		const message = BODY_ERROR_MESSAGES[status] ?? "malformed request body";
 		res.status(status).json({ error: `ERROR: ${message}` });
+		return;
+	}
+
+	if (error instanceof BadRequestError) {
+		res.status(400).json({ error: `ERROR: ${error.message}` });
 		return;
 	}
 
