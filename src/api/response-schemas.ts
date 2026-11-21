@@ -7,12 +7,19 @@
 // z.toZod makes each schema's output type exactly equal its contract type, so
 // the two can't drift apart without a compile error.
 import * as z from "zod";
+import {
+	downloadItemFields,
+	galleryImageFields,
+	mapSeasonFields,
+	newsPostFields
+} from "./write-schemas.ts";
 import type {
 	ContentVersion,
 	CountResponse,
 	DetailVersion,
 	DownloadCollection,
 	DownloadItem,
+	Draft,
 	EditorCollection,
 	EditorDownloadItem,
 	EditorDownloadItemSummary,
@@ -209,6 +216,43 @@ export const editorCollection = z.toZod<EditorCollection>()(
 export const editorCollections = z.toZod<EditorCollection[]>()(
 	z.array(editorCollection)
 );
+
+const draftFields = {
+	id: z.string(),
+	revision: z.number().int(),
+	target: z.object({ id: z.string(), revision: z.number().int() }).optional(),
+	createdAt: isoDate,
+	updatedAt: isoDate
+};
+
+// A stored draft's fields were checked when saved; they're parsed again so
+// the response carries only the contract's fields.
+export const draft = z.toZod<Draft>()(
+	z.discriminatedUnion("type", [
+		z.object({
+			type: z.literal("news"),
+			fields: newsPostFields.draft,
+			...draftFields
+		}),
+		z.object({
+			type: z.literal("gallery"),
+			fields: galleryImageFields.draft,
+			...draftFields
+		}),
+		z.object({
+			type: z.literal("downloads"),
+			fields: downloadItemFields.draft,
+			...draftFields
+		}),
+		z.object({
+			type: z.literal("maps"),
+			fields: mapSeasonFields.draft,
+			...draftFields
+		})
+	])
+);
+
+export const drafts = z.toZod<Draft[]>()(z.array(draft));
 
 export const sessionUser = z.toZod<SessionUser>()(
 	z.object({

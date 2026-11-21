@@ -4,6 +4,7 @@
 // handler turns them into 500 responses.
 import mongoose, { type Types } from "mongoose";
 import { accessGrantModel } from "../models/access-grant-schema.ts";
+import { draftModel } from "../models/draft-schema.ts";
 import {
 	CONTENT_VERSION_ID,
 	contentVersionModel
@@ -30,6 +31,7 @@ const MODELS = [
 	contentVersionModel,
 	downloadCollectionModel,
 	downloadItemModel,
+	draftModel,
 	galleryCollectionModel,
 	galleryImageModel,
 	mapSeasonModel,

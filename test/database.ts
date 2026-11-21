@@ -5,11 +5,20 @@ import * as mongoManager from "../src/managers/mongo-manager.ts";
 import { authDb } from "../src/models/access-grant-schema.ts";
 import { contentDb } from "../src/models/content-version-schema.ts";
 import { downloadsDb } from "../src/models/downloads-schema.ts";
+import { editorDb } from "../src/models/draft-schema.ts";
 import { galleryDb } from "../src/models/gallery-schema.ts";
 import { mapsDb } from "../src/models/map-season-schema.ts";
 import { newsDb } from "../src/models/news-post-schema.ts";
 
-const DATABASES = [newsDb, galleryDb, downloadsDb, mapsDb, authDb, contentDb];
+const DATABASES = [
+	newsDb,
+	galleryDb,
+	downloadsDb,
+	mapsDb,
+	authDb,
+	contentDb,
+	editorDb
+];
 
 let server: MongoMemoryServer | undefined;
 

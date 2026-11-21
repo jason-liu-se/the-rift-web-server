@@ -26,3 +26,10 @@ export const MAX_MAP_WORLD_FIELD_LENGTH = 200;
 
 /** An editor list's search query (`q`). */
 export const MAX_SEARCH_QUERY_LENGTH = 100;
+
+/** Drafts one editor may keep, and one draft's fields as JSON, in bytes. */
+export const MAX_DRAFTS_PER_USER = 100;
+export const MAX_DRAFT_BYTES = 64 * 1024;
+
+/** How long a published draft's ID still answers a repeated publish, in ms. */
+export const PUBLISHED_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;

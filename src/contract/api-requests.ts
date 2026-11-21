@@ -52,6 +52,12 @@
 //   PATCH  /editor/<collections>/:slug  CollectionUpdateRequest
 //   DELETE /editor/<collections>/:slug  DeleteQuery
 //
+// And for drafts (see the Drafts note in api-responses.ts):
+//
+//   GET    /editor/drafts               DraftListQuery
+//   PUT    /editor/drafts/:id           DraftSaveRequest
+//   POST   /editor/drafts/:id/publish   DraftPublishRequest
+//
 // Every write is checked against the limits in the server's
 // src/config/content-limits.ts, image URLs against its src/config/images.ts
 // allowlist, and news markdown for raw HTML and unsafe links or images. A 400
@@ -275,4 +281,43 @@ export type MapSeasonBulkUpdateRequest = BulkVisibilityUpdate;
 /** Creates every image; each result's `id` is its item's createId. */
 export interface GalleryImageBulkCreateRequest {
 	items: GalleryImageCreateRequest[];
+}
+
+// Drafts: the Draft each save answers is in api-responses.ts.
+
+export type EditorContentType = "news" | "gallery" | "downloads" | "maps";
+
+/** The drafts list, of every content type unless `type` names one. */
+export interface DraftListQuery {
+	type?: EditorContentType;
+}
+
+/** What a draft holds, by content type. */
+export type DraftContent =
+	| { type: "news"; fields: Partial<NewsPostFields> }
+	| { type: "gallery"; fields: Partial<GalleryImageFields> }
+	| { type: "downloads"; fields: Partial<DownloadItemFields> }
+	| { type: "maps"; fields: Partial<MapSeasonFields> };
+
+/** The published item an edit draft started from. */
+export interface DraftTarget {
+	id: string;
+	revision: number;
+}
+
+/**
+ * Creates the draft (no `revision`; `target` for an edit) or saves it
+ * (`revision` it was at; `type` must match, `target` is ignored).
+ */
+export type DraftSaveRequest = DraftContent & {
+	revision?: number;
+	target?: DraftTarget;
+};
+
+export interface DraftPublishRequest {
+	visible: boolean;
+	/** News only. Absent: now for a new post, unchanged for an edit. */
+	date?: NewsDate;
+	/** Publish an edit draft whose item was deleted as a new item. */
+	asNew?: boolean;
 }
