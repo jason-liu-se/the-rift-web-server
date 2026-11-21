@@ -4,6 +4,7 @@
 import * as z from "zod";
 import {
 	MAX_COLLECTION_SLUG_LENGTH,
+	MAX_SEARCH_QUERY_LENGTH,
 	MAX_TAGS_PER_IMAGE
 } from "../config/content-limits.ts";
 
@@ -51,6 +52,41 @@ export const paginationQuery = z.object({
 	// Omitted returns every item from `startIndex` onwards.
 	limit: z.coerce.number().int().min(1).optional()
 });
+
+// For routes shaped like `/:id`: a MongoDB ObjectId.
+export const idParams = z.object({
+	id: z.string().regex(/^[0-9a-f]{24}$/, "invalid id")
+});
+
+// A comma-separated list of names from `allowed`; absent is empty.
+function nameList<const Name extends string>(allowed: readonly Name[]) {
+	return z
+		.string()
+		.optional()
+		.transform((list) => (list ? list.split(",") : []))
+		.pipe(z.array(z.enum(allowed)));
+}
+
+// An editor list's filters and search, for one content type: its statuses,
+// its searchable fields, and whether it has collections.
+export function editorListQuery<
+	const Status extends string,
+	const Field extends string
+>(statuses: readonly Status[], searchFields: readonly Field[]) {
+	return paginationQuery.extend({
+		mine: z.stringbool().optional(),
+		status: z.enum(statuses).optional(),
+		collection: collectionSlug.optional(),
+		q: z
+			.string()
+			.max(
+				MAX_SEARCH_QUERY_LENGTH,
+				`q must be at most ${MAX_SEARCH_QUERY_LENGTH} characters`
+			)
+			.optional(),
+		in: nameList(searchFields)
+	});
+}
 
 // A public read's `v`, the content version the caller last saw (see
 // cacheByContentVersion). Kept as the digits sent and compared as text, so

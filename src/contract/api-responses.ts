@@ -250,3 +250,86 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 	startRevision: number;
 	title?: string;
 }
+
+// What the editor tools read (GET /editor/*, logged in): every item, public
+// or not, with its edit history. Sent `Cache-Control: private, no-cache` with
+// an ETag, so the browser revalidates (304 when unchanged).
+//
+//   GET /editor/news                     PaginatedResponse<EditorNewsPost>
+//   GET /editor/news/:id                 EditorNewsPost
+//   GET /editor/gallery/collections      EditorCollection[], by slug
+//   GET /editor/gallery/images           PaginatedResponse<EditorGalleryImage>
+//   GET /editor/gallery/images/:id       EditorGalleryImage
+//   GET /editor/downloads/collections    EditorCollection[], by slug
+//   GET /editor/downloads/items          PaginatedResponse<EditorDownloadItem>
+//   GET /editor/downloads/items/:id      EditorDownloadItem
+//   GET /editor/maps/seasons             PaginatedResponse<EditorMapSeason>
+//   GET /editor/maps/seasons/:id         EditorMapSeason
+//
+// Lists are in the public order and take `startIndex`, `limit`, and filters:
+// `mine=true` (created by the caller), `status` (a ContentStatus; `scheduled`
+// only for news), `collection` (a slug; gallery and downloads), and a search,
+// `q` (case-insensitive, at most 100 characters) in the fields `in` names
+// (comma-separated, default all): news `title,content`, gallery
+// `caption,tags`, downloads `title,desc`, maps `season,dimensions` (season
+// matches a whole number exactly; dimensions by name). `total` counts every
+// match. A missing item is 404.
+
+/** The Discord user behind an edit. */
+export interface EditorRef {
+	id: string;
+	username: string;
+}
+
+/**
+ * - `live`: anyone can see it
+ * - `scheduled`: visible, but its date hasn't come (news only)
+ * - `hidden`: only in the editor tools
+ */
+export type ContentStatus = "live" | "scheduled" | "hidden";
+
+/** What every item the editor reads has. Old items lack the audit fields. */
+export interface EditorFields {
+	visible: boolean;
+	/** Send it back with an update or delete; a stale one is 409. */
+	revision: number;
+	/** From the item alone: an item in a hidden collection can be live. */
+	status: ContentStatus;
+	createdBy?: EditorRef;
+	lastUpdatedBy?: EditorRef;
+	/** ISO 8601 */
+	createdAt?: string;
+	/** ISO 8601 */
+	updatedAt?: string;
+}
+
+export type EditorNewsPost = NewsPost & EditorFields;
+
+export type EditorGalleryImage = GalleryImage &
+	EditorFields & {
+		/** The gallery's slug. */
+		collection: string;
+	};
+
+export type EditorDownloadItem = DownloadItem &
+	EditorFields & {
+		/** The download collection's slug. */
+		collection: string;
+		sortOrder?: number;
+	};
+
+export type EditorMapSeason = MapSeason & EditorFields;
+
+/** A gallery or download collection, public or not. */
+export interface EditorCollection {
+	slug: string;
+	title: string;
+	visible: boolean;
+	revision: number;
+	/** Every item in it, public or not (deleting it deletes them all). */
+	itemCount: number;
+	createdBy?: EditorRef;
+	lastUpdatedBy?: EditorRef;
+	createdAt?: string;
+	updatedAt?: string;
+}

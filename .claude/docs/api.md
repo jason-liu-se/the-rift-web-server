@@ -157,6 +157,11 @@ drops `CDN-Cache-Control`), so neither is a `404` or `500` from a public read.
 describe one caller's budget. `src/middleware/cache-control.test.ts` fails if a
 public read doesn't mount it, and checks every one handles `v` (below).
 
+The editor's reads (`/editor/*` but drafts) mount `revalidateEveryTime` instead:
+`Cache-Control: private, no-cache`, so a browser keeps a copy but revalidates it
+by the ETag Express sets every time (`304` when unchanged), and nothing shared
+keeps it.
+
 #### Content versions
 
 So an edit shows on the next page load without purging Cloudflare, public reads

@@ -83,3 +83,14 @@ function allowCaching(res: Response): void {
 export function forbidCaching(res: Response): void {
 	res.set("Cache-Control", "no-store").removeHeader(CDN_CACHE_CONTROL);
 }
+
+// For the editor's reads: browsers may keep a copy but must revalidate it
+// every time (by the ETag Express sets, so an unchanged list is a 304), and
+// nothing shared may keep it. Mount it on the editor's content routers only,
+// never on drafts, which stay no-store.
+export const revalidateEveryTime: RequestHandler = (req, res, next) => {
+	if (req.method === "GET" || req.method === "HEAD") {
+		res.set("Cache-Control", "private, no-cache");
+	}
+	next();
+};
