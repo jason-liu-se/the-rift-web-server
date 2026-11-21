@@ -94,3 +94,89 @@ describe("updateContentVersion", () => {
 		expect([first, second]).toEqual([future + 1, future + 2]);
 	});
 });
+
+describe("GET /content/version/:area", () => {
+	const PAST = new Date("2025-01-01T00:00:00.000Z");
+	const OLDER = new Date("2024-01-01T00:00:00.000Z");
+
+	function seedPost(fields: object) {
+		return collection("news", "posts").insertOne({
+			title: "t",
+			content: "c",
+			...fields
+		});
+	}
+
+	async function newsVersion(): Promise<string> {
+		const res = await request(app).get("/content/version/news").expect(200);
+		expect(res.headers["cache-control"]).toBe("no-store");
+		return res.body.version;
+	}
+
+	it("is 0-0 for news when no post is public", async () => {
+		expect(await newsVersion()).toBe("0-0");
+	});
+
+	it("is the newest public post's date and revision", async () => {
+		await Promise.all([
+			seedPost({ date: PAST, revision: 3 }),
+			seedPost({ date: OLDER, revision: 9 })
+		]);
+
+		expect(await newsVersion()).toBe(`${PAST.getTime()}-3`);
+	});
+
+	it("counts a missing revision as 0", async () => {
+		await seedPost({ date: PAST });
+
+		expect(await newsVersion()).toBe(`${PAST.getTime()}-0`);
+	});
+
+	it("skips hidden and scheduled posts for the next newest public one", async () => {
+		await Promise.all([
+			seedPost({ date: OLDER, revision: 1 }),
+			seedPost({ date: PAST, revision: 2, visible: false }),
+			seedPost({ date: new Date(Date.now() + 60_000), revision: 1 })
+		]);
+
+		expect(await newsVersion()).toBe(`${OLDER.getTime()}-1`);
+	});
+
+	it("changes when a scheduled post goes live, without a write", async () => {
+		const soon = new Date(Date.now() + 60_000);
+		await Promise.all([
+			seedPost({ date: OLDER, revision: 1 }),
+			seedPost({ date: soon, revision: 1 })
+		]);
+		expect(await newsVersion()).toBe(`${OLDER.getTime()}-1`);
+
+		// Only Date: MongoDB's driver still needs real timers.
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(Date.now() + 120_000);
+
+		expect(await newsVersion()).toBe(`${soon.getTime()}-1`);
+	});
+
+	it("goes back to the next newest post when the newest is deleted", async () => {
+		await seedPost({ date: OLDER, revision: 1 });
+		const { insertedId } = await seedPost({ date: PAST, revision: 1 });
+		expect(await newsVersion()).toBe(`${PAST.getTime()}-1`);
+
+		await collection("news", "posts").deleteOne({ _id: insertedId });
+
+		expect(await newsVersion()).toBe(`${OLDER.getTime()}-1`);
+	});
+
+	it.each(["gallery", "constructor", "__proto__"])(
+		"answers 404 for an unknown area (%s)",
+		async (area) => {
+			const res = await request(app)
+				.get(`/content/version/${area}`)
+				.expect(404);
+
+			expect(res.body).toEqual({
+				error: `ERROR: detail version area '${area}' not found`
+			});
+		}
+	);
+});

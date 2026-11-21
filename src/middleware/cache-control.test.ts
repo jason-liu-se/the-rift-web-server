@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	it,
+	vi
+} from "vitest";
 import request from "supertest";
 import { PUBLIC_ROUTES } from "../api/public-routes.ts";
 import * as mongoManager from "../managers/mongo-manager.ts";
@@ -12,7 +20,10 @@ import {
 import { sessionCookie } from "../../test/session.ts";
 
 beforeAll(startDatabase);
-afterEach(clearDatabase);
+afterEach(async () => {
+	vi.useRealTimers();
+	await clearDatabase();
+});
 afterAll(stopDatabase);
 
 // From src/config/caching.ts: what browsers and what Cloudflare may keep.
@@ -25,12 +36,15 @@ const VERSION = 1763500000000;
 
 // Public reads that must always reach the server, besides /auth: uptime
 // pings, and the version every versioned read depends on.
-const NEVER_CACHED = ["/health", "/content/version"];
+const NEVER_CACHED = ["/health", "/content/version", "/content/version/:area"];
+
+// The news detail version with no news posts seeded.
+const NO_NEWS = "0-0";
 
 // Every other public read, with a URL that answers 200.
 const CACHEABLE_ROUTES = [
-	["/news", "/news"],
-	["/news/count", "/news/count"],
+	["/news", `/news?dv=${NO_NEWS}`],
+	["/news/count", `/news/count?dv=${NO_NEWS}`],
 	["/gallery", "/gallery"],
 	["/gallery/:collection", "/gallery/season5"],
 	["/gallery/:collection/count", "/gallery/season5/count"],
@@ -154,8 +168,70 @@ describe("Cache-Control", () => {
 		});
 	});
 
+	describe.each(["/news", "/news/count"])(
+		"%s, a detail-version area",
+		(url) => {
+			const current = `${url}?v=${VERSION}`;
+
+			it.each([
+				["no dv", current],
+				["an old dv", `${current}&dv=1-0`]
+			])(
+				"answers %s with current content, never cached",
+				async (_name, uncachedUrl) => {
+					await seedCollections();
+
+					const res = await request(app).get(uncachedUrl).expect(200);
+
+					expect(res.headers["cache-control"]).toBe("no-store");
+				}
+			);
+
+			it("stops caching under a dv once a scheduled post goes live", async () => {
+				await seedCollections();
+				const soon = new Date(Date.now() + 60_000);
+				await collection("news", "posts").insertOne({
+					title: "t",
+					content: "c",
+					date: soon
+				});
+				await request(app)
+					.get(`${current}&dv=${NO_NEWS}`)
+					.expect(200)
+					.expect("cache-control", VERSIONED["cache-control"]);
+
+				// Only Date: MongoDB's driver still needs real timers.
+				vi.useFakeTimers({ toFake: ["Date"] });
+				vi.setSystemTime(Date.now() + 120_000);
+
+				const [old, live] = await Promise.all([
+					request(app).get(`${current}&dv=${NO_NEWS}`).expect(200),
+					request(app)
+						.get(`${current}&dv=${soon.getTime()}-0`)
+						.expect(200)
+				]);
+				expect(old.headers["cache-control"]).toBe("no-store");
+				expect(live.headers).toMatchObject(VERSIONED);
+			});
+
+			it.each(["abc", "1", "1-", "-1", "1-2-3"])(
+				"answers 400 when dv isn't a detail version (%s)",
+				async (dv) => {
+					const res = await request(app)
+						.get(`${current}&dv=${dv}`)
+						.expect(400);
+
+					expect(res.body.error).toMatch(
+						/dv must be a detail version/
+					);
+				}
+			);
+		}
+	);
+
 	it.each([
 		["/content/version", "get", "/content/version"],
+		["/content/version/news", "get", "/content/version/news"],
 		["a missing collection (404)", "get", "/gallery/missing"],
 		["bad parameters (400)", "get", "/news?limit=-1"],
 		["a private route, logged out (401)", "get", "/news/drafts"],

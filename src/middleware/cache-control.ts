@@ -1,7 +1,11 @@
-import type { RequestHandler, Response } from "express";
+import type { Request, RequestHandler, Response } from "express";
 import { VERSIONED_CACHE } from "../config/caching.ts";
+import { detailVersionAreaOf } from "../config/detail-versions.ts";
 import * as mongoManager from "../managers/mongo-manager.ts";
-import { contentVersionQuery } from "../api/query-schemas.ts";
+import {
+	contentVersionQuery,
+	detailVersionQuery
+} from "../api/query-schemas.ts";
 
 // Cloudflare reads CDN-Cache-Control ahead of Cache-Control, so the edge can
 // keep a response longer than browsers.
@@ -30,15 +34,29 @@ export const noCachingByDefault: RequestHandler = (_req, res, next) => {
 // routes under the same prefix would be cached too. The version is read before
 // the route reads its content, so a response is never older than the version
 // it's cached under. handleError calls forbidCaching, so only successes are
-// cached.
+// cached. A route in a detail-version area (src/config/detail-versions.ts)
+// also needs that area's current version as `dv`.
 export const cacheByContentVersion: RequestHandler = async (req, res, next) => {
 	const { v } = contentVersionQuery.parse(req.query);
+	const { dv } = detailVersionQuery.parse(req.query);
+	const area = detailVersionAreaOf(routePattern(req));
 
-	if (v === String(await mongoManager.getContentVersion())) {
+	const [version, detailVersion] = await Promise.all([
+		mongoManager.getContentVersion(),
+		area?.currentKey()
+	]);
+	if (v === String(version) && dv === detailVersion) {
 		allowCaching(res);
 	}
 	next();
 };
+
+// The route's full Express pattern, e.g. `/gallery/:collection`, as listed in
+// PUBLIC_ROUTES.
+function routePattern(req: Request): string {
+	const path: string = req.route?.path ?? "";
+	return path === "/" ? req.baseUrl : `${req.baseUrl}${path}`;
+}
 
 function allowCaching(res: Response): void {
 	res.set("Cache-Control", BROWSER_POLICY).set(
