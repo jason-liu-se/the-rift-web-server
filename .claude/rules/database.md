@@ -44,8 +44,10 @@ stored as strings (numbers lose precision).
   `visible`, `revision`, `createdBy` / `lastUpdatedBy`, timestamps, and the
   create's `createId`. All optional: a missing `visible` is visible, a missing
   `revision` is 0.
-- Indexes are declared on the schemas; Mongoose builds them on connect, and
-  `test/database.ts` rebuilds them (`createIndexes`) after each drop.
+- Indexes are declared on the schemas. `connect` builds them and waits
+  (`createIndexes`; `autoIndex` is off), so a failed build, e.g. a unique index
+  over duplicate data, stops the server starting. `test/database.ts` rebuilds
+  them after each drop.
 - User-supplied collection names go through `collectionParams`
   (`src/api/query-schemas.ts`) before reaching `mongo-manager`.
 
