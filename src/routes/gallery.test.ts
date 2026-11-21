@@ -280,6 +280,17 @@ describe("GET /gallery/:collection/tags", () => {
 		expect(res.body).toEqual(["build", "spawn"]);
 	});
 
+	it("returns none for images stored without tags (not a null tag)", async () => {
+		await Promise.all([
+			seedCollections({ slug: "builds", title: "Builds" }),
+			seedImages("builds", [{ caption: "Old", imageUrl: "o.png" }])
+		]);
+
+		const res = await request(app).get("/gallery/builds/tags").expect(200);
+
+		expect(res.body).toEqual([]);
+	});
+
 	it("answers 404 for a hidden collection", async () => {
 		await seedCollections({ slug: "secret", title: "S", visible: false });
 
