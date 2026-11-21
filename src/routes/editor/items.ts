@@ -4,6 +4,8 @@
 // pieces: what differs per type lives in CONTENT_TYPES
 // (src/managers/editor-content.ts).
 import express, { type Router } from "express";
+import { ZodError } from "zod";
+import { BadRequestError } from "../../errors/bad-request-error.ts";
 import {
 	createFromBody,
 	checkCollection,
@@ -59,15 +61,23 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 	// One response for every item, once all are processed (each item was sent
 	// through its response schema there). Before `/:id`, which has no POST.
 	router.post("/bulk", async (req, res) => {
-		const { results, wrote } = await runBulkAction(
-			typeName,
-			req.body,
-			editorOf(res)
-		);
-		if (wrote) {
+		let outcome: Awaited<ReturnType<typeof runBulkAction>>;
+		try {
+			outcome = await runBulkAction(typeName, req.body, editorOf(res));
+		} catch (error) {
+			// Refusing the whole request writes nothing; anything else may have
+			// failed after some items were written.
+			if (!(
+				error instanceof ZodError || error instanceof BadRequestError
+			)) {
+				await mongoManager.updateContentVersion();
+			}
+			throw error;
+		}
+		if (outcome.wrote) {
 			await mongoManager.updateContentVersion();
 		}
-		res.json({ results });
+		res.json({ results: outcome.results });
 	});
 
 	// 201 with the item, or 200 with the one a repeated createId made. A
