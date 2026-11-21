@@ -15,14 +15,14 @@ plain results. Routers never import models.
 Each content type has its own MongoDB database, with one schema and interface
 per file in `src/models/`:
 
-| Database    | Collections            | Model                                  |
-| ----------- | ---------------------- | -------------------------------------- |
-| `news`      | `posts`                | `src/models/news-post-schema.ts`       |
-| `gallery`   | One per gallery        | `src/models/gallery-schema.ts`         |
-| `downloads` | One per download group | `src/models/downloads-schema.ts`       |
-| `maps`      | `seasons`              | `src/models/map-season-schema.ts`      |
-| `auth`      | `accessGrants`         | `src/models/access-grant-schema.ts`    |
-| `content`   | `meta`                 | `src/models/content-version-schema.ts` |
+| Database    | Collections             | Model                                  |
+| ----------- | ----------------------- | -------------------------------------- |
+| `news`      | `posts`                 | `src/models/news-post-schema.ts`       |
+| `gallery`   | `images`, `collections` | `src/models/gallery-schema.ts`         |
+| `downloads` | `items`, `collections`  | `src/models/downloads-schema.ts`       |
+| `maps`      | `seasons`               | `src/models/map-season-schema.ts`      |
+| `auth`      | `accessGrants`          | `src/models/access-grant-schema.ts`    |
+| `content`   | `meta`                  | `src/models/content-version-schema.ts` |
 
 Content and access grants are added to MongoDB directly; the server writes only
 the content version (`getContentVersion` creates it if missing,
@@ -31,12 +31,21 @@ refresh token hashes live in Redis instead (`src/helpers/redis-manager.ts`, keys
 `session:<session ID>`); see `.claude/docs/api.md` "Sessions". Discord IDs are
 stored as strings (numbers lose precision).
 
-- Collection names are used as given: pluralization and auto-creation are off. A
-  new gallery or download group is just a new collection. Models compiled on
-  import (before `connect` turns pluralization off) pass their collection name
-  as `model()`'s third argument, or Mongoose lowercases it.
-- A query against an unknown collection returns nothing, so routes check
-  `hasGalleryCollection` / `hasDownloadCollection` first and answer `404`.
+- Collection names are used as given: pluralization and auto-creation are off.
+  Models compiled on import (before `connect` turns pluralization off) pass
+  their collection name as `model()`'s third argument, or Mongoose lowercases
+  it.
+- Galleries and download groups are entries in their database's `collections`
+  (`src/models/content-collection-schema.ts`), named by a `slug` their items
+  store as `collection`. Routes check `hasGalleryCollection` /
+  `hasDownloadCollection` first and answer `404`, since a query for a missing
+  slug just returns nothing.
+- Every content document spreads `auditedFields` (`src/models/audit-fields.ts`):
+  `visible`, `revision`, `createdBy` / `lastUpdatedBy`, timestamps, and the
+  create's `createId`. All optional: a missing `visible` is visible, a missing
+  `revision` is 0.
+- Indexes are declared on the schemas; Mongoose builds them on connect, and
+  `test/database.ts` rebuilds them (`createIndexes`) after each drop.
 - User-supplied collection names go through `collectionParams`
   (`src/api/query-schemas.ts`) before reaching `mongo-manager`.
 
