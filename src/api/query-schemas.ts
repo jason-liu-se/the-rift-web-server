@@ -2,17 +2,39 @@
 // Routes call `.parse(req.params)` / `.parse(req.query)`; the app's error
 // handler turns a failed parse into a 400 response.
 import * as z from "zod";
+import { MAX_COLLECTION_SLUG_LENGTH } from "../config/content-limits.ts";
 
-// MongoDB rejects collection names containing `$` or a null character, and
-// reserves the `system.` prefix.
-const VALID_COLLECTION_NAME = /^(?!system\.)[^$\0]+$/;
+// A gallery or download collection's slug: kebab-case, as in the website's
+// URLs.
+export const COLLECTION_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-const collectionName = z
-	.string({ error: "a collection name is required" })
-	.regex(VALID_COLLECTION_NAME, "invalid collection name");
+export const collectionSlug = z
+	.string({ error: "a collection slug is required" })
+	.max(MAX_COLLECTION_SLUG_LENGTH, "invalid collection name")
+	.regex(COLLECTION_SLUG, "invalid collection name");
 
 // For routes shaped like `/:collection`.
-export const collectionParams = z.object({ collection: collectionName });
+export const collectionParams = z.object({ collection: collectionSlug });
+
+// A gallery's `?tags=a,b`: images with every tag. Must be written one way
+// (lowercase, trimmed, unique, and sorted), so variants of one filter can't
+// fill Cloudflare's cache with copies.
+export const galleryTagsQuery = z.object({
+	tags: z
+		.string()
+		.optional()
+		.transform((tags) => (tags ? tags.split(",") : []))
+		.refine(
+			(tags) => tags.join(",") === normaliseTags(tags).join(","),
+			"tags must be lowercase, trimmed, unique, sorted, and comma-separated"
+		)
+});
+
+// Lowercase, trimmed, unique, and sorted, without empty tags.
+export function normaliseTags(tags: readonly string[]): string[] {
+	const normalised = tags.map((tag) => tag.trim().toLowerCase());
+	return [...new Set(normalised.filter((tag) => tag !== ""))].toSorted();
+}
 
 export const paginationQuery = z.object({
 	startIndex: z.coerce.number().int().min(0).default(0),

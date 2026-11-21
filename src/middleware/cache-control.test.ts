@@ -34,6 +34,7 @@ const CACHEABLE_ROUTES = [
 	["/gallery", "/gallery"],
 	["/gallery/:collection", "/gallery/season5"],
 	["/gallery/:collection/count", "/gallery/season5/count"],
+	["/gallery/:collection/tags", "/gallery/season5/tags"],
 	["/downloads", "/downloads"],
 	["/downloads/:collection", "/downloads/season5"],
 	["/maps/seasons", "/maps/seasons"]

@@ -12,11 +12,15 @@
 //   GET /content/version         ContentVersion, never cached
 //   GET /news                    PaginatedResponse<NewsPost>, newest first
 //   GET /news/count              CountResponse
-//   GET /gallery                 GalleryCollectionNames, sorted
-//   GET /gallery/:collection     PaginatedResponse<GalleryImage>
-//   GET /gallery/:collection/count  CountResponse
-//   GET /downloads               DownloadCollection[], sorted by name
-//   GET /downloads/:collection   DownloadItem[]
+//   GET /gallery                 GalleryCollection[], sorted by slug
+//   GET /gallery/:collection     PaginatedResponse<GalleryImage>, newest
+//                                first; `tags=a,b` keeps images with every
+//                                tag (lowercase, unique, sorted, else 400)
+//   GET /gallery/:collection/count  CountResponse; takes `tags` too
+//   GET /gallery/:collection/tags   GalleryTags
+//   GET /downloads               DownloadCollection[], sorted by slug
+//   GET /downloads/:collection   DownloadItem[], by sortOrder, then the
+//                                items without one by title
 //   GET /maps/seasons            MapSeason[], oldest season first
 //   GET /auth/me                 SessionUser (401 when nobody is logged in,
 //                                including when the access token expired)
@@ -30,6 +34,9 @@
 //                                /admin/login?error=LoginErrorCode
 //   any error (400, 401, 404, 500)  ErrorResponse
 //
+// Public reads return only public content: visible, in a visible collection
+// (a hidden or missing one is 404), and for news, dated now or earlier.
+//
 // Every GET above from /news to /maps/seasons takes an optional `v`, the
 // current ContentVersion's `version`: with it, responses are cached under that
 // version, so send it on every public read to see edits on the next page load.
@@ -41,16 +48,27 @@ export interface NewsPost {
 	date: string;
 	content: string;
 	imageUrl?: string;
+	/** ISO 8601; when the title or content last changed after it went live. */
+	editedAt?: string;
 }
 
 export interface GalleryImage {
 	id: string;
 	imageUrl: string;
 	caption: string;
+	/** Lowercase and unique. */
+	tags: string[];
 }
 
-/** Every gallery collection's name, e.g. `["season5", "season6"]`. */
-export type GalleryCollectionNames = string[];
+/** A gallery, e.g. `{ slug: "season5", title: "Season 5" }`. */
+export interface GalleryCollection {
+	/** In URLs (`/gallery/:collection`); kebab-case, never changes. */
+	slug: string;
+	title: string;
+}
+
+/** The tags on a gallery's public images, sorted. */
+export type GalleryTags = string[];
 
 export interface DownloadItem {
 	id: string;
@@ -61,7 +79,9 @@ export interface DownloadItem {
 }
 
 export interface DownloadCollection {
+	/** The collection's slug, in URLs (`/downloads/:collection`). */
 	name: string;
+	title: string;
 	items: DownloadItem[];
 }
 
