@@ -28,9 +28,9 @@ const galleryImageSchema = new mongoose.Schema<GalleryImage>(
 	},
 	ITEM_SCHEMA_OPTIONS
 );
-galleryImageSchema.index({ collection: 1, visible: 1, _id: -1 });
-// A gallery's public tags (and images filtered by tag).
-galleryImageSchema.index({ collection: 1, visible: 1, tags: 1 });
+// A gallery's public images, newest first, filtered by tags or not (no tags
+// is every image), and its tags.
+galleryImageSchema.index({ collection: 1, visible: 1, tags: 1, _id: -1 });
 
 export const galleryDb = mongoose.connection.useDb("gallery");
 
