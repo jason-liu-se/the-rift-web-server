@@ -271,7 +271,8 @@ a transaction, and answer once with every item's result: a bad item is
 `invalid`, never a failed request, so the website reports all failures together.
 Only what's wrong with the whole request (the action, the target collection,
 over `MAX_BULK_ITEMS`) is a `400`. One request is one write for the rate limit,
-and changes the content version once.
+and changes the content version once (even when it fails after writing some
+items).
 
 ## Contract
 
