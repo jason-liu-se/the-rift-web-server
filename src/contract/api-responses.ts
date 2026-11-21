@@ -353,3 +353,16 @@ export type DraftSummary = (
 	  }
 ) &
 	Omit<Draft, "type" | "fields">;
+
+// Image uploads: POST /editor/images with an ImageUploadForm
+// (api-requests.ts). Each file goes to imgbb named by its use (e.g.
+// `g-season5-spawn`), so one file can fail while others succeed: 200 with a
+// result per file, in order.
+
+export type ImageUploadResult =
+	/** `url` is the image's direct link, which the allowlist accepts. */
+	{ name: string; url: string } | { name: string; error: string };
+
+export interface ImageUploadResponse {
+	results: ImageUploadResult[];
+}
