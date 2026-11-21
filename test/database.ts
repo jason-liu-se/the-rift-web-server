@@ -17,7 +17,6 @@ export async function startDatabase() {
 	server = await MongoMemoryServer.create();
 	// Connect through the app's own code so its Mongoose settings apply.
 	await mongoManager.connect(server.getUri());
-	await mongoManager.createIndexes();
 }
 
 export async function stopDatabase() {
