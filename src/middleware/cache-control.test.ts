@@ -46,11 +46,21 @@ function seedCollections() {
 			_id: "contentVersion" as never,
 			version: VERSION
 		}),
-		collection("gallery", "season5").insertOne({
+		collection("gallery", "collections").insertOne({
+			slug: "season5",
+			title: "Season 5"
+		}),
+		collection("gallery", "images").insertOne({
+			collection: "season5",
 			caption: "c",
 			imageUrl: "i"
 		}),
-		collection("downloads", "season5").insertOne({
+		collection("downloads", "collections").insertOne({
+			slug: "season5",
+			title: "Season 5"
+		}),
+		collection("downloads", "items").insertOne({
+			collection: "season5",
 			title: "t",
 			desc: "d",
 			downloadUrl: "u",

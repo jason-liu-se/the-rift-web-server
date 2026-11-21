@@ -1,4 +1,9 @@
 import mongoose from "mongoose";
+import {
+	AUDITED_SCHEMA_OPTIONS,
+	type Audited,
+	auditedFields
+} from "./audit-fields.ts";
 
 export interface MapDimension {
 	readonly name: string;
@@ -7,7 +12,7 @@ export interface MapDimension {
 	readonly perspective: string;
 }
 
-export interface MapSeason {
+export interface MapSeason extends Audited {
 	readonly season: number;
 	readonly imageUrl: string;
 	readonly dimensions: MapDimension[];
@@ -23,11 +28,16 @@ const mapDimensionSchema = new mongoose.Schema<MapDimension>(
 	{ _id: false }
 );
 
-const mapSeasonSchema = new mongoose.Schema<MapSeason>({
-	season: { type: Number, required: true },
-	imageUrl: { type: String, required: true },
-	dimensions: { type: [mapDimensionSchema], required: true }
-});
+const mapSeasonSchema = new mongoose.Schema<MapSeason>(
+	{
+		// Unique: a clash is a 409.
+		season: { type: Number, required: true, unique: true },
+		imageUrl: { type: String, required: true },
+		dimensions: { type: [mapDimensionSchema], required: true },
+		...auditedFields
+	},
+	AUDITED_SCHEMA_OPTIONS
+);
 
 export const mapsDb = mongoose.connection.useDb("maps");
 
