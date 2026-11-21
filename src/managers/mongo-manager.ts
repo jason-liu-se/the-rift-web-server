@@ -191,6 +191,18 @@ export async function countPublicNewsPosts(): Promise<number> {
 	return newsPostModel.countDocuments(publicNewsFilter());
 }
 
+// The news detail version: `<date ms>-<revision>` of the newest public post,
+// or `0-0` when there's none. It changes when a scheduled post goes live
+// (which no write records), and when the newest public post is hidden,
+// deleted, or moved to a future date (it then comes from the next newest).
+export async function getNewsDetailVersion(): Promise<string> {
+	const newest = await newsPostModel
+		.findOne(publicNewsFilter(), { date: 1, revision: 1 })
+		.sort({ date: -1, _id: -1 })
+		.lean();
+	return newest ? `${newest.date.getTime()}-${newest.revision ?? 0}` : "0-0";
+}
+
 // A download collection's public items, in order.
 export async function getPublicDownloadItems(
 	slug: string

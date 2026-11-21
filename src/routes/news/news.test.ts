@@ -19,7 +19,10 @@ import {
 import { expectContractError } from "../../../test/responses.ts";
 
 beforeAll(startDatabase);
-afterEach(clearDatabase);
+afterEach(async () => {
+	vi.useRealTimers();
+	await clearDatabase();
+});
 afterAll(stopDatabase);
 
 const IDS = {
@@ -116,10 +119,6 @@ describe("GET /news", () => {
 
 	describe("a scheduled post", () => {
 		const DATE = new Date("2026-06-01T12:00:00.000Z");
-
-		afterEach(() => {
-			vi.useRealTimers();
-		});
 
 		// Only Date is faked, so the database and Supertest keep real timers.
 		it.each([

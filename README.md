@@ -70,6 +70,7 @@ its `check` job a required status check on `main`.
 | Endpoint                         | Query                         | Returns                                  | Access |
 | -------------------------------- | ----------------------------- | ---------------------------------------- | ------ |
 | `GET /content/version`           |                               | `{ version }`, never cached              | Public |
+| `GET /content/version/:area`     |                               | `{ version }` for `news`, never cached   | Public |
 | `GET /news`                      | `startIndex`, `limit`         | `{ items, total }`, newest first         | Public |
 | `GET /news/count`                |                               | `{ total }`                              | Public |
 | `GET /gallery`                   |                               | `[{ slug, title }]`, sorted by slug      | Public |
@@ -93,7 +94,9 @@ and sorted (`400` otherwise, so one filter has one cache entry).
 
 Content reads (`/news` to `/maps/seasons`) also take `v`, the current `version`:
 only responses for it are cached (a day at Cloudflare's edge), and an edit
-changes it, so it shows on the next page load. Without `v`, they're never cached
+changes it, so it shows on the next page load. `/news` and `/news/count` also
+need `dv`, the news detail version, so scheduled posts show on their date.
+Without `v`, they're never cached
 ([Content versions](./.claude/docs/api.md#content-versions)).
 
 Every other request, including any unknown path, needs a logged-in editor and

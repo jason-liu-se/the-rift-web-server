@@ -178,6 +178,21 @@ version), which sets the current time, or one more than the current version if
 that's not later, so it always changes. A missing version is created on the
 first read.
 
+##### Detail versions
+
+A scheduled news post goes live on its date without a write, so `v` alone would
+keep it hidden for up to a day. Areas registered in
+`src/config/detail-versions.ts` (only `news`) also have a detail version,
+`GET /content/version/:area` (never cached, `404` for an unknown area), which
+callers send as `?dv=` with `v` on that area's routes. `cacheByContentVersion`
+caches them only when both are current; otherwise they're current content with
+`no-store`, and a `dv` that isn't `^\d+-\d+$` is `400`. News's is
+`<date ms>-<revision>` of the newest public post (`0-0` with none), computed on
+every read, so it changes when a post goes live, and when the newest public post
+is hidden, deleted, or moved later (falling back to the next newest). It can
+return to an earlier value then, which is safe: each of those is a write, so `v`
+changed too. A new area is one entry: its routes and how to compute its key.
+
 A cached response is shared by every caller, so it mustn't depend on who asks:
 no `Set-Cookie`, nothing from the session, and CORS headers that don't vary by
 `Origin` (`src/middleware/cors.ts`; Cloudflare ignores `Vary`). Cloudflare

@@ -10,6 +10,7 @@ import * as z from "zod";
 import type {
 	ContentVersion,
 	CountResponse,
+	DetailVersion,
 	DownloadCollection,
 	DownloadItem,
 	GalleryCollection,
@@ -88,6 +89,10 @@ export const mapSeasons = z.toZod<MapSeason[]>()(
 
 export const contentVersion = z.toZod<ContentVersion>()(
 	z.object({ version: z.number().int() })
+);
+
+export const detailVersion = z.toZod<DetailVersion>()(
+	z.object({ version: z.string() })
 );
 
 export const countResponse = z.toZod<CountResponse>()(

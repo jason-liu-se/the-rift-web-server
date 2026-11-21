@@ -12,6 +12,7 @@ export interface PublicRoute {
 export const PUBLIC_ROUTES: readonly PublicRoute[] = [
 	{ method: "get", path: "/health" },
 	{ method: "get", path: "/content/version" },
+	{ method: "get", path: "/content/version/:area" },
 	{ method: "get", path: "/news" },
 	{ method: "get", path: "/news/count" },
 	{ method: "get", path: "/gallery" },
