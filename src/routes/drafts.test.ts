@@ -17,8 +17,9 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../test/database.ts";
+import { markPublished } from "../managers/drafts.ts";
 import { asEditor } from "../../test/editor.ts";
-import { EDITOR } from "../../test/session.ts";
+import { EDITOR, sessionCookie } from "../../test/session.ts";
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);
@@ -74,6 +75,20 @@ describe("drafts, refused", () => {
 				[method](url)
 				.set("Origin", testConfig.FRONTEND_URL)
 				.expect(401);
+		}
+	);
+
+	it.each([
+		["put", `/editor/drafts/${id}`],
+		["delete", `/editor/drafts/${id}`],
+		["post", `/editor/drafts/${id}/publish`]
+	] as const)(
+		"answer %s %s with 403 without the website's Origin",
+		async (method, url) => {
+			await request(app)
+				[method](url)
+				.set("Cookie", await sessionCookie())
+				.expect(403);
 		}
 	);
 });
@@ -277,6 +292,23 @@ describe("POST /editor/drafts/:id/publish", () => {
 		expect((await editor.get("/editor/drafts").expect(200)).body).toEqual(
 			[]
 		);
+	});
+
+	it("marks only the revision it published, keeping a save made since", async () => {
+		const { id } = await createDraft(newsDraft({ content: "Body" }));
+		await editor
+			.put(`/editor/drafts/${id}`, {
+				...newsDraft({ title: "Newer" }),
+				revision: 1
+			})
+			.expect(200);
+
+		// As a publish that read revision 1 would, after the save landed.
+		await markPublished(EDITOR.id, id, 1, "item", new Date());
+
+		expect(
+			(await editor.get(`/editor/drafts/${id}`).expect(200)).body
+		).toMatchObject({ revision: 2, fields: { title: "Newer" } });
 	});
 
 	it("checks the draft fully before publishing", async () => {

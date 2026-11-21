@@ -128,15 +128,18 @@ export async function deleteDraft(owner: string, id: string): Promise<boolean> {
 }
 
 // Replaces a published draft with a marker naming the item, until
-// `expiresAt`, so repeating the publish returns that item.
+// `expiresAt`, so repeating the publish returns that item. Only from the
+// revision that was published: a draft saved (or deleted) since keeps the
+// newer work, which isn't in the item.
 export async function markPublished(
 	owner: string,
 	id: string,
+	revision: number,
 	itemId: string,
 	expiresAt: Date
 ): Promise<void> {
 	await draftModel.updateOne(
-		{ _id: id, owner },
+		{ _id: id, owner, revision, ...UNPUBLISHED },
 		{
 			$set: { publishedAs: itemId, expiresAt },
 			$unset: { fields: "", target: "" }

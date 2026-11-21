@@ -189,13 +189,17 @@ async function createDraft(
 	});
 	if (result.outcome !== "ok") {
 		// The owner already has an edit draft of this item: send it, so the
-		// editor can carry on with it.
+		// editor can carry on with it. Otherwise the ID was taken since the
+		// check above, which is as good as another editor's.
 		const existing =
 			target &&
 			(await drafts.getTargetDraft(owner, body.type, target.id));
+		if (!existing) {
+			throw notFound(id);
+		}
 		throw new ConflictError(
 			"you already have a draft of this item",
-			existing ? parseResponse(draftResponse, existing) : undefined
+			parseResponse(draftResponse, existing)
 		);
 	}
 	return parseResponse(draftResponse, result.draft);
@@ -221,7 +225,11 @@ draftsRouter.post("/:id/publish", async (req, res) => {
 	if (!stored) {
 		throw notFound(id);
 	}
-	const type = contentType.parse(stored.type);
+	const parsedType = contentType.safeParse(stored.type);
+	if (!parsedType.success) {
+		throw new Error(`draft '${id}' has an unknown type`);
+	}
+	const type = parsedType.data;
 	const schema = EDITOR_ITEM_SCHEMAS[type];
 	if (stored.publishedAs) {
 		const item = await editorContent.getItem(type, stored.publishedAs);
@@ -239,6 +247,7 @@ draftsRouter.post("/:id/publish", async (req, res) => {
 		await drafts.markPublished(
 			editor.id,
 			id,
+			stored.revision,
 			result.item.id,
 			new Date(now.getTime() + PUBLISHED_DRAFT_TTL_MS)
 		);
