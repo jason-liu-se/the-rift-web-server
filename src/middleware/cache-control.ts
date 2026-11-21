@@ -35,11 +35,11 @@ export const noCachingByDefault: RequestHandler = (_req, res, next) => {
 // the route reads its content, so a response is never older than the version
 // it's cached under. handleError calls forbidCaching, so only successes are
 // cached. A route in a detail-version area (src/config/detail-versions.ts)
-// also needs that area's current version as `dv`.
+// also needs that area's current version as `dv`; other routes ignore `dv`.
 export const cacheByContentVersion: RequestHandler = async (req, res, next) => {
 	const { v } = contentVersionQuery.parse(req.query);
-	const { dv } = detailVersionQuery.parse(req.query);
 	const area = detailVersionAreaOf(routePattern(req));
+	const { dv } = area ? detailVersionQuery.parse(req.query) : {};
 
 	const [version, detailVersion] = await Promise.all([
 		mongoManager.getContentVersion(),

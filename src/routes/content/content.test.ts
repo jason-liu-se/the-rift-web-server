@@ -167,6 +167,18 @@ describe("GET /content/version/:area", () => {
 		expect(await newsVersion()).toBe(`${OLDER.getTime()}-1`);
 	});
 
+	it("goes back to the next newest post when the newest moves later", async () => {
+		await seedPost({ date: OLDER, revision: 1 });
+		const { insertedId } = await seedPost({ date: PAST, revision: 1 });
+
+		await collection("news", "posts").updateOne(
+			{ _id: insertedId },
+			{ $set: { date: new Date(Date.now() + 60_000), revision: 2 } }
+		);
+
+		expect(await newsVersion()).toBe(`${OLDER.getTime()}-1`);
+	});
+
 	it.each(["gallery", "constructor", "__proto__"])(
 		"answers 404 for an unknown area (%s)",
 		async (area) => {
