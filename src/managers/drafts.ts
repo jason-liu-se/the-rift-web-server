@@ -16,7 +16,8 @@ function withId({ _id, ...draft }: Draft): StoredDraft {
 	return { ...draft, id: _id };
 }
 
-// The fields that name a draft in a list (see the contract's DraftSummary).
+// The fields that name a draft in a list, and its main image (see the
+// contract's DraftSummary).
 const SUMMARY_FIELDS = ["title", "caption", "imageUrl", "season"];
 
 // The owner's drafts, most recently saved first, optionally of one type, with
