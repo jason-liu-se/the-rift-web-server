@@ -330,12 +330,21 @@ export type Draft = DraftContent & {
 
 /** A draft in the list: what names it so far, without the rest of its fields. */
 export type DraftSummary = (
-	| { type: "news"; fields: Pick<Partial<NewsPostFields>, "title"> }
+	| {
+			type: "news";
+			fields: Pick<Partial<NewsPostFields>, "title" | "imageUrl">;
+	  }
 	| {
 			type: "gallery";
 			fields: Pick<Partial<GalleryImageFields>, "caption" | "imageUrl">;
 	  }
-	| { type: "downloads"; fields: Pick<Partial<DownloadItemFields>, "title"> }
-	| { type: "maps"; fields: Pick<Partial<MapSeasonFields>, "season"> }
+	| {
+			type: "downloads";
+			fields: Pick<Partial<DownloadItemFields>, "title" | "imageUrl">;
+	  }
+	| {
+			type: "maps";
+			fields: Pick<Partial<MapSeasonFields>, "season" | "imageUrl">;
+	  }
 ) &
 	Omit<Draft, "type" | "fields">;

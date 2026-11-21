@@ -258,7 +258,7 @@ describe("GET /editor/drafts", () => {
 		expect(res.headers["cache-control"]).toBe("no-store");
 	});
 
-	it("lists only what names each draft, not the rest of its fields", async () => {
+	it("lists only what names each draft and its image, not the rest of its fields", async () => {
 		const { id } = await createDraft(
 			newsDraft({ content: "Long body", imageUrl: IMAGE })
 		);
@@ -269,7 +269,7 @@ describe("GET /editor/drafts", () => {
 			{
 				id,
 				type: "news",
-				fields: { title: "Draft" },
+				fields: { title: "Draft", imageUrl: IMAGE },
 				revision: 1,
 				createdAt: expect.any(String),
 				updatedAt: expect.any(String)
