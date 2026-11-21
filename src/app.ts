@@ -19,6 +19,7 @@ import { sessionMiddleware } from "./middleware/session.ts";
 import { PUBLIC_ROUTES } from "./api/public-routes.ts";
 import { authRouter } from "./routes/auth/auth.ts";
 import { contentRouter } from "./routes/content/content.ts";
+import { draftsRouter } from "./routes/drafts.ts";
 import { editorCollectionsRouter } from "./routes/editor/collections.ts";
 import { editorItemsRouter } from "./routes/editor/items.ts";
 import { newsRouter } from "./routes/news/news.ts";
@@ -74,6 +75,7 @@ export function apiRouters(config: AppConfig): Record<string, Router> {
 		"/editor/gallery/images": editorItemsRouter("gallery"),
 		"/editor/downloads/collections": editorCollectionsRouter("downloads"),
 		"/editor/downloads/items": editorItemsRouter("downloads"),
-		"/editor/maps/seasons": editorItemsRouter("maps")
+		"/editor/maps/seasons": editorItemsRouter("maps"),
+		"/editor/drafts": draftsRouter
 	};
 }

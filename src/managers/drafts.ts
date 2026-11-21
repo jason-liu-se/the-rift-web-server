@@ -1,0 +1,145 @@
+// Database access for drafts. Every query is scoped to the owner, so no
+// caller can read or change another editor's draft. Published markers (see
+// src/models/draft-schema.ts) are left out of everything but getDraft.
+import {
+	type Draft,
+	type DraftTarget,
+	draftModel
+} from "../models/draft-schema.ts";
+
+const UNPUBLISHED = { publishedAs: { $exists: false } };
+
+/** A stored draft, with its `_id` as `id`, as every function returns it. */
+export type StoredDraft = Omit<Draft, "_id"> & { readonly id: string };
+
+function withId({ _id, ...draft }: Draft): StoredDraft {
+	return { ...draft, id: _id };
+}
+
+// The owner's drafts, most recently saved first, optionally of one type.
+export async function listDrafts(
+	owner: string,
+	type?: string
+): Promise<StoredDraft[]> {
+	const found = await draftModel
+		.find({ owner, ...UNPUBLISHED, ...(type !== undefined && { type }) })
+		.sort({ updatedAt: -1 })
+		.lean();
+	return found.map(withId);
+}
+
+// The owner's draft with this ID, published or not.
+export async function getDraft(
+	owner: string,
+	id: string
+): Promise<StoredDraft | undefined> {
+	const found = await draftModel.findOne({ _id: id, owner }).lean();
+	return found ? withId(found) : undefined;
+}
+
+// Whether anyone's draft has this ID: a client UUID taken by another editor
+// must not be reused (nor revealed).
+export async function draftIdTaken(id: string): Promise<boolean> {
+	return (await draftModel.exists({ _id: id })) !== null;
+}
+
+export async function countDrafts(owner: string): Promise<number> {
+	return draftModel.countDocuments({ owner, ...UNPUBLISHED });
+}
+
+// The owner's edit draft of an item, if they have one.
+export async function getTargetDraft(
+	owner: string,
+	type: string,
+	targetId: string
+): Promise<StoredDraft | undefined> {
+	const found = await draftModel
+		.findOne({ owner, type, "target.id": targetId, ...UNPUBLISHED })
+		.lean();
+	return found ? withId(found) : undefined;
+}
+
+export type DraftWriteResult =
+	| { readonly outcome: "ok"; readonly draft: StoredDraft }
+	| { readonly outcome: "stale" }
+	/** The owner already has an edit draft of that item, or the ID is taken. */
+	| { readonly outcome: "duplicate" };
+
+function isDuplicateKey(error: unknown): boolean {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		error.code === 11000
+	);
+}
+
+export async function createDraft(draft: {
+	readonly id: string;
+	readonly owner: string;
+	readonly type: string;
+	readonly fields: Record<string, unknown>;
+	readonly target?: DraftTarget;
+}): Promise<DraftWriteResult> {
+	const { id, ...fields } = draft;
+	try {
+		const created = await draftModel.create({
+			_id: id,
+			...fields,
+			revision: 1
+		});
+		return { outcome: "ok", draft: withId(created.toObject()) };
+	} catch (error) {
+		if (isDuplicateKey(error)) {
+			return { outcome: "duplicate" };
+		}
+		throw error;
+	}
+}
+
+// Replaces an unpublished draft's fields, from the revision the client last
+// saw (another device may have saved since).
+export async function updateDraft(
+	owner: string,
+	id: string,
+	revision: number,
+	fields: Record<string, unknown>
+): Promise<DraftWriteResult> {
+	const updated = await draftModel
+		.findOneAndUpdate(
+			{ _id: id, owner, revision, ...UNPUBLISHED },
+			{ $set: { fields }, $inc: { revision: 1 } },
+			{ returnDocument: "after" }
+		)
+		.lean();
+	return updated
+		? { outcome: "ok", draft: withId(updated) }
+		: { outcome: "stale" };
+}
+
+// False when the owner has no such unpublished draft.
+export async function deleteDraft(owner: string, id: string): Promise<boolean> {
+	const { deletedCount } = await draftModel.deleteOne({
+		_id: id,
+		owner,
+		...UNPUBLISHED
+	});
+	return deletedCount === 1;
+}
+
+// Replaces a published draft with a marker naming the item, until
+// `expiresAt`, so repeating the publish returns that item.
+export async function markPublished(
+	owner: string,
+	id: string,
+	itemId: string,
+	expiresAt: Date
+): Promise<void> {
+	await draftModel.updateOne(
+		{ _id: id, owner },
+		{
+			$set: { publishedAs: itemId, expiresAt },
+			$unset: { fields: "", target: "" }
+		}
+	);
+}
