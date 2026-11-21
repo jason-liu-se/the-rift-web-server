@@ -265,6 +265,14 @@ started from; a stale one is `409` with the item as it is now. Every committed
 write calls `updateContentVersion`; `src/routes/editor/content-version.test.ts`
 fails if an editor write route isn't listed there with a write that changes it.
 
+Bulk actions (`POST /editor/<items>/bulk`, `src/helpers/editor-bulk.ts`) run
+each item through the same functions as single writes, one at a time and without
+a transaction, and answer once with every item's result: a bad item is
+`invalid`, never a failed request, so the website reports all failures together.
+Only what's wrong with the whole request (the action, the target collection,
+over `MAX_BULK_ITEMS`) is a `400`. One request is one write for the rate limit,
+and changes the content version once.
+
 ## Contract
 
 `src/contract/api-requests.ts` holds each endpoint's query and body types, and
