@@ -29,15 +29,35 @@ const PACK = {
 	imageUrl: "pack.png"
 };
 
+// Seeds the collections and their items, as { slug: items }.
+function seedDownloads(groups: Record<string, object[]>) {
+	const slugs = Object.keys(groups);
+	return Promise.all([
+		collection("downloads", "collections").insertMany(
+			slugs.map((slug) => ({ slug, title: slug }))
+		),
+		...slugs
+			.filter((slug) => groups[slug]?.length)
+			.map((slug) =>
+				collection("downloads", "items").insertMany(
+					(groups[slug] ?? []).map((item) => ({
+						...item,
+						collection: slug
+					}))
+				)
+			)
+	]);
+}
+
 describe("GET /downloads", () => {
 	it("returns every collection with its items, sorted by name", async () => {
-		await collection("downloads", "packs").insertOne({ ...PACK });
-		await collection("downloads", "maps").insertOne({ ...MAP });
+		await seedDownloads({ packs: [PACK], maps: [MAP], empty: [] });
 
 		const res = await request(app).get("/downloads").expect(200);
 
 		// toEqual: only the contract's fields, with _id as id and no __v
 		expect(res.body).toEqual([
+			{ name: "empty", items: [] },
 			{ name: "maps", items: [withId(MAP)] },
 			{ name: "packs", items: [withId(PACK)] }
 		]);
@@ -52,7 +72,7 @@ describe("GET /downloads", () => {
 
 describe("GET /downloads/:collection", () => {
 	it("returns the collection's items", async () => {
-		await collection("downloads", "maps").insertOne({ ...MAP });
+		await seedDownloads({ maps: [MAP], packs: [PACK] });
 
 		const res = await request(app).get("/downloads/maps").expect(200);
 
@@ -60,7 +80,7 @@ describe("GET /downloads/:collection", () => {
 	});
 
 	it("answers 500 when a stored item breaks the contract", async () => {
-		await collection("downloads", "maps").insertOne({ title: "No url" });
+		await seedDownloads({ maps: [{ title: "No url" }] });
 
 		await expectContractError("/downloads/maps");
 	});
