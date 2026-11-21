@@ -56,6 +56,18 @@ export const contentVersionQuery = z.object({
 		.optional()
 });
 
+// A public read's `dv`, the detail version of its area (DETAIL_VERSION_AREAS)
+// the caller last saw: two whole numbers joined by `-`, compared as sent.
+export const detailVersionQuery = z.object({
+	dv: z
+		.string({ error: "dv must be a detail version" })
+		.regex(/^\d+-\d+$/, "dv must be a detail version")
+		.optional()
+});
+
+// `GET /content/version/:area`.
+export const detailVersionParams = z.object({ area: z.string() });
+
 // A cookie's value, or undefined when it's absent or not a plain non-empty
 // string (cookie-parser turns `j:`-prefixed values into objects). Never fails:
 // a bad cookie just counts as missing.

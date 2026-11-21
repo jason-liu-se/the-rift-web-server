@@ -10,6 +10,8 @@
 // the server can't send a different shape.
 //
 //   GET /content/version         ContentVersion, never cached
+//   GET /content/version/:area   DetailVersion, never cached (404 for an
+//                                area other than `news`)
 //   GET /news                    PaginatedResponse<NewsPost>, newest first
 //   GET /news/count              CountResponse
 //   GET /gallery                 GalleryCollection[], sorted by slug
@@ -40,6 +42,9 @@
 // Every GET above from /news to /maps/seasons takes an optional `v`, the
 // current ContentVersion's `version`: with it, responses are cached under that
 // version, so send it on every public read to see edits on the next page load.
+// /news and /news/count also take `dv`, the current DetailVersion of `news`:
+// they're cached only when both `v` and `dv` are current, so a scheduled post
+// shows once its date comes. A `dv` that isn't `<digits>-<digits>` is 400.
 
 export interface NewsPost {
 	id: string;
@@ -106,6 +111,14 @@ export interface MapSeason {
 /** Changes on every edit to the site's content. */
 export interface ContentVersion {
 	version: number;
+}
+
+/**
+ * Changes when an area's public content changes without a write (a scheduled
+ * news post going live), e.g. `"1767225600000-3"`. Compare it as a string.
+ */
+export interface DetailVersion {
+	version: string;
 }
 
 export interface CountResponse {
