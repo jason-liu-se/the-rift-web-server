@@ -103,6 +103,8 @@ export async function getGalleryCollection(
 ): Promise<WithId<GalleryImage>[]> {
 	const images = await galleryImageModel
 		.find({ collection: slug })
+		// Explicit, or the order follows whichever index the query uses.
+		.sort({ _id: 1 })
 		.skip(startIndex)
 		.limit(limit ?? NO_LIMIT)
 		.lean();
