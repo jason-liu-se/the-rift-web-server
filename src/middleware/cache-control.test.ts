@@ -9,6 +9,7 @@ import {
 } from "vitest";
 import request from "supertest";
 import { PUBLIC_ROUTES } from "../api/public-routes.ts";
+import { DETAIL_VERSION_AREAS } from "../config/detail-versions.ts";
 import * as mongoManager from "../managers/mongo-manager.ts";
 import { app } from "../../test/app.ts";
 import {
@@ -166,6 +167,29 @@ describe("Cache-Control", () => {
 			expect(res.body.error).toMatch(/v must be a content version/);
 			expect(res.headers["cache-control"]).toBe("no-store");
 		});
+	});
+
+	it("registers only public reads in detail-version areas, and every news read", () => {
+		const publicReads = PUBLIC_ROUTES.map(({ path }) => path);
+		const registered = Object.values(DETAIL_VERSION_AREAS).flatMap(
+			({ routes }) => routes
+		);
+
+		expect(publicReads).toEqual(expect.arrayContaining(registered));
+		expect(registered).toEqual(
+			expect.arrayContaining(
+				publicReads.filter((path) => path.startsWith("/news"))
+			)
+		);
+	});
+
+	it("ignores dv outside a detail-version area", async () => {
+		await seedCollections();
+
+		await request(app)
+			.get(`/gallery?v=${VERSION}&dv=abc`)
+			.expect(200)
+			.expect("cache-control", VERSIONED["cache-control"]);
 	});
 
 	describe.each(["/news", "/news/count"])(
