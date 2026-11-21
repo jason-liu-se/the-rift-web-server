@@ -41,6 +41,7 @@ meant to be edited directly.
 | `DISCORD_CLIENT_SECRET`          | Yes      | Discord application's client secret                                                             |
 | `DISCORD_REDIRECT_URI`           | Yes      | `<this API>/auth/discord/callback`, registered with Discord                                     |
 | `DISCORD_GUILD_ID`               | Yes      | The Rift's Discord server, for role grants                                                      |
+| `IMGBB_API_KEY`                  | Yes      | imgbb API key, for [image uploads](#image-uploads); a secret                                    |
 | `TRUST_PROXY_HOPS`               | No       | Proxies in front of the server (default `0`), for rate limiting                                 |
 | `BEHIND_CLOUDFLARE_TUNNEL`       | No       | `true` only behind a Cloudflare Tunnel; see [Behind Cloudflare](#behind-cloudflare)             |
 | `READ_RATE_LIMIT_WITHOUT_TUNNEL` | No       | Reads per minute without the tunnel, e.g. in development (default: `src/config/rate-limits.ts`) |
@@ -191,6 +192,18 @@ use it up for everyone.
    string in the cache key (the default), or every content version shares one
    entry.
 
+## Image uploads
+
+`POST /editor/images` sends each file through this server to imgbb (the key must
+stay secret), within the limits in
+[`src/config/uploads.ts`](./src/config/uploads.ts). Get the key from
+[api.imgbb.com](https://api.imgbb.com/) while logged in to the site's imgbb
+account. imgbb's API can't choose an album or delete an image, so each upload is
+named for sorting into albums by hand: `g-<gallery slug>-…` (gallery), `n-…`
+(news), `d-…` (downloads), `m-…` (maps). Replaced images stay on imgbb; delete
+them there. Every saved image URL must start with a prefix in
+[`src/config/images.ts`](./src/config/images.ts).
+
 ## Data
 
 **MongoDB:** databases `news` (collection `posts`), `gallery` (`images`, plus
@@ -214,7 +227,7 @@ src/
 ├── contract/     Response types shared with the website
 ├── errors/       Errors mapped to status codes
 ├── helpers/      Editor logic
-├── managers/     MongoDB, Redis, and Discord access
+├── managers/     MongoDB, Redis, Discord, and imgbb access
 ├── middleware/   CORS, sessions, error handler
 ├── models/       Mongoose schemas
 ├── routes/       Routers, one folder per URL group
