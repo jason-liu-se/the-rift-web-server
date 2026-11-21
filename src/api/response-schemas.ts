@@ -13,6 +13,11 @@ import type {
 	DetailVersion,
 	DownloadCollection,
 	DownloadItem,
+	EditorCollection,
+	EditorDownloadItem,
+	EditorGalleryImage,
+	EditorMapSeason,
+	EditorNewsPost,
 	GalleryCollection,
 	GalleryImage,
 	GalleryTags,
@@ -51,17 +56,17 @@ export const galleryCollections = z.toZod<GalleryCollection[]>()(
 
 export const galleryTags = z.toZod<GalleryTags>()(z.array(z.string()));
 
-export const downloadItems = z.toZod<DownloadItem[]>()(
-	z.array(
-		z.object({
-			id: z.string(),
-			title: z.string(),
-			desc: z.string(),
-			downloadUrl: z.string(),
-			imageUrl: z.string()
-		})
-	)
+const downloadItem = z.toZod<DownloadItem>()(
+	z.object({
+		id: z.string(),
+		title: z.string(),
+		desc: z.string(),
+		downloadUrl: z.string(),
+		imageUrl: z.string()
+	})
 );
+
+export const downloadItems = z.toZod<DownloadItem[]>()(z.array(downloadItem));
 
 export const downloadCollections = z.toZod<DownloadCollection[]>()(
 	z.array(
@@ -69,23 +74,23 @@ export const downloadCollections = z.toZod<DownloadCollection[]>()(
 	)
 );
 
-export const mapSeasons = z.toZod<MapSeason[]>()(
-	z.array(
-		z.object({
-			id: z.string(),
-			season: z.number().int(),
-			imageUrl: z.string(),
-			dimensions: z.array(
-				z.object({
-					name: z.string(),
-					imageUrl: z.string(),
-					worldId: z.string(),
-					perspective: z.string()
-				})
-			)
-		})
-	)
+const mapSeason = z.toZod<MapSeason>()(
+	z.object({
+		id: z.string(),
+		season: z.number().int(),
+		imageUrl: z.string(),
+		dimensions: z.array(
+			z.object({
+				name: z.string(),
+				imageUrl: z.string(),
+				worldId: z.string(),
+				perspective: z.string()
+			})
+		)
+	})
 );
+
+export const mapSeasons = z.toZod<MapSeason[]>()(z.array(mapSeason));
 
 export const contentVersion = z.toZod<ContentVersion>()(
 	z.object({ version: z.number().int() })
@@ -105,6 +110,61 @@ export const newsPostsPage = z.toZod<PaginatedResponse<NewsPost>>()(
 
 export const galleryPage = z.toZod<PaginatedResponse<GalleryImage>>()(
 	countResponse.extend({ items: z.array(galleryImage) })
+);
+
+const editorRef = z.object({ id: z.string(), username: z.string() });
+
+// What the editor reads about every item. Items from before the editor tools
+// have no `visible` (visible), `revision` (0), or audit fields.
+const editorFields = {
+	visible: z.boolean().default(true),
+	revision: z.number().int().default(0),
+	status: z.enum(["live", "scheduled", "hidden"]),
+	createdBy: editorRef.optional(),
+	lastUpdatedBy: editorRef.optional(),
+	createdAt: isoDate.optional(),
+	updatedAt: isoDate.optional()
+};
+
+export const editorNewsPost = z.toZod<EditorNewsPost>()(
+	newsPost.extend(editorFields)
+);
+
+export const editorGalleryImage = z.toZod<EditorGalleryImage>()(
+	galleryImage.extend({ ...editorFields, collection: z.string() })
+);
+
+export const editorDownloadItem = z.toZod<EditorDownloadItem>()(
+	downloadItem.extend({
+		...editorFields,
+		collection: z.string(),
+		sortOrder: z.number().optional()
+	})
+);
+
+export const editorMapSeason = z.toZod<EditorMapSeason>()(
+	mapSeason.extend(editorFields)
+);
+
+// A page of any editor item type.
+export function editorPage<T>(item: z.ZodType<T>) {
+	return countResponse.extend({ items: z.array(item) });
+}
+
+export const editorCollections = z.toZod<EditorCollection[]>()(
+	z.array(
+		z.object({
+			slug: z.string(),
+			title: z.string(),
+			visible: editorFields.visible,
+			revision: editorFields.revision,
+			itemCount: z.number().int().min(0),
+			createdBy: editorFields.createdBy,
+			lastUpdatedBy: editorFields.lastUpdatedBy,
+			createdAt: editorFields.createdAt,
+			updatedAt: editorFields.updatedAt
+		})
+	)
 );
 
 export const sessionUser = z.toZod<SessionUser>()(

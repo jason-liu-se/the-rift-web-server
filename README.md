@@ -67,25 +67,28 @@ its `check` job a required status check on `main`.
 
 ## Endpoints
 
-| Endpoint                         | Query                         | Returns                                  | Access |
-| -------------------------------- | ----------------------------- | ---------------------------------------- | ------ |
-| `GET /content/version`           |                               | `{ version }`, never cached              | Public |
-| `GET /content/version/:area`     |                               | `{ version }` for `news`, never cached   | Public |
-| `GET /news`                      | `startIndex`, `limit`         | `{ items, total }`, newest first         | Public |
-| `GET /news/count`                |                               | `{ total }`                              | Public |
-| `GET /gallery`                   |                               | `[{ slug, title }]`, sorted by slug      | Public |
-| `GET /gallery/:collection`       | `startIndex`, `limit`, `tags` | `{ items, total }`, newest first         | Public |
-| `GET /gallery/:collection/count` | `tags`                        | `{ total }`                              | Public |
-| `GET /gallery/:collection/tags`  |                               | The images' tags, sorted                 | Public |
-| `GET /downloads`                 |                               | `[{ name, title, items }]` per group     | Public |
-| `GET /downloads/:collection`     |                               | The group's items, by `sortOrder`        | Public |
-| `GET /maps/seasons`              |                               | Every season's map, oldest first         | Public |
-| `GET /health`                    |                               | `200`                                    | Public |
-| `GET /auth/discord`              |                               | Starts a Discord login                   | Public |
-| `GET /auth/discord/callback`     | From Discord                  | Redirects to the website                 | Public |
-| `GET /auth/me`                   |                               | The logged-in user, or `401`             | Public |
-| `POST /auth/refresh`             |                               | `204` with new session cookies, or `401` | Public |
-| `POST /auth/logout`              |                               | `204`                                    | Public |
+| Endpoint                                                                                        | Query                                                            | Returns                                                      | Access |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------ | ------ |
+| `GET /content/version`                                                                          |                                                                  | `{ version }`, never cached                                  | Public |
+| `GET /content/version/:area`                                                                    |                                                                  | `{ version }` for `news`, never cached                       | Public |
+| `GET /news`                                                                                     | `startIndex`, `limit`                                            | `{ items, total }`, newest first                             | Public |
+| `GET /news/count`                                                                               |                                                                  | `{ total }`                                                  | Public |
+| `GET /gallery`                                                                                  |                                                                  | `[{ slug, title }]`, sorted by slug                          | Public |
+| `GET /gallery/:collection`                                                                      | `startIndex`, `limit`, `tags`                                    | `{ items, total }`, newest first                             | Public |
+| `GET /gallery/:collection/count`                                                                | `tags`                                                           | `{ total }`                                                  | Public |
+| `GET /gallery/:collection/tags`                                                                 |                                                                  | The images' tags, sorted                                     | Public |
+| `GET /downloads`                                                                                |                                                                  | `[{ name, title, items }]` per group                         | Public |
+| `GET /downloads/:collection`                                                                    |                                                                  | The group's items, by `sortOrder`                            | Public |
+| `GET /maps/seasons`                                                                             |                                                                  | Every season's map, oldest first                             | Public |
+| `GET /editor/news`, `/editor/gallery/images`, `/editor/downloads/items`, `/editor/maps/seasons` | `startIndex`, `limit`, `mine`, `status`, `collection`, `q`, `in` | `{ items, total }`: every item, with status and edit history | Editor |
+| `GET /editor/<…>/:id`                                                                           |                                                                  | One item, public or not                                      | Editor |
+| `GET /editor/gallery/collections`, `/editor/downloads/collections`                              |                                                                  | Every collection, with its item count                        | Editor |
+| `GET /health`                                                                                   |                                                                  | `200`                                                        | Public |
+| `GET /auth/discord`                                                                             |                                                                  | Starts a Discord login                                       | Public |
+| `GET /auth/discord/callback`                                                                    | From Discord                                                     | Redirects to the website                                     | Public |
+| `GET /auth/me`                                                                                  |                                                                  | The logged-in user, or `401`                                 | Public |
+| `POST /auth/refresh`                                                                            |                                                                  | `204` with new session cookies, or `401`                     | Public |
+| `POST /auth/logout`                                                                             |                                                                  | `204`                                                        | Public |
 
 Content reads return only public content: visible, in a visible collection
 (hidden ones are `404`), and for news, dated now or earlier (a later date is

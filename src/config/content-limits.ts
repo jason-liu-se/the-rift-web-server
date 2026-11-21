@@ -23,3 +23,6 @@ export const MAX_URL_LENGTH = 2000;
 export const MAX_MAP_DIMENSIONS = 10;
 export const MAX_MAP_DIMENSION_NAME_LENGTH = 60;
 export const MAX_MAP_WORLD_FIELD_LENGTH = 200;
+
+/** An editor list's search query (`q`). */
+export const MAX_SEARCH_QUERY_LENGTH = 100;

@@ -8,8 +8,10 @@ paths:
 
 # Database
 
-`src/managers/mongo-manager.ts` owns the connection and every query, and returns
-plain results. Routers never import models.
+`src/managers/mongo-manager.ts` owns the connection, the public reads, the
+content version, and access grants; `src/managers/editor-content.ts` the editor
+tools' queries, written once for every content type from its `CONTENT_TYPES`
+descriptor. Both return plain results. Routers never import models.
 
 ## Layout
 
