@@ -58,6 +58,10 @@
 //   PUT    /editor/drafts/:id           DraftSaveRequest
 //   POST   /editor/drafts/:id/publish   DraftPublishRequest
 //
+// And image uploads:
+//
+//   POST   /editor/images               ImageUploadForm, multipart/form-data
+//
 // Every write is checked against the limits in the server's
 // src/config/content-limits.ts, image URLs against its src/config/images.ts
 // allowlist, and news markdown for raw HTML and unsafe links or images. A 400
@@ -323,3 +327,12 @@ export interface DraftPublishRequest {
 	/** Publish an edit draft whose item was deleted as a new item. */
 	asNew?: boolean;
 }
+
+// Image uploads: POST /editor/images, multipart/form-data with up to 20
+// `files` (PNG, JPEG, WebP, or GIF, 10 MB each; 413 when larger) and these
+// fields. What it answers is ImageUploadResponse, in api-responses.ts.
+
+/** What the files are for; the gallery's also name the collection (its slug). */
+export type ImageUploadForm =
+	| { use: "gallery"; collection: string }
+	| { use: "news" | "downloads" | "maps" };

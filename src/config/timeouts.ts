@@ -3,6 +3,9 @@
 /** How long one Discord request may take, response body included. */
 export const DISCORD_TIMEOUT_MS = 10_000;
 
+/** How long one image upload to imgbb may take, response included. */
+export const IMGBB_TIMEOUT_MS = 30_000;
+
 /** How long a graceful shutdown may take before the process is killed. */
 export const SHUTDOWN_TIMEOUT_MS = 10_000;
 
