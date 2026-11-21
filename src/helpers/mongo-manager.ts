@@ -150,10 +150,11 @@ export async function getAllDownloadCollections(): Promise<
 		downloadCollectionModel.find({}, { slug: 1 }).sort({ slug: 1 }).lean(),
 		downloadItemModel.find().lean()
 	]);
+	const itemsBySlug = Map.groupBy(items, (item) => item.collection);
 
 	return collections.map(({ slug }) => ({
 		name: slug,
-		items: items.filter((item) => item.collection === slug).map(withId)
+		items: (itemsBySlug.get(slug) ?? []).map(withId)
 	}));
 }
 
