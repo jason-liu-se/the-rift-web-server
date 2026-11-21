@@ -164,10 +164,11 @@ export async function countGalleryCollectionItems(
 
 // The tags on a gallery's public images, sorted.
 export async function getGalleryTags(slug: string): Promise<string[]> {
-	const tags = await galleryImageModel.distinct(
-		"tags",
-		publicImagesFilter(slug, [])
-	);
+	// Read from the tags index, an image without tags would be a null tag.
+	const tags = await galleryImageModel.distinct("tags", {
+		...publicImagesFilter(slug, []),
+		tags: { $type: "string" }
+	});
 	return tags.toSorted();
 }
 
