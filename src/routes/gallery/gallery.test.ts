@@ -149,6 +149,17 @@ describe("GET /gallery/:collection", () => {
 		}
 	);
 
+	it("rejects more tags than an image can have", async () => {
+		await seedGallery();
+		const tags = Array.from({ length: 11 }, (_, i) => `t${i}`).toSorted();
+
+		const res = await request(app)
+			.get(`/gallery/builds?tags=${tags.join(",")}`)
+			.expect(400);
+
+		expect(res.body.error).toMatch(/at most 10 tags/);
+	});
+
 	it("returns an empty page for an existing, empty collection", async () => {
 		await seedCollections({ slug: "empty", title: "Empty" });
 

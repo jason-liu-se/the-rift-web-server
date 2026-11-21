@@ -10,8 +10,9 @@ const marked = new Marked();
 // A link may go to the web or an email address, or be relative. A relative
 // one can't contain `:` or `&`, so neither `javascript:` nor its
 // entity-encoded form (`javascript&#58;`), which browsers decode, gets
-// through.
-const SAFE_LINK = /^(https?:\/\/|mailto:)|^[^:&]*$/i;
+// through, nor start with two slashes (either way), which browsers read as
+// another host.
+const SAFE_LINK = /^(https?:\/\/|mailto:)|^(?![/\\]{2})[^:&]*$/i;
 
 export function isAllowedImageUrl(url: string): boolean {
 	return IMAGE_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
@@ -49,7 +50,16 @@ function firstProblem(tokens: Token[]): string | undefined {
 // For news content: any markdown but raw HTML, unsafe links, and images from
 // hosts outside IMAGE_URL_PREFIXES.
 export function markdownProblem(markdown: string): string | undefined {
-	return firstProblem(marked.lexer(markdown));
+	try {
+		return firstProblem(marked.lexer(markdown));
+	} catch (error) {
+		// marked recurses per nesting level (`> > > …`), so deep enough nesting
+		// overflows the stack: the caller's mistake, not a server fault.
+		if (error instanceof RangeError) {
+			return "is nested too deeply";
+		}
+		throw error;
+	}
 }
 
 // For news titles: inline markdown (emphasis, code, links) only, so no

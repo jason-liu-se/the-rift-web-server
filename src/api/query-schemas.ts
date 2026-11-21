@@ -2,7 +2,10 @@
 // Routes call `.parse(req.params)` / `.parse(req.query)`; the app's error
 // handler turns a failed parse into a 400 response.
 import * as z from "zod";
-import { MAX_COLLECTION_SLUG_LENGTH } from "../config/content-limits.ts";
+import {
+	MAX_COLLECTION_SLUG_LENGTH,
+	MAX_TAGS_PER_IMAGE
+} from "../config/content-limits.ts";
 
 // A gallery or download collection's slug: kebab-case, as in the website's
 // URLs.
@@ -27,6 +30,10 @@ export const galleryTagsQuery = z.object({
 		.string()
 		.optional()
 		.transform((tags) => (tags ? tags.split(",") : []))
+		.refine((tags) => tags.length <= MAX_TAGS_PER_IMAGE, {
+			error: `at most ${MAX_TAGS_PER_IMAGE} tags`,
+			abort: true
+		})
 		.refine(
 			(tags) => tags.join(",") === normaliseTags(tags).join(","),
 			"tags must be lowercase, trimmed, unique, sorted, and comma-separated"
