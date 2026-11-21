@@ -282,6 +282,9 @@ To change a response:
 - **Error messages** help the caller fix their request without helping an
   attacker probe: a failed sign-in says "invalid email or password", not which
   one was wrong.
+- **Editor lists send summaries.** A list (an editor table) sends only what it
+  shows, leaving out long fields (news content, a download's description, map
+  dimensions, a draft's fields); opening an item fetches all of it (`/:id`).
 - **Pagination.** Collections that can grow take `startIndex`/`limit`
   (`paginationQuery`) and return `{ items, total }`, plus a `/count` endpoint.
 - **Compatibility.** Keep responses backward compatible. Check

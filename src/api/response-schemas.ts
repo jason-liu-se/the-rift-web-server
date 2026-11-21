@@ -15,9 +15,12 @@ import type {
 	DownloadItem,
 	EditorCollection,
 	EditorDownloadItem,
+	EditorDownloadItemSummary,
 	EditorGalleryImage,
 	EditorMapSeason,
+	EditorMapSeasonSummary,
 	EditorNewsPost,
+	EditorNewsPostSummary,
 	GalleryCollection,
 	GalleryImage,
 	GalleryTags,
@@ -144,6 +147,19 @@ export const editorDownloadItem = z.toZod<EditorDownloadItem>()(
 
 export const editorMapSeason = z.toZod<EditorMapSeason>()(
 	mapSeason.extend(editorFields)
+);
+
+// What the lists send (see the contract's *Summary types).
+export const editorNewsPostSummary = z.toZod<EditorNewsPostSummary>()(
+	editorNewsPost.omit({ content: true })
+);
+
+export const editorDownloadItemSummary = z.toZod<EditorDownloadItemSummary>()(
+	editorDownloadItem.omit({ desc: true })
+);
+
+export const editorMapSeasonSummary = z.toZod<EditorMapSeasonSummary>()(
+	editorMapSeason.omit({ dimensions: true })
 );
 
 // A page of any editor item type.

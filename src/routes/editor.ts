@@ -16,9 +16,12 @@ import { editorListQuery, idParams } from "../api/query-schemas.ts";
 import {
 	editorCollections,
 	editorDownloadItem,
+	editorDownloadItemSummary,
 	editorGalleryImage,
 	editorMapSeason,
+	editorMapSeasonSummary,
 	editorNewsPost,
+	editorNewsPostSummary,
 	editorPage,
 	parseResponse
 } from "../api/response-schemas.ts";
@@ -28,6 +31,14 @@ const ITEM_SCHEMAS: Readonly<Record<ContentTypeName, z.ZodType>> = {
 	gallery: editorGalleryImage,
 	downloads: editorDownloadItem,
 	maps: editorMapSeason
+};
+
+// What each type's list sends of an item.
+const SUMMARY_SCHEMAS: Readonly<Record<ContentTypeName, z.ZodType>> = {
+	news: editorNewsPostSummary,
+	gallery: editorGalleryImage,
+	downloads: editorDownloadItemSummary,
+	maps: editorMapSeasonSummary
 };
 
 // What each type's item is called in messages.
@@ -59,7 +70,7 @@ function currentEditorId(res: Response): string {
 export function editorItemsRouter(typeName: ContentTypeName): Router {
 	const router = express.Router();
 	const itemSchema = ITEM_SCHEMAS[typeName];
-	const pageSchema = editorPage(itemSchema);
+	const pageSchema = editorPage(SUMMARY_SCHEMAS[typeName]);
 	const query = listQuery(typeName);
 	router.use(revalidateEveryTime);
 
