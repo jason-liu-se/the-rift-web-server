@@ -57,7 +57,7 @@ const webUrl = url.regex(/^https?:\/\//i, "must be an http(s) URL");
 const tooManyTags = { error: `at most ${MAX_TAGS_PER_IMAGE} tags` };
 
 // Capped before normalising too, so a huge list is refused unread.
-const tags = z
+export const tagList = z
 	.array(
 		text(MAX_TAG_LENGTH).regex(
 			/^[a-z0-9 ]*$/i,
@@ -85,7 +85,7 @@ const galleryShape = z.object({
 	collection: collectionSlug,
 	caption: text(MAX_GALLERY_CAPTION_LENGTH),
 	imageUrl: url,
-	tags: tags.optional()
+	tags: tagList.optional()
 }) satisfies z.ZodType<GalleryImageFields>;
 
 const downloadShape = z.object({

@@ -1,7 +1,7 @@
 // Parses the editor's list queries, and its create and update bodies for any
-// content type into what's stored: the type's fields
-// (src/api/write-schemas.ts) plus the options every write takes, with news
-// dates resolved by src/helpers/news-dates.ts.
+// content type into what's stored: the type's fields (src/api/write-schemas.ts) plus the
+// options every write takes, with news dates resolved by
+// src/helpers/news-dates.ts. Shared by single and bulk writes.
 import * as z from "zod";
 import {
 	CONTENT_TYPES,
@@ -22,23 +22,12 @@ import {
 	updateOptions
 } from "./write-schemas.ts";
 
-const FIELD_SCHEMAS = {
+export const FIELD_SCHEMAS = {
 	news: newsPostFields,
 	gallery: galleryImageFields,
 	downloads: downloadItemFields,
 	maps: mapSeasonFields
 } as const;
-
-// A type's list query: its statuses and search fields, and `collection` only
-// for the types with collections.
-export function listQueryFor(typeName: ContentTypeName) {
-	const { searchFields, collectionModel } = CONTENT_TYPES[typeName];
-	const schema = editorListQuery(
-		statusesOf(typeName),
-		Object.keys(searchFields)
-	);
-	return collectionModel ? schema : schema.omit({ collection: true });
-}
 
 // What a create body stores, beyond createId and the audit fields.
 export function parseCreate(
@@ -90,4 +79,15 @@ export function parseUpdate(
 			...newsUpdateFields(current, { ...parsed, date }, now)
 		})
 	};
+}
+
+// A type's list query: its statuses and search fields, and `collection` only
+// for the types with collections.
+export function listQueryFor(typeName: ContentTypeName) {
+	const { searchFields, collectionModel } = CONTENT_TYPES[typeName];
+	const schema = editorListQuery(
+		statusesOf(typeName),
+		Object.keys(searchFields)
+	);
+	return collectionModel ? schema : schema.omit({ collection: true });
 }

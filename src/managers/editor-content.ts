@@ -47,6 +47,8 @@ export type EditorItem = Omit<StoredItem, "_id"> & {
 type SearchField = (pattern: RegExp, query: string) => object;
 
 interface ContentType {
+	/** What an item is called in messages. */
+	readonly itemName: string;
 	readonly model: Model<StoredItem>;
 	/** The statuses its items can have, and how each is found. */
 	readonly statuses: StatusRules;
@@ -112,6 +114,7 @@ function storedItems(model: object): Model<StoredItem> {
 
 export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 	news: {
+		itemName: "news post",
 		model: storedItems(newsPostModel),
 		statuses: NEWS_STATUSES,
 		searchFields: {
@@ -122,6 +125,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 		summary: [{ $unset: "content" }]
 	},
 	gallery: {
+		itemName: "gallery image",
 		model: storedItems(galleryImageModel),
 		statuses: LIVE_OR_HIDDEN,
 		searchFields: {
@@ -133,6 +137,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 		collectionModel: galleryCollectionModel
 	},
 	downloads: {
+		itemName: "download item",
 		model: storedItems(downloadItemModel),
 		statuses: LIVE_OR_HIDDEN,
 		searchFields: {
@@ -154,6 +159,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 		collectionModel: downloadCollectionModel
 	},
 	maps: {
+		itemName: "map season",
 		model: storedItems(mapSeasonModel),
 		statuses: LIVE_OR_HIDDEN,
 		searchFields: {
@@ -566,6 +572,17 @@ export async function hasCollection(
 	slug: string
 ): Promise<boolean> {
 	return (await collectionModelOf(typeName).exists({ slug })) !== null;
+}
+
+// Every slug in `slugs` that names no collection.
+export async function missingCollections(
+	typeName: CollectionTypeName,
+	slugs: readonly string[]
+): Promise<string[]> {
+	const found = await collectionModelOf(typeName).distinct("slug", {
+		slug: { $in: slugs }
+	});
+	return slugs.filter((slug) => !found.includes(slug));
 }
 
 export type CollectionWriteResult =

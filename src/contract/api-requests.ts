@@ -39,6 +39,7 @@
 //   POST   /editor/<items>          NewsPostCreateRequest, ...
 //   PATCH  /editor/<items>/:id      NewsPostUpdateRequest, ...
 //   DELETE /editor/<items>/:id      DeleteQuery
+//   POST   /editor/<items>/bulk     BulkRequest
 //
 // And for the collections, at /editor/gallery/collections and
 // /editor/downloads/collections:
@@ -223,3 +224,25 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 	startingRevision: number;
 	title?: string;
 }
+
+// Bulk actions: what each answers is BulkResponse, in api-responses.ts.
+
+/** An item a bulk action changes, at the revision the editor read. */
+export interface BulkItemRef {
+	id: string;
+	revision: number;
+}
+
+export type BulkRequest =
+	| { action: "delete" | "show" | "hide"; items: BulkItemRef[] }
+	| { action: "move"; collection: string; items: BulkItemRef[] }
+	| {
+			action: "add-tags" | "remove-tags";
+			tags: string[];
+			items: BulkItemRef[];
+	  }
+	| {
+			action: "create";
+			/** `id` is the new image's createId (a UUID). */
+			items: (GalleryImageFields & VisibilityFields & { id: string })[];
+	  };
