@@ -96,8 +96,8 @@ can send cross-site without a preflight. So routes only ever see parsed JSON (or
 nothing) in `req.body`, and logged-out bodies are never read. Still validate
 `req.body` with a Zod schema before use.
 
-CORS allows `GET,POST,PATCH,DELETE,OPTIONS` (`src/middleware/cors.ts`): a route
-with any other method must add it there, or browsers block it.
+CORS allows `GET,POST,PUT,PATCH,DELETE,OPTIONS` (`src/middleware/cors.ts`): a
+route with any other method must add it there, or browsers block it.
 
 ### Rate limits
 
@@ -287,6 +287,21 @@ so a stale revision or a missing item is known exactly. Only what's wrong with
 the whole request (an action the type doesn't have, the target collection, over
 `MAX_BULK_ITEMS`) is a `400`. One request is one write for the rate limit, and
 changes the content version once (even when it fails after writing some items).
+
+### Drafts
+
+`/editor/drafts` (`src/routes/drafts.ts`) is per editor: every query in
+`src/managers/drafts.ts` is scoped to the owner, and another editor's draft is a
+`404`, never a `403`. Drafts are checked loosely (`draft` variants, plus
+`MAX_DRAFTS_PER_USER` and `MAX_DRAFT_BYTES`) and keep their own `revision`, so a
+save from a second device makes the first one's next save `409`. Publishing
+checks the fields fully, then creates the item (with the draft's ID as its
+`createId`) or updates the one an edit draft started from, at the revision it
+started from. The draft then becomes a marker naming the item, which a TTL index
+deletes after `PUBLISHED_DRAFT_TTL_MS`, so a repeated publish returns the same
+item. There's no transaction: if the server stops between the two writes, a new
+item's repeat still finds it by `createId`, but an edit's repeat gets `409` (the
+item's revision moved). Drafts stay `no-store`.
 
 ## Contract
 

@@ -154,15 +154,16 @@ const checkMapSeason: ContentCheck<MapSeasonFields> = (fields, ctx) => {
 	});
 };
 
-// The three variants of one content type's fields.
-function variants<Shape extends z.ZodObject>(
+// The three variants of one content type's fields. `partial` is
+// `shape.partial()`, made where the shape's type is known: Zod can't infer a
+// generic object's partial.
+function variants<Shape extends z.ZodObject, PartialShape extends z.ZodObject>(
 	shape: Shape,
+	partial: PartialShape,
 	checkContent: ContentCheck<z.output<Shape>>
 ) {
-	const partial = shape.partial();
 	return {
 		full: shape.superRefine(checkContent),
-		// Zod can't infer a generic object's partial output; it's Partial<…>.
 		patch: partial.superRefine((fields, ctx) =>
 			checkContent(fields as Partial<z.output<Shape>>, ctx)
 		),
@@ -170,10 +171,26 @@ function variants<Shape extends z.ZodObject>(
 	};
 }
 
-export const newsPostFields = variants(newsShape, checkNews);
-export const galleryImageFields = variants(galleryShape, checkImageUrl);
-export const downloadItemFields = variants(downloadShape, checkImageUrl);
-export const mapSeasonFields = variants(mapSeasonShape, checkMapSeason);
+export const newsPostFields = variants(
+	newsShape,
+	newsShape.partial(),
+	checkNews
+);
+export const galleryImageFields = variants(
+	galleryShape,
+	galleryShape.partial(),
+	checkImageUrl
+);
+export const downloadItemFields = variants(
+	downloadShape,
+	downloadShape.partial(),
+	checkImageUrl
+);
+export const mapSeasonFields = variants(
+	mapSeasonShape,
+	mapSeasonShape.partial(),
+	checkMapSeason
+);
 
 export type NewsPostInput = z.infer<typeof newsShape>;
 export type GalleryImageInput = z.infer<typeof galleryShape>;

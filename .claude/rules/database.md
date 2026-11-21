@@ -12,8 +12,9 @@ paths:
 content version, and access grants; `src/managers/editor-content.ts` the editor
 tools' queries, written once for every content type from its `CONTENT_TYPES`
 descriptor (its types in `src/types/editor-content.ts`, and the pure functions
-that build its queries in `src/helpers/editor-queries.ts`). Both return plain
-results. Routers never import models.
+that build its queries in `src/helpers/editor-queries.ts`);
+`src/managers/drafts.ts` drafts, every query scoped to the owner. All return
+plain results. Routers never import models.
 
 ## Layout
 
@@ -28,6 +29,7 @@ per file in `src/models/`:
 | `maps`      | `seasons`               | `src/models/map-season-schema.ts`      |
 | `auth`      | `accessGrants`          | `src/models/access-grant-schema.ts`    |
 | `content`   | `meta`                  | `src/models/content-version-schema.ts` |
+| `editor`    | `drafts`                | `src/models/draft-schema.ts`           |
 
 Editors write content through `/editor/*` (`editor-content.ts`); access grants
 are added to MongoDB directly. Every committed content write then calls

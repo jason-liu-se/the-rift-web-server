@@ -49,9 +49,9 @@ edited.
   `requireLogin` answers `401` to everything else when nobody is logged in.
 - **`src/managers/` owns the access to databases and outside services**:
   `mongo-manager.ts` the MongoDB connection and public reads,
-  `editor-content.ts` the editor's queries, `redis-manager.ts` all Redis access,
-  and `discord.ts` every call to Discord. Routers never touch models, the Redis
-  client, or Discord directly.
+  `editor-content.ts` the editor's queries, `drafts.ts` the drafts',
+  `redis-manager.ts` all Redis access, and `discord.ts` every call to Discord.
+  Routers never touch models, the Redis client, or Discord directly.
 - **`src/contract/` is the contract with the website** (`api-requests.ts` what
   each endpoint takes, `api-responses.ts` what it sends), which keeps a verbatim
   copy. Endpoint paths, parameters, and response shapes must be changed
