@@ -17,7 +17,8 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "eslint .",
-		"lint:fix": "eslint --fix ."
+		"lint:fix": "eslint --fix .",
+		"migrate:content-storage": "node --env-file-if-exists=.env scripts/migrate-content-storage.ts"
 	},
 	"repository": {
 		"type": "git",

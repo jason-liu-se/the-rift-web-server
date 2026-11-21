@@ -47,15 +47,16 @@ meant to be edited directly.
 
 ## Commands
 
-| Command                   | What it does                                   |
-| ------------------------- | ---------------------------------------------- |
-| `npm run dev`             | Run the source, restarting on changes          |
-| `npm run build` / `start` | Compile to `dist/` / run the build             |
-| `npm run docker:build`    | Build the Docker image                         |
-| `npm run docker:start`    | Run the image on port 4000 with `.env`         |
-| `npm test` / `test:watch` | Tests (no `.env`, database, or Redis needed)   |
-| `npm run typecheck`       | Type-check source, tests, and configs          |
-| `npm run lint` / `format` | ESLint / Prettier (`lint:fix`, `format:check`) |
+| Command                           | What it does                                   |
+| --------------------------------- | ---------------------------------------------- |
+| `npm run migrate:content-storage` | One-off data move ([Data](#data))              |
+| `npm run dev`                     | Run the source, restarting on changes          |
+| `npm run build` / `start`         | Compile to `dist/` / run the build             |
+| `npm run docker:build`            | Build the Docker image                         |
+| `npm run docker:start`            | Run the image on port 4000 with `.env`         |
+| `npm test` / `test:watch`         | Tests (no `.env`, database, or Redis needed)   |
+| `npm run typecheck`               | Type-check source, tests, and configs          |
+| `npm run lint` / `format`         | ESLint / Prettier (`lint:fix`, `format:check`) |
 
 In Docker, reach MongoDB or Redis on your machine at `host.docker.internal`.
 
@@ -165,12 +166,25 @@ use it up for everyone.
 
 ## Data
 
-**MongoDB:** databases `news` (collection `posts`), `gallery` (one collection
-per gallery), `downloads` (one per group), `maps` (`seasons`), and `auth`
-(`accessGrants`), and `content` (`meta`: the content version). Add content
-directly, then set the `contentVersion` document's `version` to any new whole
-number (e.g. the current time in ms) so the edit shows at once. See
+**MongoDB:** databases `news` (collection `posts`), `gallery` (`images`, plus
+`collections`: each gallery's `slug` and `title`), `downloads` (`items`, plus
+`collections`), `maps` (`seasons`), `auth` (`accessGrants`), and `content`
+(`meta`: the content version). Add content directly, then set the
+`contentVersion` document's `version` to any new whole number (e.g. the current
+time in ms) so the edit shows at once. See
 [database.md](./.claude/rules/database.md).
+
+**Moving to shared items collections** (once, when deploying #42): galleries and
+download groups used to be one Mongo collection each.
+[`scripts/migrate-content-storage.ts`](./scripts/migrate-content-storage.ts)
+moves them into `images` / `items` (keeping every `_id`) and names each in
+`collections` (slug and title from its old name). It writes nothing if anything
+would clash, and is safe to re-run.
+
+1. `npm run migrate:content-storage -- --dry-run`, and check the plan.
+2. Deploy, then at once `npm run migrate:content-storage` (until it runs, the
+   gallery and downloads are empty), and bump the content version.
+3. Once the site looks right: `npm run migrate:content-storage -- --drop-old`.
 
 **Redis:** one hash per login session, key `session:<session ID>`, expiring with
 the session; fields in
@@ -190,6 +204,7 @@ src/
 ├── routes/       Routers and request/response schemas
 ├── app.ts        Builds the Express app
 └── index.ts      Entry point
+scripts/          One-off scripts, run by hand
 test/             Test helpers
 ```
 
@@ -198,7 +213,7 @@ test/             Test helpers
 | Problem                      | Check                                                 |
 | ---------------------------- | ----------------------------------------------------- |
 | Exits on startup             | The listed `.env` variables; MongoDB and Redis are up |
-| `404` for a gallery/download | The collection exists in the right database           |
+| `404` for a gallery/download | Its slug is in the database's `collections`           |
 | `500` errors                 | The server console                                    |
 | `403` on a POST              | `Origin` is exactly `FRONTEND_URL`                    |
 | Login fails                  | The `error` code on `/admin/login` and the console    |
