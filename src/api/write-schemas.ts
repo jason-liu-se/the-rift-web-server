@@ -54,14 +54,14 @@ const url = z
 
 const webUrl = url.regex(/^https?:\/\//i, "must be an http(s) URL");
 
+const tooManyTags = { error: `at most ${MAX_TAGS_PER_IMAGE} tags` };
+
+// Capped before normalising too, so a huge list is refused unread.
 const tags = z
 	.array(text(MAX_TAG_LENGTH).regex(/^[^,]*$/, "can't contain commas"))
+	.max(MAX_TAGS_PER_IMAGE, tooManyTags)
 	.transform(normaliseTags)
-	.pipe(
-		z.array(z.string()).max(MAX_TAGS_PER_IMAGE, {
-			error: `at most ${MAX_TAGS_PER_IMAGE} tags`
-		})
-	);
+	.pipe(z.array(z.string()).max(MAX_TAGS_PER_IMAGE, tooManyTags));
 
 const mapDimension = z.object({
 	name: requiredText(MAX_MAP_DIMENSION_NAME_LENGTH),
@@ -100,14 +100,16 @@ const mapSeasonShape = z.object({
 		.max(MAX_MAP_DIMENSIONS, `at most ${MAX_MAP_DIMENSIONS} dimensions`)
 }) satisfies z.ZodType<MapSeasonFields>;
 
-// Reports a problem with one field (by path), unless the field is absent.
+// Reports a problem with one field (by path), unless the field is absent. An
+// empty string is checked: it's no allowed image URL.
 function check(
 	ctx: z.core.$RefinementCtx,
 	path: (string | number)[],
 	value: string | null | undefined,
 	problemOf: (value: string) => string | undefined
 ): void {
-	const problem = value ? problemOf(value) : undefined;
+	const problem =
+		value === null || value === undefined ? undefined : problemOf(value);
 	if (problem) {
 		ctx.addIssue({ code: "custom", path, message: problem });
 	}

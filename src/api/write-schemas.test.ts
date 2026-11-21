@@ -57,6 +57,21 @@ describe("newsPostFields", () => {
 			"an entity-encoded javascript: link",
 			"[x](javascript&#58;alert(1))",
 			"links must be web, email, or relative addresses"
+		],
+		[
+			"a protocol-relative link",
+			"[x](//evil.example/x)",
+			"links must be web, email, or relative addresses"
+		],
+		[
+			"a protocol-relative link with a backslash",
+			"[x](/\\evil.example/x)",
+			"links must be web, email, or relative addresses"
+		],
+		[
+			"nesting deep enough to overflow",
+			"> ".repeat(5000),
+			"is nested too deeply"
 		]
 	])("rejects content with %s", (_name, content, message) => {
 		expect(problems(newsPostFields.full, { ...NEWS, content })).toEqual([
@@ -138,10 +153,21 @@ describe("galleryImageFields", () => {
 		expect(parsed.tags).toEqual(["build", "spawn"]);
 	});
 
+	it("rejects an empty image URL", () => {
+		expect(
+			problems(galleryImageFields.full, { ...IMAGE_FIELDS, imageUrl: "" })
+		).toEqual(["imageUrl: must start with an allowed image host"]);
+	});
+
 	it.each([
 		[
 			"too many tags",
 			Array.from({ length: 11 }, (_, i) => `t${i}`),
+			"tags: at most 10 tags"
+		],
+		[
+			"too many tags, even if duplicates",
+			Array.from({ length: 11 }, () => "t"),
 			"tags: at most 10 tags"
 		],
 		[
