@@ -258,7 +258,10 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 		z.discriminatedUnion("type", [
 			z.object({
 				type: z.literal("news"),
-				fields: newsPostFields.draft.pick({ title: true }),
+				fields: newsPostFields.draft.pick({
+					title: true,
+					imageUrl: true
+				}),
 				...draftFields
 			}),
 			z.object({
@@ -271,12 +274,18 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 			}),
 			z.object({
 				type: z.literal("downloads"),
-				fields: downloadItemFields.draft.pick({ title: true }),
+				fields: downloadItemFields.draft.pick({
+					title: true,
+					imageUrl: true
+				}),
 				...draftFields
 			}),
 			z.object({
 				type: z.literal("maps"),
-				fields: mapSeasonFields.draft.pick({ season: true }),
+				fields: mapSeasonFields.draft.pick({
+					season: true,
+					imageUrl: true
+				}),
 				...draftFields
 			})
 		])
