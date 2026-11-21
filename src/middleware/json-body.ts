@@ -8,6 +8,12 @@ import { UnsupportedMediaTypeError } from "../errors/unsupported-media-type-erro
 // preflight. Malformed or oversized bodies are body-parser errors, mapped by
 // the error handler. `multipartPaths` are routes that parse their own
 // multipart/form-data body (image uploads), which is left unread here.
+// The path as Express routes it: case-insensitively, with or without a
+// trailing slash.
+function routedPath(url: string): string {
+	return (url.split("?")[0] ?? "").toLowerCase().replace(/\/+$/, "");
+}
+
 export function jsonBody(
 	multipartPaths: readonly string[] = []
 ): RequestHandler[] {
@@ -19,7 +25,7 @@ export function jsonBody(
 		express.raw({
 			type: (req) =>
 				!(
-					multipartPaths.includes(req.url?.split("?")[0] ?? "") &&
+					multipartPaths.includes(routedPath(req.url ?? "")) &&
 					/^multipart\/form-data\b/i.test(
 						req.headers["content-type"] ?? ""
 					)
