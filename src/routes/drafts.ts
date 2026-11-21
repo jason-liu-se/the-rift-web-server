@@ -26,7 +26,7 @@ import { idParams, queryFor } from "../api/query-schemas.ts";
 import {
 	EDITOR_ITEM_SCHEMAS,
 	draft as draftResponse,
-	drafts as draftsResponse,
+	draftSummaries,
 	parseResponse
 } from "../api/response-schemas.ts";
 import {
@@ -117,7 +117,7 @@ draftsRouter.get("/", async (req, res) => {
 
 	res.json(
 		parseResponse(
-			draftsResponse,
+			draftSummaries,
 			await drafts.listDrafts(editorOf(res).id, type)
 		)
 	);
@@ -134,6 +134,7 @@ draftsRouter.get("/:id", async (req, res) => {
 });
 
 // Creates the draft (201), or saves it from the revision the client last saw.
+// A repeated create is 200 with the draft already made.
 draftsRouter.put("/:id", async (req, res) => {
 	const { id } = draftParams.parse(req.params);
 	const body = draftSaveRequest.parse(req.body);
@@ -152,7 +153,10 @@ draftsRouter.put("/:id", async (req, res) => {
 		throw new BadRequestError("type: a draft's type can't change");
 	}
 	if (body.revision === undefined) {
-		return staleSave(owner, id);
+		// A repeated create (its response lost): the draft as it is, saving
+		// nothing, for the website to carry on from or reconcile.
+		res.json(parseResponse(draftResponse, stored));
+		return;
 	}
 
 	const result = await drafts.updateDraft(

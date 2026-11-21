@@ -142,6 +142,16 @@ describe("PUT /editor/drafts/:id", () => {
 		});
 	});
 
+	it("answers a repeated create with the draft already made, saving nothing", async () => {
+		const { id, draft } = await createDraft(newsDraft({ title: "First" }));
+
+		const res = await editor
+			.put(`/editor/drafts/${id}`, newsDraft({ title: "Retry" }))
+			.expect(200);
+
+		expect(res.body).toEqual(draft);
+	});
+
 	it("keeps one edit draft per editor per item", async () => {
 		const target = { id: await seedPost(), revision: 3 };
 		const { id: first } = await createDraft({ ...newsDraft(), target });
@@ -246,6 +256,25 @@ describe("GET /editor/drafts", () => {
 			older
 		]);
 		expect(res.headers["cache-control"]).toBe("no-store");
+	});
+
+	it("lists only what names each draft, not the rest of its fields", async () => {
+		const { id } = await createDraft(
+			newsDraft({ content: "Long body", imageUrl: IMAGE })
+		);
+
+		const res = await editor.get("/editor/drafts").expect(200);
+
+		expect(res.body).toEqual([
+			{
+				id,
+				type: "news",
+				fields: { title: "Draft" },
+				revision: 1,
+				createdAt: expect.any(String),
+				updatedAt: expect.any(String)
+			}
+		]);
 	});
 
 	it("answers 404 for another editor's draft", async () => {

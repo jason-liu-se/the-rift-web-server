@@ -43,7 +43,14 @@
 // it's cached under the current content version: see VersionQuery in
 // api-requests.ts.
 
-import type { DraftContent, DraftTarget } from "./api-requests.ts";
+import type {
+	DownloadItemFields,
+	DraftContent,
+	DraftTarget,
+	GalleryImageFields,
+	MapSeasonFields,
+	NewsPostFields
+} from "./api-requests.ts";
 
 export interface NewsPost {
 	id: string;
@@ -287,10 +294,13 @@ export interface BulkResponse<T> {
 // Drafts: an editor's unpublished work, saved as they type, private to them
 // (anyone else's draft is 404). Never cached.
 //
-//   GET    /editor/drafts             Draft[], most recently saved first
+//   GET    /editor/drafts             DraftSummary[], most recently saved
+//                                     first
 //   GET    /editor/drafts/:id         Draft
 //   PUT    /editor/drafts/:id         DraftSaveRequest → Draft (201 created,
-//                                     200 saved); 409 ConflictResponse<Draft>
+//                                     200 saved, or 200 with the draft as it
+//                                     is for a repeated create, which saves
+//                                     nothing); 409 ConflictResponse<Draft>
 //                                     when another device saved since, or
 //                                     when an edit draft of that item exists
 //   DELETE /editor/drafts/:id         204
@@ -317,3 +327,15 @@ export type Draft = DraftContent & {
 	/** ISO 8601 */
 	updatedAt: string;
 };
+
+/** A draft in the list: what names it so far, without the rest of its fields. */
+export type DraftSummary = (
+	| { type: "news"; fields: Pick<Partial<NewsPostFields>, "title"> }
+	| {
+			type: "gallery";
+			fields: Pick<Partial<GalleryImageFields>, "caption" | "imageUrl">;
+	  }
+	| { type: "downloads"; fields: Pick<Partial<DownloadItemFields>, "title"> }
+	| { type: "maps"; fields: Pick<Partial<MapSeasonFields>, "season"> }
+) &
+	Omit<Draft, "type" | "fields">;
