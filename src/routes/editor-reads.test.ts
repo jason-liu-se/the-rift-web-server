@@ -183,11 +183,27 @@ describe("GET /editor/news", () => {
 		["status=draft", /status/],
 		["in=caption", /in/],
 		["mine=maybe", /mine/],
-		[`q=${"a".repeat(101)}`, /q must be at most 100 characters/]
+		[`q=${"a".repeat(101)}`, /q must be at most 100 characters/],
+		["limit=101", /limit/],
+		["limit=0", /limit/],
+		["startIndex=-1", /startIndex/],
+		// Express's simple query parser never makes objects (`q[$ne]` is just
+		// an unknown key), but a repeated key is an array, which never reaches
+		// a query either.
+		["q=a&q=b", /q/],
+		["status=live&status=hidden", /status/]
 	])("rejects %s", async (query, message) => {
 		const res = await get(`/editor/news?${query}`).expect(400);
 
 		expect(res.body.error).toMatch(message);
+	});
+
+	it("returns an empty page past the end", async () => {
+		await seedNews();
+
+		const res = await get("/editor/news?startIndex=10").expect(200);
+
+		expect(res.body).toEqual({ items: [], total: 4 });
 	});
 
 	it("may be cached privately, but only after revalidating", async () => {
