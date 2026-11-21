@@ -20,6 +20,7 @@ import type {
 	DownloadCollection,
 	DownloadItem,
 	Draft,
+	DraftSummary,
 	EditorCollection,
 	EditorDownloadItem,
 	EditorDownloadItemSummary,
@@ -252,7 +253,35 @@ export const draft = z.toZod<Draft>()(
 	])
 );
 
-export const drafts = z.toZod<Draft[]>()(z.array(draft));
+export const draftSummaries = z.toZod<DraftSummary[]>()(
+	z.array(
+		z.discriminatedUnion("type", [
+			z.object({
+				type: z.literal("news"),
+				fields: newsPostFields.draft.pick({ title: true }),
+				...draftFields
+			}),
+			z.object({
+				type: z.literal("gallery"),
+				fields: galleryImageFields.draft.pick({
+					caption: true,
+					imageUrl: true
+				}),
+				...draftFields
+			}),
+			z.object({
+				type: z.literal("downloads"),
+				fields: downloadItemFields.draft.pick({ title: true }),
+				...draftFields
+			}),
+			z.object({
+				type: z.literal("maps"),
+				fields: mapSeasonFields.draft.pick({ season: true }),
+				...draftFields
+			})
+		])
+	)
+);
 
 export const sessionUser = z.toZod<SessionUser>()(
 	z.object({

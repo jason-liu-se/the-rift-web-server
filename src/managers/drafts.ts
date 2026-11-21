@@ -16,16 +16,30 @@ function withId({ _id, ...draft }: Draft): StoredDraft {
 	return { ...draft, id: _id };
 }
 
-// The owner's drafts, most recently saved first, optionally of one type.
+// The fields that name a draft in a list (see the contract's DraftSummary).
+const SUMMARY_FIELDS = ["title", "caption", "imageUrl", "season"];
+
+// The owner's drafts, most recently saved first, optionally of one type, with
+// only their SUMMARY_FIELDS (getDraft has the rest).
 export async function listDrafts(
 	owner: string,
 	type?: string
 ): Promise<StoredDraft[]> {
 	const found = await draftModel
 		.find({ owner, ...UNPUBLISHED, ...(type !== undefined && { type }) })
+		.select({
+			type: 1,
+			revision: 1,
+			target: 1,
+			createdAt: 1,
+			updatedAt: 1,
+			...Object.fromEntries(
+				SUMMARY_FIELDS.map((field) => [`fields.${field}`, 1])
+			)
+		})
 		.sort({ updatedAt: -1 })
 		.lean();
-	return found.map(withId);
+	return found.map((draft) => withId({ fields: {}, ...draft }));
 }
 
 // The owner's draft with this ID, published or not.
