@@ -5,7 +5,8 @@ import {
 	beforeEach,
 	describe,
 	expect,
-	it
+	it,
+	vi
 } from "vitest";
 import request from "supertest";
 import { randomUUID } from "node:crypto";
@@ -24,6 +25,9 @@ import { EDITOR } from "../../../test/session.ts";
 beforeAll(startDatabase);
 afterEach(clearDatabase);
 afterAll(stopDatabase);
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 const IMAGE = "https://i.ibb.co/abc/shot.png";
 
@@ -98,6 +102,31 @@ describe("POST /editor/<items>/bulk", () => {
 			{ id: "not-an-id", outcome: "invalid", reason: "id: invalid id" }
 		]);
 		expect(await images().countDocuments({ visible: false })).toBe(1);
+		expect(await mongoManager.getContentVersion()).not.toBe(before);
+	});
+
+	it("changes the version even when an item fails after others were written", async () => {
+		const [a] = await seedImages(1);
+		// Breaks the contract, so its result fails once it's written.
+		const { insertedId } = await images().insertOne({
+			collection: "season5",
+			caption: "no image URL",
+			revision: 1
+		});
+		const before = await mongoManager.getContentVersion();
+		vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+		await editor
+			.post("/editor/gallery/images/bulk", {
+				action: "hide",
+				items: [
+					{ id: a, revision: 1 },
+					{ id: insertedId.toHexString(), revision: 1 }
+				]
+			})
+			.expect(500);
+
+		expect(await images().countDocuments({ visible: false })).toBe(2);
 		expect(await mongoManager.getContentVersion()).not.toBe(before);
 	});
 
