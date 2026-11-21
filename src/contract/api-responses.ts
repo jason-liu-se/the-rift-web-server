@@ -258,3 +258,26 @@ export interface EditorCollection extends EditorAuditFields {
 	/** Every item in it, public or not (deleting it deletes them all). */
 	itemCount: number;
 }
+
+// Bulk actions: POST /editor/<items>/bulk (e.g. /editor/gallery/images/bulk)
+// with a BulkRequest (api-requests.ts) of at most 100 items answers 200 with
+// one BulkResponse, once every item has been processed: never streamed or
+// split, so the website reports every failure together. Each item is checked and written on its own
+// (no transaction), so some may succeed while others fail. `move` is for
+// gallery and downloads, `add-tags`, `remove-tags`, and `create` for gallery
+// only (400 for other types); `move` to a missing collection is 400.
+
+/**
+ * One item's outcome, in the order sent. `ok` has the item as written (none
+ * for a delete); `conflict` has it as it is now (the revision was stale);
+ * `invalid` says what's wrong with that item.
+ */
+export type BulkItemResult<T> =
+	| { id: string; outcome: "ok"; item?: T }
+	| { id: string; outcome: "conflict"; current: T }
+	| { id: string; outcome: "not-found" }
+	| { id: string; outcome: "invalid"; reason: string };
+
+export interface BulkResponse<T> {
+	results: BulkItemResult<T>[];
+}

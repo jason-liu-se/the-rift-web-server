@@ -24,14 +24,6 @@ import {
 	hasCollection
 } from "../managers/editor-content.ts";
 
-// What each type's item is called in messages.
-const ITEM_NAMES: Readonly<Record<ContentTypeName, string>> = {
-	news: "news post",
-	gallery: "gallery image",
-	downloads: "download item",
-	maps: "map season"
-};
-
 // Who's writing, as stored on the item (never the avatar).
 export function editorOf(res: Response): EditorRef {
 	const { id, username } = res.locals.user ?? {};
@@ -42,7 +34,7 @@ export function editorOf(res: Response): EditorRef {
 }
 
 export function itemNotFound(typeName: ContentTypeName, id: string) {
-	return new NotFoundError(`${ITEM_NAMES[typeName]} '${id}'`);
+	return new NotFoundError(`${CONTENT_TYPES[typeName].itemName} '${id}'`);
 }
 
 // An item may only name a collection that exists (public or not).
@@ -78,7 +70,7 @@ export function writtenItem(
 	result: WriteResult | CreateResult
 ): unknown {
 	const schema = EDITOR_ITEM_SCHEMAS[typeName];
-	const itemName = ITEM_NAMES[typeName];
+	const { itemName } = CONTENT_TYPES[typeName];
 	switch (result.outcome) {
 		case "ok":
 			return result.item && parseResponse(schema, result.item);
