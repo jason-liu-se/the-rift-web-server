@@ -5,6 +5,7 @@
 // (src/managers/editor-content.ts).
 import express, { type Router } from "express";
 import {
+	createFromBody,
 	checkCollection,
 	editorOf,
 	itemNotFound,
@@ -14,11 +15,7 @@ import * as editorContent from "../../managers/editor-content.ts";
 import type { ContentTypeName } from "../../managers/editor-content.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
 import { revalidateEveryTime } from "../../middleware/cache-control.ts";
-import {
-	listQueryFor,
-	parseCreate,
-	parseUpdate
-} from "../../api/editor-requests.ts";
+import { listQueryFor, parseUpdate } from "../../api/editor-requests.ts";
 import { idParams } from "../../api/query-schemas.ts";
 import {
 	EDITOR_ITEM_SCHEMAS,
@@ -26,7 +23,7 @@ import {
 	editorPage,
 	parseResponse
 } from "../../api/response-schemas.ts";
-import { revisionQuery } from "../../api/write-schemas.ts";
+import { createOptions, revisionQuery } from "../../api/write-schemas.ts";
 
 export function editorItemsRouter(typeName: ContentTypeName): Router {
 	const router = express.Router();
@@ -55,27 +52,22 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 		res.json(parseResponse(itemSchema, item));
 	});
 
-	// 201 with the item, or 200 with the one a repeated createId made.
+	// 201 with the item, or 200 with the one a repeated createId made. A
+	// repeat returns the item already made before checking the body again:
+	// the first may have been valid only then (a news date since passed, a
+	// collection since deleted). It changes the version too, in case the
+	// first stopped before it could.
 	router.post("/", async (req, res) => {
-		const { createId, fields } = parseCreate(
-			typeName,
-			req.body,
-			new Date()
-		);
-		await checkCollection(typeName, fields);
+		const { createId } = createOptions.parse(req.body);
+		const result =
+			(await editorContent.findCreated(typeName, createId)) ??
+			(await createFromBody(typeName, req.body, editorOf(res)));
 
-		const result = await editorContent.createItem(
-			typeName,
-			createId,
-			fields,
-			editorOf(res)
-		);
 		const item = writtenItem(typeName, createId, result);
-		const created = result.outcome === "ok" && result.created;
-		if (created) {
-			await mongoManager.updateContentVersion();
-		}
-		res.status(created ? 201 : 200).json(item);
+		await mongoManager.updateContentVersion();
+		res.status(result.outcome === "ok" && result.created ? 201 : 200).json(
+			item
+		);
 	});
 
 	router.patch("/:id", async (req, res) => {

@@ -420,6 +420,24 @@ async function unlessDuplicate<T>(
 
 // Creates an item at revision 1, or returns the one its createId already
 // made.
+// The item a create with this createId already made, if any: a repeat
+// returns it rather than making another.
+export async function findCreated(
+	typeName: ContentTypeName,
+	createId: string,
+	now = new Date()
+): Promise<Extract<CreateResult, { outcome: "ok" }> | undefined> {
+	const type = CONTENT_TYPES[typeName];
+	const made = await type.model.findOne({ createId }).lean();
+	return made
+		? {
+				outcome: "ok",
+				item: toEditorItem(type, made as StoredItem, now),
+				created: false
+			}
+		: undefined;
+}
+
 export async function createItem(
 	typeName: ContentTypeName,
 	createId: string,
@@ -429,17 +447,7 @@ export async function createItem(
 ): Promise<CreateResult> {
 	const type = CONTENT_TYPES[typeName];
 	const { model } = type;
-	const repeated = async () => {
-		const made = await model.findOne({ createId }).lean();
-		return made
-			? ({
-					outcome: "ok",
-					item: toEditorItem(type, made as StoredItem, now),
-					created: false
-				} as const)
-			: undefined;
-	};
-	const existing = await repeated();
+	const existing = await findCreated(typeName, createId, now);
 	if (existing) {
 		return existing;
 	}
@@ -464,7 +472,7 @@ export async function createItem(
 		// A concurrent repeat of this create won the race.
 		const made =
 			duplicateKeyField(error) === "createId"
-				? await repeated()
+				? await findCreated(typeName, createId, now)
 				: undefined;
 		if (made) {
 			return made;
@@ -642,13 +650,17 @@ export async function deleteCollection(
 	slug: string,
 	revision: number
 ): Promise<CollectionWriteResult> {
-	const { deletedCount } = await collectionModelOf(typeName).deleteOne({
-		slug,
-		...revisionFilter(revision)
-	});
-	if (deletedCount !== 1) {
+	// The items go first, so if the server stops between the two deletes the
+	// collection is still there to delete again, rather than its items left
+	// behind for a new collection of the same slug to take over.
+	const collection = collectionModelOf(typeName);
+	const filter = { slug, ...revisionFilter(revision) };
+	if ((await collection.exists(filter)) === null) {
 		return staleCollection(typeName, slug);
 	}
 	await CONTENT_TYPES[typeName].model.deleteMany({ collection: slug });
-	return { outcome: "ok" };
+	const { deletedCount } = await collection.deleteOne(filter);
+	return deletedCount === 1
+		? { outcome: "ok" }
+		: staleCollection(typeName, slug);
 }

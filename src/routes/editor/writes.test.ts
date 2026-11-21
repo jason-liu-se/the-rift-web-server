@@ -149,6 +149,19 @@ describe("POST /editor/news", () => {
 		expect(await posts().countDocuments()).toBe(1);
 	});
 
+	it("returns a repeat's post, and changes the version, without checking it again", async () => {
+		const body = newPost();
+		await editor.post("/editor/news", body).expect(201);
+		const before = await mongoManager.getContentVersion();
+
+		// A date in the past is refused now, but the post already exists.
+		await editor
+			.post("/editor/news", { ...body, date: "2020-01-01T00:00:00Z" })
+			.expect(200);
+
+		expect(await mongoManager.getContentVersion()).not.toBe(before);
+	});
+
 	it("schedules a post with a future date, or hides one", async () => {
 		const date = IN_A_DAY().toISOString();
 
@@ -184,6 +197,7 @@ describe("POST /editor/news", () => {
 describe("PATCH /editor/news/:id", () => {
 	it("updates the fields sent, from the current revision", async () => {
 		const id = await seedPost({ revision: 2, imageUrl: IMAGE });
+		const before = await mongoManager.getContentVersion();
 
 		const res = await editor
 			.patch(`/editor/news/${id}`, {
@@ -203,6 +217,7 @@ describe("PATCH /editor/news/:id", () => {
 		});
 		expect(res.body).not.toHaveProperty("imageUrl");
 		expect(res.body.editedAt).toBeDefined();
+		expect(await mongoManager.getContentVersion()).not.toBe(before);
 	});
 
 	it("counts a missing revision as 0", async () => {
@@ -286,14 +301,17 @@ describe("PATCH /editor/news/:id", () => {
 describe("DELETE /editor/news/:id", () => {
 	it("deletes the post at the current revision", async () => {
 		const id = await seedPost({ revision: 2 });
+		const before = await mongoManager.getContentVersion();
 
 		await editor.delete(`/editor/news/${id}?revision=2`).expect(204);
 
 		expect(await posts().countDocuments()).toBe(0);
+		expect(await mongoManager.getContentVersion()).not.toBe(before);
 	});
 
 	it("answers 409 for a stale revision, deleting nothing", async () => {
 		const id = await seedPost({ revision: 2 });
+		const before = await mongoManager.getContentVersion();
 
 		const res = await editor
 			.delete(`/editor/news/${id}?revision=1`)
@@ -301,6 +319,7 @@ describe("DELETE /editor/news/:id", () => {
 
 		expect(res.body.current).toMatchObject({ id, revision: 2 });
 		expect(await posts().countDocuments()).toBe(1);
+		expect(await mongoManager.getContentVersion()).toBe(before);
 	});
 
 	it("answers 404 for a missing post", async () => {
