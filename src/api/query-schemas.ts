@@ -21,6 +21,9 @@ export const collectionSlug = z
 	)
 	.regex(COLLECTION_SLUG, "invalid collection name");
 
+// For routes shaped like `/:slug` (a collection's own routes).
+export const slugParams = z.object({ slug: collectionSlug });
+
 // For routes shaped like `/:collection`.
 export const collectionParams = z.object({ collection: collectionSlug });
 

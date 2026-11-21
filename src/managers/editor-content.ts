@@ -5,7 +5,7 @@
 // once.
 import type { Model, PipelineStage, Types } from "mongoose";
 import type { NewsStatus } from "../contract/api-responses.ts";
-import type { Audited } from "../models/audit-fields.ts";
+import type { Audited, EditorRef } from "../models/audit-fields.ts";
 import type { ContentCollection } from "../models/content-collection-schema.ts";
 import {
 	downloadCollectionModel,
@@ -323,4 +323,332 @@ export async function listCollections(
 		...collection,
 		itemCount: countBySlug.get(collection.slug) ?? 0
 	}));
+}
+
+// Writes. Every update and delete names the revision the editor started from
+// (a missing revision counts as 0): a stale one is a conflict, never a lost
+// update. Each returns a WriteResult rather than throwing, so a bulk action
+// can report every item's outcome; routes turn it into a status.
+
+export type WriteResult =
+	| { readonly outcome: "ok"; readonly item?: EditorItem }
+	| { readonly outcome: "conflict"; readonly current: EditorItem }
+	| { readonly outcome: "not-found" }
+	| Duplicate;
+
+/** A taken unique value other than `createId`: a slug or a season. */
+export interface Duplicate {
+	readonly outcome: "duplicate";
+	readonly field: string;
+}
+
+/** A field set to null is removed (e.g. a news post's `imageUrl`). */
+export type FieldChanges = Readonly<Record<string, unknown>>;
+
+// The field a MongoDB duplicate key error is about, or undefined for any
+// other error.
+function duplicateKeyField(error: unknown): string | undefined {
+	if (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		error.code === 11000 &&
+		"keyPattern" in error &&
+		typeof error.keyPattern === "object" &&
+		error.keyPattern !== null
+	) {
+		return Object.keys(error.keyPattern)[0];
+	}
+	return undefined;
+}
+
+function revisionFilter(revision: number): object {
+	return revision === 0 ? { revision: { $in: [0, null] } } : { revision };
+}
+
+// $set for the values, $unset for the nulls.
+function updateOperators(
+	changes: FieldChanges,
+	editor: EditorRef
+): Record<string, object> {
+	const set: Record<string, unknown> = { lastUpdatedBy: editor };
+	const unset: Record<string, ""> = {};
+	for (const [field, value] of Object.entries(changes)) {
+		if (value === null) {
+			unset[field] = "";
+		} else if (value !== undefined) {
+			set[field] = value;
+		}
+	}
+	return {
+		$set: set,
+		$inc: { revision: 1 },
+		...(Object.keys(unset).length > 0 && { $unset: unset })
+	};
+}
+
+function withoutNulls(fields: FieldChanges): FieldChanges {
+	return Object.fromEntries(
+		Object.entries(fields).filter(([, value]) => value != null)
+	);
+}
+
+export type CreateResult =
+	| {
+			readonly outcome: "ok";
+			readonly item: EditorItem;
+			/** False when the createId had already made it (a repeat). */
+			readonly created: boolean;
+	  }
+	| Duplicate;
+
+// Runs a write, turning a duplicate key (other than a repeated createId,
+// which callers handle first) into a Duplicate outcome.
+async function unlessDuplicate<T>(
+	write: () => Promise<T>
+): Promise<T | Duplicate> {
+	try {
+		return await write();
+	} catch (error) {
+		const field = duplicateKeyField(error);
+		if (field && field !== "createId") {
+			return { outcome: "duplicate", field };
+		}
+		throw error;
+	}
+}
+
+// Creates an item at revision 1, or returns the one its createId already
+// made.
+export async function createItem(
+	typeName: ContentTypeName,
+	createId: string,
+	fields: FieldChanges,
+	editor: EditorRef,
+	now = new Date()
+): Promise<CreateResult> {
+	const type = CONTENT_TYPES[typeName];
+	const { model } = type;
+	const repeated = async () => {
+		const made = await model.findOne({ createId }).lean();
+		return made
+			? ({
+					outcome: "ok",
+					item: toEditorItem(type, made as StoredItem, now),
+					created: false
+				} as const)
+			: undefined;
+	};
+	const existing = await repeated();
+	if (existing) {
+		return existing;
+	}
+
+	try {
+		return await unlessDuplicate(async () => {
+			const created = await model.create({
+				visible: true,
+				...withoutNulls(fields),
+				createId,
+				revision: 1,
+				createdBy: editor,
+				lastUpdatedBy: editor
+			});
+			return {
+				outcome: "ok",
+				item: toEditorItem(type, created.toObject() as StoredItem, now),
+				created: true
+			} as const;
+		});
+	} catch (error) {
+		// A concurrent repeat of this create won the race.
+		const made =
+			duplicateKeyField(error) === "createId"
+				? await repeated()
+				: undefined;
+		if (made) {
+			return made;
+		}
+		throw error;
+	}
+}
+
+// Updates an item from the revision the editor started from. `changesFor`
+// computes the changes from the stored item (news dates depend on it), so it
+// runs once the revision has matched; the write itself checks the revision
+// again, so nothing saved in between is overwritten.
+export async function updateItem(
+	typeName: ContentTypeName,
+	id: string,
+	revision: number,
+	changesFor: (current: StoredItem) => FieldChanges,
+	editor: EditorRef,
+	now = new Date()
+): Promise<WriteResult> {
+	const type = CONTENT_TYPES[typeName];
+	const { model } = type;
+	const current = await model.findById(id).lean();
+	if (!current) {
+		return { outcome: "not-found" };
+	}
+	if ((current.revision ?? 0) !== revision) {
+		return {
+			outcome: "conflict",
+			current: toEditorItem(type, current as StoredItem, now)
+		};
+	}
+
+	return unlessDuplicate(async () => {
+		const updated = await model
+			.findOneAndUpdate(
+				{ _id: id, ...revisionFilter(revision) },
+				updateOperators(changesFor(current as StoredItem), editor),
+				{ returnDocument: "after", runValidators: true }
+			)
+			.lean();
+		return updated
+			? ({
+					outcome: "ok",
+					item: toEditorItem(type, updated as StoredItem, now)
+				} as const)
+			: staleOutcome(typeName, id, now);
+	});
+}
+
+// Why a revision-checked write matched nothing: deleted, or saved since.
+async function staleOutcome(
+	typeName: ContentTypeName,
+	id: string,
+	now: Date
+): Promise<WriteResult> {
+	const item = await getItem(typeName, id, now);
+	return item
+		? { outcome: "conflict", current: item }
+		: { outcome: "not-found" };
+}
+
+export async function deleteItem(
+	typeName: ContentTypeName,
+	id: string,
+	revision: number,
+	now = new Date()
+): Promise<WriteResult> {
+	const { deletedCount } = await CONTENT_TYPES[typeName].model.deleteOne({
+		_id: id,
+		...revisionFilter(revision)
+	});
+	return deletedCount === 1
+		? { outcome: "ok" }
+		: staleOutcome(typeName, id, now);
+}
+
+function collectionModelOf(
+	typeName: CollectionTypeName
+): Model<ContentCollection> {
+	const { collectionModel } = CONTENT_TYPES[typeName];
+	if (!collectionModel) {
+		throw new Error(`${typeName} has no collections`);
+	}
+	return collectionModel;
+}
+
+// Whether a gallery or download collection exists, public or not.
+export async function hasCollection(
+	typeName: CollectionTypeName,
+	slug: string
+): Promise<boolean> {
+	return (await collectionModelOf(typeName).exists({ slug })) !== null;
+}
+
+export type CollectionWriteResult =
+	| { readonly outcome: "ok"; readonly collection?: EditorCollectionSummary }
+	| Duplicate
+	| {
+			readonly outcome: "conflict";
+			readonly current: EditorCollectionSummary;
+	  }
+	| { readonly outcome: "not-found" };
+
+async function collectionSummary(
+	typeName: CollectionTypeName,
+	collection: ContentCollection
+): Promise<EditorCollectionSummary> {
+	const itemCount = await CONTENT_TYPES[typeName].model.countDocuments({
+		collection: collection.slug
+	});
+	return { ...collection, itemCount };
+}
+
+// A Duplicate when the slug is taken.
+export async function createCollection(
+	typeName: CollectionTypeName,
+	fields: { slug: string; title: string; visible?: boolean },
+	editor: EditorRef
+): Promise<CollectionWriteResult> {
+	return unlessDuplicate(async () => {
+		const created = await collectionModelOf(typeName).create({
+			visible: true,
+			...fields,
+			revision: 1,
+			createdBy: editor,
+			lastUpdatedBy: editor
+		});
+		return {
+			outcome: "ok",
+			collection: { ...created.toObject(), itemCount: 0 }
+		} as const;
+	});
+}
+
+async function staleCollection(
+	typeName: CollectionTypeName,
+	slug: string
+): Promise<CollectionWriteResult> {
+	const current = await collectionModelOf(typeName).findOne({ slug }).lean();
+	return current
+		? {
+				outcome: "conflict",
+				current: await collectionSummary(typeName, current)
+			}
+		: { outcome: "not-found" };
+}
+
+export async function updateCollection(
+	typeName: CollectionTypeName,
+	slug: string,
+	revision: number,
+	changes: { title?: string; visible?: boolean },
+	editor: EditorRef
+): Promise<CollectionWriteResult> {
+	const updated = await collectionModelOf(typeName)
+		.findOneAndUpdate(
+			{ slug, ...revisionFilter(revision) },
+			updateOperators(changes, editor),
+			{ returnDocument: "after" }
+		)
+		.lean();
+	return updated
+		? {
+				outcome: "ok",
+				collection: await collectionSummary(typeName, updated)
+			}
+		: staleCollection(typeName, slug);
+}
+
+// Deletes a collection and every item in it. The collection goes first
+// (revision-checked), so a stale delete removes nothing.
+export async function deleteCollection(
+	typeName: CollectionTypeName,
+	slug: string,
+	revision: number
+): Promise<CollectionWriteResult> {
+	const { deletedCount } = await collectionModelOf(typeName).deleteOne({
+		slug,
+		...revisionFilter(revision)
+	});
+	if (deletedCount !== 1) {
+		return staleCollection(typeName, slug);
+	}
+	await CONTENT_TYPES[typeName].model.deleteMany({ collection: slug });
+	return { outcome: "ok" };
 }

@@ -10,7 +10,7 @@ describe("CORS", () => {
 	const FRONTEND_CORS_HEADERS = {
 		"access-control-allow-origin": testConfig.FRONTEND_URL,
 		"access-control-allow-credentials": "true",
-		"access-control-allow-methods": "GET,POST,OPTIONS",
+		"access-control-allow-methods": "GET,POST,PATCH,DELETE,OPTIONS",
 		"access-control-allow-headers": "Content-Type"
 	};
 

@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler } from "express";
 import * as z from "zod";
 import { BadRequestError } from "../errors/bad-request-error.ts";
+import { ConflictError } from "../errors/conflict-error.ts";
 import { ForbiddenError } from "../errors/forbidden-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
@@ -79,6 +80,14 @@ export const handleError: ErrorRequestHandler = (error, req, res, next) => {
 
 	if (error instanceof UnsupportedMediaTypeError) {
 		res.status(415).json({ error: `ERROR: ${error.message}` });
+		return;
+	}
+
+	if (error instanceof ConflictError) {
+		res.status(409).json({
+			error: `ERROR: ${error.message}`,
+			...(error.current !== undefined && { current: error.current })
+		});
 		return;
 	}
 

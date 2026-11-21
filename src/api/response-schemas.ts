@@ -197,15 +197,17 @@ export function editorPage<T>(item: z.ZodType<T>) {
 	return countResponse.extend({ items: z.array(item) });
 }
 
+export const editorCollection = z.toZod<EditorCollection>()(
+	z.object({
+		slug: z.string(),
+		title: z.string(),
+		itemCount: z.number().int().min(0),
+		...editorAuditFields
+	})
+);
+
 export const editorCollections = z.toZod<EditorCollection[]>()(
-	z.array(
-		z.object({
-			slug: z.string(),
-			title: z.string(),
-			itemCount: z.number().int().min(0),
-			...editorAuditFields
-		})
-	)
+	z.array(editorCollection)
 );
 
 export const sessionUser = z.toZod<SessionUser>()(
