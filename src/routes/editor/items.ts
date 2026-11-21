@@ -1,6 +1,6 @@
 // A content type's items in the editor tools (/editor/news,
 // /editor/gallery/images, ...; every one needs a login): list, read, create,
-// update, and delete. One router per type, built from the same
+// update, delete, and bulk actions. One router per type, built from the same
 // pieces: what differs per type lives in CONTENT_TYPES
 // (src/managers/editor-content.ts).
 import express, { type Router } from "express";
@@ -11,6 +11,7 @@ import {
 	itemNotFound,
 	writtenItem
 } from "../../helpers/editor-actions.ts";
+import { runBulkAction } from "../../helpers/editor-bulk.ts";
 import * as editorContent from "../../managers/editor-content.ts";
 import type { ContentTypeName } from "../../managers/editor-content.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
@@ -53,6 +54,20 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 			throw itemNotFound(typeName, id);
 		}
 		res.json(parseResponse(itemSchema, item));
+	});
+
+	// One response for every item, once all are processed (each item was sent
+	// through its response schema there). Before `/:id`, which has no POST.
+	router.post("/bulk", async (req, res) => {
+		const { results, wrote } = await runBulkAction(
+			typeName,
+			req.body,
+			editorOf(res)
+		);
+		if (wrote) {
+			await mongoManager.updateContentVersion();
+		}
+		res.json({ results });
 	});
 
 	// 201 with the item, or 200 with the one a repeated createId made. A
