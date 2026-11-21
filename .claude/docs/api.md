@@ -31,18 +31,19 @@ promises to the handler.
 
 The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 
-| Error                                    | Status | Body                                 |
-| ---------------------------------------- | ------ | ------------------------------------ |
-| `ZodError` (bad params, query, or body)  | `400`  | Which fields are wrong, and why      |
-| `BadRequestError` (`src/errors/`)        | `400`  | Invalid given stored data (a date)   |
-| Malformed JSON body (body-parser)        | `400`  | Generic; never echoes the body       |
-| `UnauthorizedError` (`src/errors/`)      | `401`  | Nobody is logged in, or bad refresh  |
-| `ForbiddenError` (`src/errors/`)         | `403`  | A write not from the website (CSRF)  |
-| `NotFoundError` (`src/errors/`)          | `404`  | What wasn't found; also no route     |
-| Body over `JSON_BODY_LIMIT`              | `413`  | Generic                              |
-| `UnsupportedMediaTypeError`, bad charset | `415`  | The body must be JSON (UTF-8)        |
-| Rate limit (see [below](#rate-limits))   | `429`  | Try again later (callback: redirect) |
-| Anything else, incl. a broken contract   | `500`  | Generic message; details only logged |
+| Error                                    | Status | Body                                                       |
+| ---------------------------------------- | ------ | ---------------------------------------------------------- |
+| `ZodError` (bad params, query, or body)  | `400`  | Which fields are wrong, and why                            |
+| `BadRequestError` (`src/errors/`)        | `400`  | Invalid given stored data (a date)                         |
+| Malformed JSON body (body-parser)        | `400`  | Generic; never echoes the body                             |
+| `UnauthorizedError` (`src/errors/`)      | `401`  | Nobody is logged in, or bad refresh                        |
+| `ForbiddenError` (`src/errors/`)         | `403`  | A write not from the website (CSRF)                        |
+| `NotFoundError` (`src/errors/`)          | `404`  | What wasn't found; also no route                           |
+| `ConflictError` (`src/errors/`)          | `409`  | Stale revision (with `current`), or a taken slug or season |
+| Body over `JSON_BODY_LIMIT`              | `413`  | Generic                                                    |
+| `UnsupportedMediaTypeError`, bad charset | `415`  | The body must be JSON (UTF-8)                              |
+| Rate limit (see [below](#rate-limits))   | `429`  | Try again later (callback: redirect)                       |
+| Anything else, incl. a broken contract   | `500`  | Generic message; details only logged                       |
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
 Every error is sent `Cache-Control: no-store`, even from a cacheable route
@@ -95,8 +96,8 @@ can send cross-site without a preflight. So routes only ever see parsed JSON (or
 nothing) in `req.body`, and logged-out bodies are never read. Still validate
 `req.body` with a Zod schema before use.
 
-CORS allows only `GET,POST,OPTIONS` (`src/middleware/cors.ts`): the first PUT,
-PATCH, or DELETE route must add its method there, or browsers block it.
+CORS allows `GET,POST,PATCH,DELETE,OPTIONS` (`src/middleware/cors.ts`): a route
+with any other method must add it there, or browsers block it.
 
 ### Rate limits
 
@@ -253,7 +254,14 @@ against `IMAGE_URL_PREFIXES` (`src/config/images.ts`) and news markdown with
 `marked` (`src/api/markdown.ts`): no raw HTML, only allowlisted images, and only
 web, email, or relative links; titles inline only. `marked` is pinned to the
 website's version, so the server checks the tokens the website renders. News
-dates are resolved with `resolveNewsDate` once the stored post is read.
+dates and `editedAt` follow `src/helpers/news-dates.ts` once the stored post is
+read.
+
+Creates send a client UUID (`createId`, unique and sparse on every model): a
+repeat returns the item already made (`200`, not `201`). Updates (`PATCH`, body
+`revision`) and deletes (`?revision=`) send the revision they started from; a
+stale one is `409` with the item as it is now. Every committed write calls
+`updateContentVersion`.
 
 ## Response contract
 

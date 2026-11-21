@@ -34,7 +34,7 @@
 //   GET /auth/discord            302 to Discord; Discord's callback then
 //                                redirects to the website's /admin, or to
 //                                /admin/login?error=LoginErrorCode
-//   any error (400, 401, 404, 500)  ErrorResponse
+//   any error (400, 401, 404, 500)  ErrorResponse; 409 is ConflictResponse
 //
 // Public reads return only public content: visible, in a visible collection
 // (a hidden or missing one is 404), and for news, dated now or earlier.
@@ -159,6 +159,14 @@ export type LoginErrorCode =
 
 export interface ErrorResponse {
 	error: string;
+}
+
+/**
+ * A 409: the item changed since the editor read it (`current` is how it is
+ * now), or a slug or season is already taken (no `current`).
+ */
+export interface ConflictResponse<T> extends ErrorResponse {
+	current?: T;
 }
 
 // Request bodies the editor tools send (see the /editor routes). Every write
