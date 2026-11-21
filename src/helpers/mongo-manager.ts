@@ -50,14 +50,17 @@ function withId<T extends { _id: Types.ObjectId }>({
 	return { ...fields, id: _id.toHexString() };
 }
 
-// Resolves once MongoDB is reachable; rejects if it can't connect, so callers
-// don't serve requests without a database. Mongoose then builds each model's
-// indexes in the background.
+// Resolves once MongoDB is reachable and every index is built; rejects
+// otherwise, so callers don't serve requests without a database, or without
+// the unique indexes writes rely on (a build that fails, e.g. on duplicate
+// data, stops the start instead of only being logged).
 export async function connect(connectionString: string): Promise<void> {
 	mongoose.pluralize(null);
 	mongoose.set("autoCreate", false);
+	mongoose.set("autoIndex", false);
 
 	await mongoose.connect(connectionString);
+	await createIndexes();
 	console.log("Connected to MongoDB");
 }
 
