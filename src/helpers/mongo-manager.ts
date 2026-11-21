@@ -203,19 +203,20 @@ export async function getDownloadCollection(
 export async function getAllDownloadCollections(): Promise<
 	DownloadCollection[]
 > {
-	const collections = await downloadCollectionModel
-		.find(VISIBLE, { _id: 0, slug: 1, title: 1 })
-		.sort({ slug: 1 })
-		.lean();
-	const items = await sortedDownloadItems({
-		collection: { $in: collections.map(({ slug }) => slug) },
-		...VISIBLE
-	});
+	const [collections, items] = await Promise.all([
+		downloadCollectionModel
+			.find(VISIBLE, { _id: 0, slug: 1, title: 1 })
+			.sort({ slug: 1 })
+			.lean(),
+		sortedDownloadItems(VISIBLE)
+	]);
+	// Items of hidden collections have no entry, so they're left out.
+	const itemsBySlug = Map.groupBy(items, (item) => item.collection);
 
 	return collections.map(({ slug, title }) => ({
 		name: slug,
 		title,
-		items: items.filter((item) => item.collection === slug).map(withId)
+		items: (itemsBySlug.get(slug) ?? []).map(withId)
 	}));
 }
 

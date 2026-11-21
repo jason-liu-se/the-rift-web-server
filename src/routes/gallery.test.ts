@@ -242,6 +242,12 @@ describe("GET /gallery/:collection/count", () => {
 		});
 	});
 
+	it("answers 404 for a hidden collection", async () => {
+		await seedCollections({ slug: "secret", title: "S", visible: false });
+
+		await request(app).get("/gallery/secret/count").expect(404);
+	});
+
 	it("rejects an invalid collection name", async () => {
 		const res = await request(app)
 			.get("/gallery/bad%24name/count")
@@ -278,5 +284,13 @@ describe("GET /gallery/:collection/tags", () => {
 		await seedCollections({ slug: "secret", title: "S", visible: false });
 
 		await request(app).get("/gallery/secret/tags").expect(404);
+	});
+
+	it("answers 404 for a collection that doesn't exist", async () => {
+		await request(app).get("/gallery/missing/tags").expect(404);
+	});
+
+	it("rejects an invalid collection name", async () => {
+		await request(app).get("/gallery/bad%24name/tags").expect(400);
 	});
 });

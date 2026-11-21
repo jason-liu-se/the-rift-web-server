@@ -37,9 +37,9 @@ stored as strings (numbers lose precision).
   it.
 - Galleries and download groups are entries in their database's `collections`
   (`src/models/content-collection-schema.ts`), named by a `slug` their items
-  store as `collection`. Routes check `hasGalleryCollection` /
-  `hasDownloadCollection` first and answer `404`, since a query for a missing
-  slug just returns nothing.
+  store as `collection`. Public routes check `hasPublicGalleryCollection` /
+  `hasPublicDownloadCollection` first and answer `404` for a missing or hidden
+  one, since a query for a missing slug just returns nothing.
 - Every content document spreads `auditedFields` (`src/models/audit-fields.ts`):
   `visible`, `revision`, `createdBy` / `lastUpdatedBy`, timestamps, and the
   create's `createId`. All optional: a missing `visible` is visible, a missing
