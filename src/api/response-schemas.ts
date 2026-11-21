@@ -12,31 +12,43 @@ import type {
 	CountResponse,
 	DownloadCollection,
 	DownloadItem,
-	GalleryCollectionNames,
+	GalleryCollection,
 	GalleryImage,
+	GalleryTags,
 	MapSeason,
 	NewsPost,
 	PaginatedResponse,
 	SessionUser
 } from "../contract/api-responses.ts";
 
+const isoDate = z.date().transform((date) => date.toISOString());
+
 const newsPost = z.toZod<NewsPost>()(
 	z.object({
 		id: z.string(),
 		title: z.string(),
-		date: z.date().transform((date) => date.toISOString()),
+		date: isoDate,
 		content: z.string(),
-		imageUrl: z.string().optional()
+		imageUrl: z.string().optional(),
+		editedAt: isoDate.optional()
 	})
 );
 
 const galleryImage = z.toZod<GalleryImage>()(
-	z.object({ id: z.string(), imageUrl: z.string(), caption: z.string() })
+	z.object({
+		id: z.string(),
+		imageUrl: z.string(),
+		caption: z.string(),
+		// Images stored before tags have none.
+		tags: z.array(z.string()).default([])
+	})
 );
 
-export const galleryCollectionNames = z.toZod<GalleryCollectionNames>()(
-	z.array(z.string())
+export const galleryCollections = z.toZod<GalleryCollection[]>()(
+	z.array(z.object({ slug: z.string(), title: z.string() }))
 );
+
+export const galleryTags = z.toZod<GalleryTags>()(z.array(z.string()));
 
 export const downloadItems = z.toZod<DownloadItem[]>()(
 	z.array(
@@ -51,7 +63,9 @@ export const downloadItems = z.toZod<DownloadItem[]>()(
 );
 
 export const downloadCollections = z.toZod<DownloadCollection[]>()(
-	z.array(z.object({ name: z.string(), items: downloadItems }))
+	z.array(
+		z.object({ name: z.string(), title: z.string(), items: downloadItems })
+	)
 );
 
 export const mapSeasons = z.toZod<MapSeason[]>()(

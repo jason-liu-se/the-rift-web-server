@@ -30,11 +30,18 @@ const PACK = {
 };
 
 // Seeds the collections and their items, as { slug: items }.
-function seedDownloads(groups: Record<string, object[]>) {
+function seedDownloads(
+	groups: Record<string, object[]>,
+	collectionFields: object = {}
+) {
 	const slugs = Object.keys(groups);
 	return Promise.all([
 		collection("downloads", "collections").insertMany(
-			slugs.map((slug) => ({ slug, title: slug }))
+			slugs.map((slug) => ({
+				slug,
+				title: `Title ${slug}`,
+				...collectionFields
+			}))
 		),
 		...slugs
 			.filter((slug) => groups[slug]?.length)
@@ -49,17 +56,37 @@ function seedDownloads(groups: Record<string, object[]>) {
 	]);
 }
 
+function item(title: string, fields: object = {}) {
+	return {
+		_id: new Types.ObjectId(),
+		title,
+		desc: "d",
+		downloadUrl: `${title}.zip`,
+		imageUrl: `${title}.png`,
+		...fields
+	};
+}
+
 describe("GET /downloads", () => {
-	it("returns every collection with its items, sorted by name", async () => {
-		await seedDownloads({ packs: [PACK], maps: [MAP], empty: [] });
+	it("returns every visible collection with its items, sorted by slug", async () => {
+		await Promise.all([
+			seedDownloads({ packs: [PACK], maps: [MAP], empty: [] }),
+			seedDownloads({ hidden: [item("h")] }, { visible: false }),
+			seedDownloads({ other: [] }).then(() =>
+				collection("downloads", "items").insertOne(
+					item("Hidden", { collection: "maps", visible: false })
+				)
+			)
+		]);
 
 		const res = await request(app).get("/downloads").expect(200);
 
 		// toEqual: only the contract's fields, with _id as id and no __v
 		expect(res.body).toEqual([
-			{ name: "empty", items: [] },
-			{ name: "maps", items: [withId(MAP)] },
-			{ name: "packs", items: [withId(PACK)] }
+			{ name: "empty", title: "Title empty", items: [] },
+			{ name: "maps", title: "Title maps", items: [withId(MAP)] },
+			{ name: "other", title: "Title other", items: [] },
+			{ name: "packs", title: "Title packs", items: [withId(PACK)] }
 		]);
 	});
 
@@ -77,6 +104,43 @@ describe("GET /downloads/:collection", () => {
 		const res = await request(app).get("/downloads/maps").expect(200);
 
 		expect(res.body).toEqual([withId(MAP)]);
+	});
+
+	it("orders items by sortOrder, then the rest by title", async () => {
+		const items = [
+			item("b"),
+			item("second", { sortOrder: 2 }),
+			item("a"),
+			item("first", { sortOrder: -1 })
+		];
+		await seedDownloads({ maps: items });
+
+		const res = await request(app).get("/downloads/maps").expect(200);
+
+		expect(res.body.map(({ title }: { title: string }) => title)).toEqual([
+			"first",
+			"second",
+			"a",
+			"b"
+		]);
+	});
+
+	it("leaves out hidden items", async () => {
+		await seedDownloads({ maps: [MAP, item("h", { visible: false })] });
+
+		const res = await request(app).get("/downloads/maps").expect(200);
+
+		expect(res.body).toEqual([withId(MAP)]);
+	});
+
+	it("answers 404 for a hidden collection", async () => {
+		await seedDownloads({ maps: [MAP] }, { visible: false });
+
+		const res = await request(app).get("/downloads/maps").expect(404);
+
+		expect(res.body).toEqual({
+			error: "ERROR: download collection 'maps' not found"
+		});
 	});
 
 	it("answers 500 when a stored item breaks the contract", async () => {

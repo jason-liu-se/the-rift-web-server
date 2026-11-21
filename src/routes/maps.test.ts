@@ -45,6 +45,18 @@ describe("GET /maps/seasons", () => {
 		expect(res.body).toEqual([withId(season5), withId(season7)]);
 	});
 
+	it("leaves out hidden seasons", async () => {
+		const season5 = season(5);
+		await collection("maps", "seasons").insertMany([
+			{ ...season5 },
+			{ ...season(6), visible: false }
+		]);
+
+		const res = await request(app).get("/maps/seasons").expect(200);
+
+		expect(res.body).toEqual([withId(season5)]);
+	});
+
 	it("returns an empty list when there are no seasons", async () => {
 		const res = await request(app).get("/maps/seasons").expect(200);
 
