@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import request from "supertest";
+import { BadRequestError } from "../errors/bad-request-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import { cacheByContentVersion } from "./cache-control.ts";
 import { handleError } from "./error-handler.ts";
@@ -34,6 +35,20 @@ describe("handleError", () => {
 		expect(res.status).toBe(500);
 		expect(res.body).toEqual({
 			error: "ERROR: an unexpected server error occurred"
+		});
+	});
+
+	it("answers a BadRequestError with 400 and its message", async () => {
+		const app = express();
+		app.get("/", () => {
+			throw new BadRequestError("date: must be in the future");
+		});
+		app.use(handleError);
+
+		const res = await request(app).get("/").expect(400);
+
+		expect(res.body).toEqual({
+			error: "ERROR: date: must be in the future"
 		});
 	});
 

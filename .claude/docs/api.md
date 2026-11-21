@@ -33,7 +33,8 @@ The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 
 | Error                                    | Status | Body                                 |
 | ---------------------------------------- | ------ | ------------------------------------ |
-| `ZodError` (bad params or query)         | `400`  | Which parameters are wrong           |
+| `ZodError` (bad params, query, or body)  | `400`  | Which fields are wrong, and why      |
+| `BadRequestError` (`src/errors/`)        | `400`  | Invalid given stored data (a date)   |
 | Malformed JSON body (body-parser)        | `400`  | Generic; never echoes the body       |
 | `UnauthorizedError` (`src/errors/`)      | `401`  | Nobody is logged in, or bad refresh  |
 | `ForbiddenError` (`src/errors/`)         | `403`  | A write not from the website (CSRF)  |
@@ -235,6 +236,19 @@ Discord in `src/managers/discord.ts`, which throws `DiscordApiError` for any
 Discord failure. The callback never answers with an error status; it redirects
 to the website with a `LoginErrorCode`, so a failure is always attributed to the
 user, this server, or Discord.
+
+## Editor writes
+
+Every editor write body (creates, updates, bulk items, draft publishes) goes
+through `src/api/write-schemas.ts`. Each content type has one object of its
+fields' types and caps (`src/config/content-limits.ts`), in three variants:
+`full` for a whole item, `patch` for an update's fields, and `draft` (types and
+caps only, every field optional). `full` and `patch` also check every image URL
+against `IMAGE_URL_PREFIXES` (`src/config/images.ts`) and news markdown with
+`marked` (`src/api/markdown.ts`): no raw HTML, only allowlisted images, and only
+web, email, or relative links; titles inline only. `marked` is pinned to the
+website's version, so the server checks the tokens the website renders. News
+dates are resolved with `resolveNewsDate` once the stored post is read.
 
 ## Response contract
 

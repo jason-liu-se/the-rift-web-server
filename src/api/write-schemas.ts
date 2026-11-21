@@ -1,0 +1,235 @@
+// Zod schemas for the editor's request bodies (the contract's *Request
+// types): every create, update, bulk write, and draft publish goes through
+// them. Each content type has one object of its fields' types and caps, in
+// three variants (e.g. newsPostFields):
+// - `full` checks a whole item (creates, publishes), also checking image URLs
+//   against the allowlist and news markdown,
+// - `patch` checks the fields an update sends, the same way,
+// - `draft` checks only types and caps, every field optional: drafts are
+//   saved as the editor types and checked fully on publish.
+// Messages name the field and the rule, never the value sent. `satisfies`
+// keeps each object's output in step with the contract's *Fields type.
+import * as z from "zod";
+import {
+	MAX_COLLECTION_TITLE_LENGTH,
+	MAX_DOWNLOAD_DESCRIPTION_LENGTH,
+	MAX_DOWNLOAD_TITLE_LENGTH,
+	MAX_GALLERY_CAPTION_LENGTH,
+	MAX_MAP_DIMENSIONS,
+	MAX_MAP_DIMENSION_NAME_LENGTH,
+	MAX_MAP_WORLD_FIELD_LENGTH,
+	MAX_NEWS_CONTENT_LENGTH,
+	MAX_NEWS_TITLE_LENGTH,
+	MAX_TAGS_PER_IMAGE,
+	MAX_TAG_LENGTH,
+	MAX_URL_LENGTH
+} from "../config/content-limits.ts";
+import { BadRequestError } from "../errors/bad-request-error.ts";
+import type {
+	CollectionCreateRequest,
+	CollectionUpdateRequest,
+	DownloadItemFields,
+	GalleryImageFields,
+	MapSeasonFields,
+	NewsPostFields
+} from "../contract/api-responses.ts";
+import {
+	inlineMarkdownProblem,
+	isAllowedImageUrl,
+	markdownProblem
+} from "./markdown.ts";
+import { collectionSlug, normaliseTags } from "./query-schemas.ts";
+
+function text(max: number) {
+	return z.string().trim().max(max, `must be at most ${max} characters`);
+}
+
+function requiredText(max: number) {
+	return text(max).min(1, "is required");
+}
+
+const url = z
+	.string()
+	.max(MAX_URL_LENGTH, `must be at most ${MAX_URL_LENGTH} characters`);
+
+const webUrl = url.regex(/^https?:\/\//i, "must be an http(s) URL");
+
+const tags = z
+	.array(text(MAX_TAG_LENGTH).regex(/^[^,]*$/, "can't contain commas"))
+	.transform(normaliseTags)
+	.pipe(
+		z.array(z.string()).max(MAX_TAGS_PER_IMAGE, {
+			error: `at most ${MAX_TAGS_PER_IMAGE} tags`
+		})
+	);
+
+const mapDimension = z.object({
+	name: requiredText(MAX_MAP_DIMENSION_NAME_LENGTH),
+	imageUrl: url,
+	worldId: requiredText(MAX_MAP_WORLD_FIELD_LENGTH),
+	perspective: text(MAX_MAP_WORLD_FIELD_LENGTH)
+});
+
+const newsShape = z.object({
+	title: requiredText(MAX_NEWS_TITLE_LENGTH),
+	content: requiredText(MAX_NEWS_CONTENT_LENGTH),
+	imageUrl: url.nullable().optional()
+}) satisfies z.ZodType<NewsPostFields>;
+
+const galleryShape = z.object({
+	collection: collectionSlug,
+	caption: text(MAX_GALLERY_CAPTION_LENGTH),
+	imageUrl: url,
+	tags: tags.optional()
+}) satisfies z.ZodType<GalleryImageFields>;
+
+const downloadShape = z.object({
+	collection: collectionSlug,
+	title: requiredText(MAX_DOWNLOAD_TITLE_LENGTH),
+	desc: text(MAX_DOWNLOAD_DESCRIPTION_LENGTH),
+	downloadUrl: webUrl,
+	imageUrl: url,
+	sortOrder: z.number().int().nullable().optional()
+}) satisfies z.ZodType<DownloadItemFields>;
+
+const mapSeasonShape = z.object({
+	season: z.number().int().min(0),
+	imageUrl: url,
+	dimensions: z
+		.array(mapDimension)
+		.max(MAX_MAP_DIMENSIONS, `at most ${MAX_MAP_DIMENSIONS} dimensions`)
+}) satisfies z.ZodType<MapSeasonFields>;
+
+// Reports a problem with one field (by path), unless the field is absent.
+function check(
+	ctx: z.core.$RefinementCtx,
+	path: (string | number)[],
+	value: string | null | undefined,
+	problemOf: (value: string) => string | undefined
+): void {
+	const problem = value ? problemOf(value) : undefined;
+	if (problem) {
+		ctx.addIssue({ code: "custom", path, message: problem });
+	}
+}
+
+function imageUrlProblem(value: string): string | undefined {
+	return isAllowedImageUrl(value)
+		? undefined
+		: "must start with an allowed image host";
+}
+
+// The checks beyond types and caps, for whichever fields are present.
+type ContentCheck<T> = (fields: Partial<T>, ctx: z.core.$RefinementCtx) => void;
+
+const checkImageUrl: ContentCheck<{ imageUrl: string | null }> = (
+	{ imageUrl },
+	ctx
+) => {
+	check(ctx, ["imageUrl"], imageUrl, imageUrlProblem);
+};
+
+const checkNews: ContentCheck<NewsPostFields> = (fields, ctx) => {
+	check(ctx, ["title"], fields.title, inlineMarkdownProblem);
+	check(ctx, ["content"], fields.content, markdownProblem);
+	checkImageUrl(fields, ctx);
+};
+
+const checkMapSeason: ContentCheck<MapSeasonFields> = (fields, ctx) => {
+	checkImageUrl(fields, ctx);
+	fields.dimensions?.forEach((dimension, index) => {
+		check(
+			ctx,
+			["dimensions", index, "imageUrl"],
+			dimension.imageUrl,
+			imageUrlProblem
+		);
+	});
+};
+
+// The three variants of one content type's fields.
+function variants<Shape extends z.ZodObject>(
+	shape: Shape,
+	checkContent: ContentCheck<z.output<Shape>>
+) {
+	const partial = shape.partial();
+	return {
+		full: shape.superRefine(checkContent),
+		// Zod can't infer a generic object's partial output; it's Partial<…>.
+		patch: partial.superRefine((fields, ctx) =>
+			checkContent(fields as Partial<z.output<Shape>>, ctx)
+		),
+		draft: partial
+	};
+}
+
+export const newsPostFields = variants(newsShape, checkNews);
+export const galleryImageFields = variants(galleryShape, checkImageUrl);
+export const downloadItemFields = variants(downloadShape, checkImageUrl);
+export const mapSeasonFields = variants(mapSeasonShape, checkMapSeason);
+
+export type NewsPostInput = z.infer<typeof newsShape>;
+export type GalleryImageInput = z.infer<typeof galleryShape>;
+export type DownloadItemInput = z.infer<typeof downloadShape>;
+export type MapSeasonInput = z.infer<typeof mapSeasonShape>;
+
+// The revision an update or delete started from (missing counts as 0).
+export const revision = z.number().int().min(0);
+
+export const visibility = z.object({ visible: z.boolean().optional() });
+
+export const createId = z.uuid("must be a UUID");
+
+// News `date`: "now" or an ISO date-time. Whether a date is allowed (future,
+// or on an update the post's current one) depends on the stored post, so
+// resolveNewsDate checks that once it's read.
+export const newsDate = z.union([
+	z.literal("now"),
+	z.iso.datetime({ offset: true, error: 'must be "now" or an ISO date-time' })
+]);
+
+export const collectionTitle = requiredText(MAX_COLLECTION_TITLE_LENGTH);
+
+export const collectionCreateRequest = z.toZod<CollectionCreateRequest>()(
+	z.object({
+		slug: collectionSlug,
+		title: collectionTitle,
+		visible: z.boolean().optional()
+	})
+);
+
+export const collectionUpdateRequest = z.toZod<CollectionUpdateRequest>()(
+	z.object({
+		revision,
+		title: collectionTitle.optional(),
+		visible: z.boolean().optional()
+	})
+);
+
+// When a news post goes live, from the `date` sent: absent keeps `current`
+// (now for a create), "now" is the server's time, a future date schedules it,
+// and `current` itself is allowed so a live post keeps its original date.
+// Any other past date is a 400: nobody can backdate a post, and the client's
+// clock never matters. Undefined means "unchanged".
+export function resolveNewsDate(
+	sent: string | undefined,
+	current: Date | undefined,
+	now: Date
+): Date | undefined {
+	if (sent === undefined) {
+		return current ? undefined : now;
+	}
+	if (sent === "now") {
+		return now;
+	}
+	const date = new Date(sent);
+	if (current && date.getTime() === current.getTime()) {
+		return undefined;
+	}
+	if (date <= now) {
+		throw new BadRequestError(
+			"date: must be now, in the future, or the post's current date"
+		);
+	}
+	return date;
+}
