@@ -10,7 +10,10 @@ export function allowFrontendOrigin(frontendOrigin: string): RequestHandler {
 	return (req, res, next) => {
 		res.header("Access-Control-Allow-Origin", frontendOrigin);
 		res.header("Access-Control-Allow-Credentials", "true");
-		res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+		res.header(
+			"Access-Control-Allow-Methods",
+			"GET,POST,PATCH,DELETE,OPTIONS"
+		);
 		res.header("Access-Control-Allow-Headers", "Content-Type");
 		if (req.method === "OPTIONS") {
 			res.sendStatus(204);

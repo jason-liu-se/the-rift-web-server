@@ -24,7 +24,6 @@ import {
 	MAX_TAG_LENGTH,
 	MAX_URL_LENGTH
 } from "../config/content-limits.ts";
-import { BadRequestError } from "../errors/bad-request-error.ts";
 import type {
 	CollectionCreateRequest,
 	CollectionUpdateRequest,
@@ -190,7 +189,7 @@ export const createId = z.uuid("must be a UUID");
 
 // News `date`: "now" or an ISO date-time. Whether a date is allowed (future,
 // or on an update the post's current one) depends on the stored post, so
-// resolveNewsDate checks that once it's read.
+// resolveNewsDate (src/helpers/news-dates.ts) checks that once it's read.
 export const newsDate = z.union([
 	z.literal("now"),
 	z.iso.datetime({ offset: true, error: 'must be "now" or an ISO date-time' })
@@ -214,30 +213,25 @@ export const collectionUpdateRequest = z.toZod<CollectionUpdateRequest>()(
 	})
 );
 
-// When a news post goes live, from the date requested: absent keeps the
-// stored date (now for a create), "now" is the server's time, a future date
-// schedules it, and the stored date itself is allowed so a live post keeps its
-// original date. Any other past date is a 400: nobody can backdate a post, and
-// the client's clock never matters. Undefined means "unchanged".
-export function resolveNewsDate(
-	requestedDate: string | undefined,
-	storedDate: Date | undefined,
-	serverTime: Date
-): Date | undefined {
-	if (requestedDate === undefined) {
-		return storedDate ? undefined : serverTime;
-	}
-	if (requestedDate === "now") {
-		return serverTime;
-	}
-	const date = new Date(requestedDate);
-	if (storedDate && date.getTime() === storedDate.getTime()) {
-		return undefined;
-	}
-	if (date <= serverTime) {
-		throw new BadRequestError(
-			"date: must be now, in the future, or the post's current date"
-		);
-	}
-	return date;
-}
+// What a create sends besides the item's fields.
+export const createOptions = z.object({
+	createId,
+	visible: z.boolean().optional()
+});
+
+// What an update sends besides the fields it changes.
+export const updateOptions = z.object({
+	revision: startRevision,
+	visible: z.boolean().optional()
+});
+
+// News creates and updates may also send `date`.
+export const newsDateOption = z.object({ date: newsDate.optional() });
+
+// A delete's `?revision=`: the revision the editor started from.
+export const revisionQuery = z.object({
+	revision: z
+		.string({ error: "revision is required" })
+		.regex(/^\d+$/, "revision must be a whole number")
+		.transform(Number)
+});

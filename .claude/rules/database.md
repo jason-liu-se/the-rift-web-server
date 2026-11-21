@@ -27,12 +27,16 @@ per file in `src/models/`:
 | `auth`      | `accessGrants`          | `src/models/access-grant-schema.ts`    |
 | `content`   | `meta`                  | `src/models/content-version-schema.ts` |
 
-Content and access grants are added to MongoDB directly; the server writes only
-the content version (`getContentVersion` creates it if missing,
-`updateContentVersion` changes it after a write). Login sessions and their
-refresh token hashes live in Redis instead (`src/managers/redis-manager.ts`,
-keys `session:<session ID>`); see `.claude/docs/api.md` "Sessions". Discord IDs
-are stored as strings (numbers lose precision).
+Editors write content through `/editor/*` (`editor-content.ts`); access grants
+are added to MongoDB directly. Every committed content write then calls
+`updateContentVersion` (`getContentVersion` creates the version if missing).
+Updates and deletes are revision-checked in the query itself (`revisionFilter`),
+so a stale write changes nothing, and writes return a `WriteResult` (`ok`,
+`conflict`, `not-found`, `duplicate`) instead of throwing, so bulk actions can
+report each item. Login sessions and their refresh token hashes live in Redis
+instead (`src/managers/redis-manager.ts`, keys `session:<session ID>`); see
+`.claude/docs/api.md` "Sessions". Discord IDs are stored as strings (numbers
+lose precision).
 
 - Collection names are used as given: pluralization and auto-creation are off.
   Models compiled on import (before `connect` turns pluralization off) pass

@@ -6,15 +6,13 @@ import {
 	MAX_TAGS_PER_IMAGE,
 	MAX_TAG_LENGTH
 } from "../config/content-limits.ts";
-import { BadRequestError } from "../errors/bad-request-error.ts";
 import {
 	collectionCreateRequest,
 	downloadItemFields,
 	galleryImageFields,
 	mapSeasonFields,
 	newsDate,
-	newsPostFields,
-	resolveNewsDate
+	newsPostFields
 } from "./write-schemas.ts";
 
 const IMAGE = "https://i.ibb.co/abc/image.png";
@@ -271,36 +269,5 @@ describe("newsDate", () => {
 
 	it.each(["tomorrow", "2030-01-01", 5])("rejects %s", (date) => {
 		expect(newsDate.safeParse(date).success).toBe(false);
-	});
-});
-
-describe("resolveNewsDate", () => {
-	const NOW = new Date("2026-06-01T00:00:00.000Z");
-	const PAST = new Date("2026-01-01T00:00:00.000Z");
-	const FUTURE = "2026-07-01T00:00:00.000Z";
-
-	it("is now for a create without a date, unchanged for an update", () => {
-		expect(resolveNewsDate(undefined, undefined, NOW)).toEqual(NOW);
-		expect(resolveNewsDate(undefined, PAST, NOW)).toBeUndefined();
-	});
-
-	it("takes now and future dates", () => {
-		expect(resolveNewsDate("now", PAST, NOW)).toEqual(NOW);
-		expect(resolveNewsDate(FUTURE, PAST, NOW)).toEqual(new Date(FUTURE));
-	});
-
-	it("keeps a live post's own past date", () => {
-		expect(
-			resolveNewsDate("2026-01-01T02:00:00+02:00", PAST, NOW)
-		).toBeUndefined();
-	});
-
-	it.each([
-		["a create", undefined],
-		["an update", PAST]
-	])("refuses any other past date on %s", (_name, storedDate) => {
-		expect(() =>
-			resolveNewsDate("2025-12-31T00:00:00.000Z", storedDate, NOW)
-		).toThrow(BadRequestError);
 	});
 });
