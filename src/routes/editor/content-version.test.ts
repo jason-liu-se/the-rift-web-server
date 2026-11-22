@@ -84,7 +84,8 @@ const COLLECTION_ROUTERS = {
 type Write = (editor: Editor) => Promise<unknown>;
 
 // Every editor route that writes, with a write that succeeds. A new write
-// route fails the coverage test below until it's added here.
+// route fails the coverage test below until it's added here, or to
+// NO_PUBLIC_CHANGE.
 const WRITES: Record<string, Write> = {
 	...Object.fromEntries(
 		Object.entries(ITEM_ROUTERS).flatMap(([prefix, router]) => {
@@ -186,8 +187,27 @@ const WRITES: Record<string, Write> = {
 				]
 			];
 		})
-	)
+	),
+	"post /editor/drafts/:id/publish": async (e) => {
+		const id = randomUUID();
+		await e
+			.put(`/editor/drafts/${id}`, {
+				type: "news",
+				fields: { title: "t", content: "c" }
+			})
+			.expect(201);
+		return e
+			.post(`/editor/drafts/${id}/publish`, { visible: true })
+			.expect(200);
+	}
 };
+
+// Editor routes that write only what no public read shows: an editor's own
+// drafts.
+const NO_PUBLIC_CHANGE = [
+	"put /editor/drafts/:id",
+	"delete /editor/drafts/:id"
+];
 
 const READ_METHODS = new Set(["get", "head", "options"]);
 
@@ -200,7 +220,9 @@ describe("editor writes and the content version", () => {
 			)
 			.map(({ method, path }) => `${method} ${path}`);
 
-		expect(Object.keys(WRITES).sort()).toEqual(writeRoutes.sort());
+		expect([...Object.keys(WRITES), ...NO_PUBLIC_CHANGE].sort()).toEqual(
+			writeRoutes.sort()
+		);
 	});
 
 	it.each(Object.entries(WRITES))(
