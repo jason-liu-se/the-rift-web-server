@@ -298,9 +298,9 @@ describe("resolveNewsDate", () => {
 	it.each([
 		["a create", undefined],
 		["an update", PAST]
-	])("refuses any other past date on %s", (_name, current) => {
+	])("refuses any other past date on %s", (_name, storedDate) => {
 		expect(() =>
-			resolveNewsDate("2025-12-31T00:00:00.000Z", current, NOW)
+			resolveNewsDate("2025-12-31T00:00:00.000Z", storedDate, NOW)
 		).toThrow(BadRequestError);
 	});
 });

@@ -214,27 +214,27 @@ export const collectionUpdateRequest = z.toZod<CollectionUpdateRequest>()(
 	})
 );
 
-// When a news post goes live, from the `date` sent: absent keeps `current`
-// (now for a create), "now" is the server's time, a future date schedules it,
-// and `current` itself is allowed so a live post keeps its original date.
-// Any other past date is a 400: nobody can backdate a post, and the client's
-// clock never matters. Undefined means "unchanged".
+// When a news post goes live, from the date requested: absent keeps the
+// stored date (now for a create), "now" is the server's time, a future date
+// schedules it, and the stored date itself is allowed so a live post keeps its
+// original date. Any other past date is a 400: nobody can backdate a post, and
+// the client's clock never matters. Undefined means "unchanged".
 export function resolveNewsDate(
-	sent: string | undefined,
-	current: Date | undefined,
-	now: Date
+	requestedDate: string | undefined,
+	storedDate: Date | undefined,
+	serverTime: Date
 ): Date | undefined {
-	if (sent === undefined) {
-		return current ? undefined : now;
+	if (requestedDate === undefined) {
+		return storedDate ? undefined : serverTime;
 	}
-	if (sent === "now") {
-		return now;
+	if (requestedDate === "now") {
+		return serverTime;
 	}
-	const date = new Date(sent);
-	if (current && date.getTime() === current.getTime()) {
+	const date = new Date(requestedDate);
+	if (storedDate && date.getTime() === storedDate.getTime()) {
 		return undefined;
 	}
-	if (date <= now) {
+	if (date <= serverTime) {
 		throw new BadRequestError(
 			"date: must be now, in the future, or the post's current date"
 		);
