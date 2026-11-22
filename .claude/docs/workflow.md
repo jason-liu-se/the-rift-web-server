@@ -78,8 +78,8 @@ The tests need no services, so every tier runs the whole suite.
     - Merge with `gh stack merge --rebase <pr>` (`gh pr merge` doesn't work on a
       stacked PR), then `gh stack sync` to rebase and push the rest.
     - It rewrites only the stack's branches, never `main` or the stack's base
-      branch (e.g. `feature/42-admin-tools`). Every `gh stack` command that
-      pushes or merges asks the user first (`.claude/settings.json`).
+      branch (e.g. `feature/42-admin-tools`). The `gh stack` commands are
+      allowed in `.claude/settings.json`; plain `git push --force` stays denied.
 - A contract change is two PRs, one per repo: this server's first, additive (new
   fields or routes, nothing removed), then the website's `npm run api:sync` and
   services. Remove the old shape only once the website no longer uses it.
