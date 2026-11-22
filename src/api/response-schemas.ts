@@ -164,6 +164,26 @@ export const editorMapSeasonSummary = z.toZod<EditorMapSeasonSummary>()(
 		.extend({ dimensionCount: z.number().int().min(0) })
 );
 
+// Each content type's editor item, by its name in CONTENT_TYPES.
+export const EDITOR_ITEM_SCHEMAS: Readonly<
+	Record<"news" | "gallery" | "downloads" | "maps", z.ZodType>
+> = {
+	news: editorNewsPost,
+	gallery: editorGalleryImage,
+	downloads: editorDownloadItem,
+	maps: editorMapSeason
+};
+
+// What each type's list sends of an item.
+export const EDITOR_SUMMARY_SCHEMAS: Readonly<
+	Record<"news" | "gallery" | "downloads" | "maps", z.ZodType>
+> = {
+	news: editorNewsPostSummary,
+	gallery: editorGalleryImage,
+	downloads: editorDownloadItemSummary,
+	maps: editorMapSeasonSummary
+};
+
 // A page of any editor item type.
 export function editorPage<T>(item: z.ZodType<T>) {
 	return countResponse.extend({ items: z.array(item) });
