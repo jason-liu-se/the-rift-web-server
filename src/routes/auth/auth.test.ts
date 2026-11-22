@@ -2,24 +2,24 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SignJWT, UnsecuredJWT } from "jose";
 import request from "supertest";
-import { createApp } from "../app.ts";
-import { startSession } from "../auth/refresh-tokens.ts";
-import { signSession } from "../auth/session.ts";
+import { createApp } from "../../app.ts";
+import { startSession } from "../../auth/refresh-tokens.ts";
+import { signSession } from "../../auth/session.ts";
 import {
 	REFRESH_GRACE_MS,
 	SESSION_IDLE_TIMEOUT_MS,
 	SESSION_MAX_AGE_MS,
 	SESSION_TOKEN_TTL_SECONDS
-} from "../config/auth.ts";
-import { AUTH_RATE_LIMIT } from "../config/rate-limits.ts";
-import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
-import * as redisManager from "../helpers/redis-manager.ts";
-import { testConfig } from "../../test/app.ts";
-import { clearRedis, storedSessions } from "../../test/redis.ts";
+} from "../../config/auth.ts";
+import { AUTH_RATE_LIMIT } from "../../config/rate-limits.ts";
+import { REFRESH_COOKIE, SESSION_COOKIE } from "../../auth/session-cookie.ts";
+import * as redisManager from "../../managers/redis-manager.ts";
+import { testConfig } from "../../../test/app.ts";
+import { clearRedis, storedSessions } from "../../../test/redis.ts";
 
 vi.mock(
-	import("../helpers/redis-manager.ts"),
-	() => import("../../test/redis.ts")
+	import("../../managers/redis-manager.ts"),
+	() => import("../../../test/redis.ts")
 );
 
 const USER = { id: "123", username: "editor", avatarUrl: "https://a.png" };

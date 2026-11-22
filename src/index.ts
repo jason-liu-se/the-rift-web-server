@@ -2,8 +2,8 @@ import type { Server } from "node:http";
 import { createApp } from "./app.ts";
 import { loadEnv } from "./config/env.ts";
 import { SHUTDOWN_TIMEOUT_MS } from "./config/timeouts.ts";
-import * as mongoManager from "./helpers/mongo-manager.ts";
-import * as redisManager from "./helpers/redis-manager.ts";
+import * as mongoManager from "./managers/mongo-manager.ts";
+import * as redisManager from "./managers/redis-manager.ts";
 
 const SHUTDOWN_SIGNALS: NodeJS.Signals[] = ["SIGTERM", "SIGINT"];
 

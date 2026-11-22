@@ -36,7 +36,7 @@ import {
 } from "node:crypto";
 import * as z from "zod";
 import { REFRESH_GRACE_MS } from "../config/auth.ts";
-import * as redisManager from "../helpers/redis-manager.ts";
+import * as redisManager from "../managers/redis-manager.ts";
 import { sessionEndsAt, type Session } from "./session.ts";
 
 const SESSION_ID_BYTES = 16;

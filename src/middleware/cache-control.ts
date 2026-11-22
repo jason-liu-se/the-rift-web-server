@@ -1,6 +1,6 @@
 import type { RequestHandler, Response } from "express";
 import { VERSIONED_CACHE } from "../config/caching.ts";
-import * as mongoManager from "../helpers/mongo-manager.ts";
+import * as mongoManager from "../managers/mongo-manager.ts";
 import { contentVersionQuery } from "../api/query-schemas.ts";
 
 // Cloudflare reads CDN-Cache-Control ahead of Cache-Control, so the edge can

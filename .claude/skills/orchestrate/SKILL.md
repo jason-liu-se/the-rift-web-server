@@ -54,7 +54,7 @@ Before launching, settle each of these that isn't already decided:
 - **Ownership**: which task owns each file or folder. Hot files shared by many
   features (`src/app.ts`, `src/api/public-routes.ts`,
   `src/api/query-schemas.ts`, `src/api/response-schemas.ts`,
-  `src/contract/api-responses.ts`, `src/helpers/mongo-manager.ts`,
+  `src/contract/api-responses.ts`, `src/managers/mongo-manager.ts`,
   `src/config/caching.ts`, `src/middleware/cache-control.test.ts`,
   `test/database.ts`, `README.md`) get one owner, or are marked append-only.
 - **Order**: tasks that depend on another's output run after it, or after its

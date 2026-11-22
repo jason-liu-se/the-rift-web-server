@@ -1,7 +1,7 @@
 // Test helpers: run the app against a throwaway in-memory MongoDB.
 import { MongoMemoryServer } from "mongodb-memory-server";
 import mongoose from "mongoose";
-import * as mongoManager from "../src/helpers/mongo-manager.ts";
+import * as mongoManager from "../src/managers/mongo-manager.ts";
 import { authDb } from "../src/models/access-grant-schema.ts";
 import { contentDb } from "../src/models/content-version-schema.ts";
 import { downloadsDb } from "../src/models/downloads-schema.ts";

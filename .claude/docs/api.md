@@ -212,7 +212,7 @@ reuse are one atomic Redis script; a refresh then pushes the expiry later with
 `PEXPIREAT … GT` (Redis 7+), which never shortens it if a slower concurrent
 refresh lands last and does nothing to a session already ended. If it fails, the
 refresh still succeeds (the rotation has committed) and the error is logged.
-Every Redis command goes through `src/helpers/redis-manager.ts`, as every
+Every Redis command goes through `src/managers/redis-manager.ts`, as every
 MongoDB query goes through `mongo-manager`.
 
 The Discord login lives in `src/auth/discord-login.ts`, and every call to

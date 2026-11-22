@@ -17,13 +17,13 @@ import {
 import { requireLogin } from "./middleware/require-login.ts";
 import { sessionMiddleware } from "./middleware/session.ts";
 import { PUBLIC_ROUTES } from "./api/public-routes.ts";
-import { authRouter } from "./routes/auth.ts";
-import { contentRouter } from "./routes/content.ts";
-import { newsRouter } from "./routes/news.ts";
-import { downloadsRouter } from "./routes/downloads.ts";
-import { galleryRouter } from "./routes/gallery.ts";
-import { healthRouter } from "./routes/health.ts";
-import { mapsRouter } from "./routes/maps.ts";
+import { authRouter } from "./routes/auth/auth.ts";
+import { contentRouter } from "./routes/content/content.ts";
+import { newsRouter } from "./routes/news/news.ts";
+import { downloadsRouter } from "./routes/downloads/downloads.ts";
+import { galleryRouter } from "./routes/gallery/gallery.ts";
+import { healthRouter } from "./routes/health/health.ts";
+import { mapsRouter } from "./routes/maps/maps.ts";
 
 export function createApp(config: AppConfig): Express {
 	const app = express();

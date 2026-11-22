@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { PUBLIC_ROUTES } from "../api/public-routes.ts";
-import * as mongoManager from "../helpers/mongo-manager.ts";
+import * as mongoManager from "../managers/mongo-manager.ts";
 import { app } from "../../test/app.ts";
 import {
 	clearDatabase,

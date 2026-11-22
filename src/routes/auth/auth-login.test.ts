@@ -9,21 +9,21 @@ import {
 	vi
 } from "vitest";
 import request from "supertest";
-import { SESSION_IDLE_TIMEOUT_MS } from "../config/auth.ts";
-import { REFRESH_COOKIE, SESSION_COOKIE } from "../auth/session-cookie.ts";
-import { createApp } from "../app.ts";
-import { testConfig } from "../../test/app.ts";
+import { SESSION_IDLE_TIMEOUT_MS } from "../../config/auth.ts";
+import { REFRESH_COOKIE, SESSION_COOKIE } from "../../auth/session-cookie.ts";
+import { createApp } from "../../app.ts";
+import { testConfig } from "../../../test/app.ts";
 import {
 	clearDatabase,
 	collection,
 	startDatabase,
 	stopDatabase
-} from "../../test/database.ts";
-import { clearRedis, storedSessions } from "../../test/redis.ts";
+} from "../../../test/database.ts";
+import { clearRedis, storedSessions } from "../../../test/redis.ts";
 
 vi.mock(
-	import("../helpers/redis-manager.ts"),
-	() => import("../../test/redis.ts")
+	import("../../managers/redis-manager.ts"),
+	() => import("../../../test/redis.ts")
 );
 
 beforeAll(startDatabase);

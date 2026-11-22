@@ -15,7 +15,7 @@ import {
 	exchangeCode,
 	getIdentity
 } from "../helpers/discord.ts";
-import * as mongoManager from "../helpers/mongo-manager.ts";
+import * as mongoManager from "../managers/mongo-manager.ts";
 import { cookieValue, discordCallbackQuery } from "../api/query-schemas.ts";
 import { startSession } from "./refresh-tokens.ts";
 import { baseCookieOptions, setSessionCookies } from "./session-cookie.ts";
