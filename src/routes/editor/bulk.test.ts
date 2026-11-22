@@ -74,10 +74,10 @@ describe("POST /editor/<items>/bulk", () => {
 			.post("/editor/gallery/images/bulk", {
 				action: "hide",
 				items: [
-					{ id: a, revision: 1 },
-					{ id: b, revision: 1 },
-					{ id: missing, revision: 0 },
-					{ id: "not-an-id", revision: 0 }
+					{ id: a, startRevision: 1 },
+					{ id: b, startRevision: 1 },
+					{ id: missing, startRevision: 0 },
+					{ id: "not-an-id", startRevision: 0 }
 				]
 			})
 			.expect(200);
@@ -120,8 +120,8 @@ describe("POST /editor/<items>/bulk", () => {
 			.post("/editor/gallery/images/bulk", {
 				action: "hide",
 				items: [
-					{ id: a, revision: 1 },
-					{ id: insertedId.toHexString(), revision: 1 }
+					{ id: a, startRevision: 1 },
+					{ id: insertedId.toHexString(), startRevision: 1 }
 				]
 			})
 			.expect(500);
@@ -137,8 +137,8 @@ describe("POST /editor/<items>/bulk", () => {
 			.post("/editor/gallery/images/bulk", {
 				action: "delete",
 				items: [
-					{ id: a, revision: 1 },
-					{ id: b, revision: 0 }
+					{ id: a, startRevision: 1 },
+					{ id: b, startRevision: 0 }
 				]
 			})
 			.expect(200);
@@ -158,7 +158,7 @@ describe("POST /editor/<items>/bulk", () => {
 			.post("/editor/gallery/images/bulk", {
 				action: "move",
 				collection: "season6",
-				items: [{ id: a, revision: 1 }]
+				items: [{ id: a, startRevision: 1 }]
 			})
 			.expect(200);
 
@@ -172,7 +172,7 @@ describe("POST /editor/<items>/bulk", () => {
 			.post("/editor/gallery/images/bulk", {
 				action: "move",
 				collection: "missing",
-				items: [{ id: a, revision: 1 }]
+				items: [{ id: a, startRevision: 1 }]
 			})
 			.expect(400);
 
@@ -186,14 +186,14 @@ describe("POST /editor/<items>/bulk", () => {
 			.post("/editor/gallery/images/bulk", {
 				action: "add-tags",
 				tags: ["Build", "spawn"],
-				items: [{ id: a, revision: 1 }]
+				items: [{ id: a, startRevision: 1 }]
 			})
 			.expect(200);
 		const removed = await editor
 			.post("/editor/gallery/images/bulk", {
 				action: "remove-tags",
 				tags: ["spawn"],
-				items: [{ id: a, revision: 2 }]
+				items: [{ id: a, startRevision: 2 }]
 			})
 			.expect(200);
 
@@ -208,7 +208,7 @@ describe("POST /editor/<items>/bulk", () => {
 			.post("/editor/gallery/images/bulk", {
 				action: "add-tags",
 				tags: Array.from({ length: 10 }, (_, i) => `tag${i}`),
-				items: [{ id: a, revision: 1 }]
+				items: [{ id: a, startRevision: 1 }]
 			})
 			.expect(200);
 
@@ -307,7 +307,7 @@ describe("POST /editor/<items>/bulk", () => {
 		const res = await editor
 			.post("/editor/news/bulk", {
 				action: "show",
-				items: [{ id, revision: 0 }]
+				items: [{ id, startRevision: 0 }]
 			})
 			.expect(200);
 
@@ -345,7 +345,7 @@ describe("POST /editor/<items>/bulk", () => {
 		[
 			"an item without an id",
 			"/editor/news/bulk",
-			{ action: "hide", items: [{ revision: 0 }] },
+			{ action: "hide", items: [{ startRevision: 0 }] },
 			/id/
 		],
 		[
@@ -363,7 +363,7 @@ describe("POST /editor/<items>/bulk", () => {
 	it("answers 400 for more than 100 items", async () => {
 		const items = Array.from({ length: 101 }, () => ({
 			id: new Types.ObjectId().toHexString(),
-			revision: 0
+			startRevision: 0
 		}));
 
 		const res = await editor
