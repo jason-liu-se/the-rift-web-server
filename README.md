@@ -115,9 +115,9 @@ gets `403`. Request bodies must be JSON (`415` otherwise).
 | `GET /editor/<…>/:id`                                                                           |                                                                                        | One whole item, public or not                                 |
 | `GET /editor/gallery/collections`, `/editor/downloads/collections`                              |                                                                                        | Every collection, with its item count                         |
 | `POST /editor/<items>`                                                                          | Body: the fields and a `createId`                                                      | `201` with the item (`200` for a repeat)                      |
-| `PATCH /editor/<items>/:id`, `DELETE /editor/<items>/:id`                                       | Body or query: `revision`                                                              | The item, or `204`; `409` with it when stale                  |
+| `PATCH /editor/<items>/:id`, `DELETE /editor/<items>/:id`                                       | Body or query: `startRevision`                                                         | The item, or `204`; `409` with it when stale                  |
 | `POST /editor/<items>/bulk`                                                                     | Body: `action`, `items`                                                                | `{ results }`, one per item                                   |
-| `POST`, `PATCH /:slug`, `DELETE /:slug` on `/editor/<…>/collections`                            | Body or query: `revision`                                                              | The collection, or `204`                                      |
+| `POST`, `PATCH /:slug`, `DELETE /:slug` on `/editor/<…>/collections`                            | Body or query: `startRevision`                                                         | The collection, or `204`                                      |
 
 Errors are `{ "error": string }`. Request types (each endpoint's query and
 body): [`src/contract/api-requests.ts`](./src/contract/api-requests.ts);
