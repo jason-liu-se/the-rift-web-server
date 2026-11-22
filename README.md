@@ -109,11 +109,11 @@ answers `401` otherwise: public routes are an allow list in
 GET, HEAD, or OPTIONS must send `Origin: <FRONTEND_URL>` (CSRF protection), or
 gets `403`. Request bodies must be JSON (`415` otherwise).
 
-| Endpoint                                                                                        | Query                                                            | Returns                                                       |
-| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------- |
-| `GET /editor/news`, `/editor/gallery/images`, `/editor/downloads/items`, `/editor/maps/seasons` | `startIndex`, `limit`, `mine`, `status`, `collection`, `q`, `in` | `{ items, total }`: every item's summary, status, and history |
-| `GET /editor/<…>/:id`                                                                           |                                                                  | One whole item, public or not                                 |
-| `GET /editor/gallery/collections`, `/editor/downloads/collections`                              |                                                                  | Every collection, with its item count                         |
+| Endpoint                                                                                        | Query                                                                                  | Returns                                                       |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `GET /editor/news`, `/editor/gallery/images`, `/editor/downloads/items`, `/editor/maps/seasons` | `startIndex`, `limit`, `createdBy`, `lastUpdatedBy`, `status`, `collection`, `q`, `in` | `{ items, total }`: every item's summary, status, and history |
+| `GET /editor/<…>/:id`                                                                           |                                                                                        | One whole item, public or not                                 |
+| `GET /editor/gallery/collections`, `/editor/downloads/collections`                              |                                                                                        | Every collection, with its item count                         |
 
 Errors are `{ "error": string }`. Response types:
 [`src/contract/api-responses.ts`](./src/contract/api-responses.ts), which the

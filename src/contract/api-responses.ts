@@ -268,14 +268,14 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 //
 // Lists carry what a table shows; open an item (`/:id`) for all of it.
 // Lists are in the public order and take `startIndex`, `limit` (at most 25,
-// the default), and filters: `mine=true` (created by the caller), `status` (a
-// ContentStatus, or for news a NewsStatus), `collection` (a slug; gallery and
-// downloads; an unknown one matches nothing), and a search,
-// `q` (case-insensitive, at most 100 characters) in the fields `in` names
-// (comma-separated, default all): news `title,content`, gallery
-// `caption,tags`, downloads `title,desc`, maps `season,dimensions` (season
-// matches a whole number exactly; dimensions by name). `total` counts every
-// match. A missing item is 404.
+// the default), and filters: `createdBy` and `lastUpdatedBy` (a Discord user
+// ID or username, matched exactly), `status` (a ContentStatus, or for news a
+// NewsStatus), `collection` (a slug; gallery and downloads; an unknown one
+// matches nothing), and a search, `q` (case-insensitive, at most 100
+// characters) in the fields `in` names (comma-separated, default all): news
+// `title,content`, gallery `caption,tags`, downloads `title,desc`, maps
+// `season,dimensions` (season matches a whole number exactly; dimensions by
+// name). `total` counts every match. A missing item is 404.
 
 /** The Discord user behind an edit. */
 export interface EditorRef {

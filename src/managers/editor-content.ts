@@ -195,8 +195,10 @@ function escapeRegExp(text: string): string {
 export interface EditorListQuery {
 	readonly startIndex: number;
 	readonly limit?: number;
-	/** Only items created by this Discord user. */
+	/** Only items created by this Discord user (ID or username). */
 	readonly createdBy?: string;
+	/** Only items last updated by this Discord user (ID or username). */
+	readonly lastUpdatedBy?: string;
 	readonly status?: NewsStatus;
 	readonly collection?: string;
 	/** A search, in the fields `searchIn` names (all of the type's if empty). */
@@ -210,8 +212,16 @@ function listFilter(
 	now: Date
 ): object {
 	const filters: object[] = [];
-	if (query.createdBy !== undefined) {
-		filters.push({ "createdBy.id": query.createdBy });
+	for (const field of ["createdBy", "lastUpdatedBy"] as const) {
+		const user = query[field];
+		if (user !== undefined) {
+			filters.push({
+				$or: [
+					{ [`${field}.id`]: user },
+					{ [`${field}.username`]: user }
+				]
+			});
+		}
 	}
 	if (query.status) {
 		filters.push(statusFilter(type, query.status, now));
