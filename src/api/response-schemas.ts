@@ -221,7 +221,9 @@ export const editorCollections = z.toZod<EditorCollection[]>()(
 const draftFields = {
 	id: z.string(),
 	revision: z.number().int(),
-	target: z.object({ id: z.string(), revision: z.number().int() }).optional(),
+	target: z
+		.object({ id: z.string(), startRevision: z.number().int() })
+		.optional(),
 	createdAt: isoDate,
 	updatedAt: isoDate
 };
