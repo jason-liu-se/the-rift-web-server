@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	it,
+	vi
+} from "vitest";
 import request from "supertest";
 import { Types } from "mongoose";
 import { app } from "../../../test/app.ts";
@@ -106,18 +114,39 @@ describe("GET /news", () => {
 		expect(count.body).toEqual({ total: 3 });
 	});
 
-	it("shows a scheduled post once its date has come", async () => {
-		await collection("news", "posts").insertOne({
-			title: "Soon",
-			date: new Date(Date.now() + 50),
-			content: "s"
+	describe("a scheduled post", () => {
+		const DATE = new Date("2026-06-01T12:00:00.000Z");
+
+		afterEach(() => {
+			vi.useRealTimers();
 		});
-		await request(app).get("/news").expect(200, { items: [], total: 0 });
 
-		await new Promise((resolve) => setTimeout(resolve, 100));
-		const res = await request(app).get("/news").expect(200);
+		// Only Date is faked, so the database and Supertest keep real timers.
+		it.each([
+			["a millisecond before its date", -1, []],
+			["at its date", 0, ["Due"]],
+			["a millisecond after its date", 1, ["Due"]]
+		])("shows only from its date (%s)", async (_when, offset, expected) => {
+			await collection("news", "posts").insertOne({
+				title: "Due",
+				date: DATE,
+				content: "s"
+			});
+			vi.useFakeTimers({
+				toFake: ["Date"],
+				now: DATE.getTime() + offset
+			});
 
-		expect(res.body.items).toMatchObject([{ title: "Soon" }]);
+			const [page, count] = await Promise.all([
+				request(app).get("/news").expect(200),
+				request(app).get("/news/count").expect(200)
+			]);
+
+			expect(
+				page.body.items.map(({ title }: { title: string }) => title)
+			).toEqual(expected);
+			expect(count.body).toEqual({ total: expected.length });
+		});
 	});
 
 	it("sends editedAt when the post has one", async () => {
