@@ -181,7 +181,7 @@ export type MapSeasonInput = z.infer<typeof mapSeasonShape>;
 
 // The revision an update or delete started from (a stored item missing one is
 // at 0).
-export const startRevision = z.number().int().min(0);
+export const startingRevision = z.number().int().min(0);
 
 export const visibility = z.object({ visible: z.boolean().optional() });
 
@@ -207,7 +207,7 @@ export const collectionCreateRequest = z.toZod<CollectionCreateRequest>()(
 
 export const collectionUpdateRequest = z.toZod<CollectionUpdateRequest>()(
 	z.object({
-		startRevision,
+		startingRevision,
 		title: collectionTitle.optional(),
 		visible: z.boolean().optional()
 	})
@@ -221,17 +221,17 @@ export const createOptions = z.object({
 
 // What an update sends besides the fields it changes.
 export const updateOptions = z.object({
-	startRevision,
+	startingRevision,
 	visible: z.boolean().optional()
 });
 
 // News creates and updates may also send `date`.
 export const newsDateOption = z.object({ date: newsDate.optional() });
 
-// A delete's `?startRevision=`: the revision the editor started from.
-export const startRevisionQuery = z.object({
-	startRevision: z
-		.string({ error: "startRevision is required" })
-		.regex(/^\d+$/, "startRevision must be a whole number")
+// A delete's `?startingRevision=`: the revision the editor started from.
+export const startingRevisionQuery = z.object({
+	startingRevision: z
+		.string({ error: "startingRevision is required" })
+		.regex(/^\d+$/, "startingRevision must be a whole number")
 		.transform(Number)
 });

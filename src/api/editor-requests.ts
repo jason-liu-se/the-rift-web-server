@@ -68,22 +68,22 @@ export function parseUpdate(
 	body: unknown,
 	now: Date
 ): {
-	startRevision: number;
+	startingRevision: number;
 	fields: FieldChanges;
 	changesFor: (current: StoredItem) => FieldChanges;
 } {
 	const fields = FIELD_SCHEMAS[typeName].patch;
 	if (typeName !== "news") {
-		const { startRevision, ...parsed } = z
+		const { startingRevision, ...parsed } = z
 			.intersection(updateOptions, fields)
 			.parse(body);
-		return { startRevision, fields: parsed, changesFor: () => parsed };
+		return { startingRevision, fields: parsed, changesFor: () => parsed };
 	}
-	const { startRevision, date, ...parsed } = z
+	const { startingRevision, date, ...parsed } = z
 		.intersection(z.intersection(updateOptions, newsDateOption), fields)
 		.parse(body);
 	return {
-		startRevision,
+		startingRevision,
 		fields: parsed,
 		changesFor: (current) => ({
 			...parsed,

@@ -23,7 +23,10 @@ import {
 	editorPage,
 	parseResponse
 } from "../../api/response-schemas.ts";
-import { createOptions, startRevisionQuery } from "../../api/write-schemas.ts";
+import {
+	createOptions,
+	startingRevisionQuery
+} from "../../api/write-schemas.ts";
 
 export function editorItemsRouter(typeName: ContentTypeName): Router {
 	const router = express.Router();
@@ -72,7 +75,7 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 
 	router.patch("/:id", async (req, res) => {
 		const { id } = idParams.parse(req.params);
-		const { startRevision, fields, changesFor } = parseUpdate(
+		const { startingRevision, fields, changesFor } = parseUpdate(
 			typeName,
 			req.body,
 			new Date()
@@ -82,7 +85,7 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 		const result = await editorContent.updateItem(
 			typeName,
 			id,
-			startRevision,
+			startingRevision,
 			changesFor,
 			editorOf(res)
 		);
@@ -93,12 +96,12 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 
 	router.delete("/:id", async (req, res) => {
 		const { id } = idParams.parse(req.params);
-		const { startRevision } = startRevisionQuery.parse(req.query);
+		const { startingRevision } = startingRevisionQuery.parse(req.query);
 
 		writtenItem(
 			typeName,
 			id,
-			await editorContent.deleteItem(typeName, id, startRevision)
+			await editorContent.deleteItem(typeName, id, startingRevision)
 		);
 		await mongoManager.updateContentVersion();
 		res.sendStatus(204);
