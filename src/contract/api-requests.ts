@@ -227,10 +227,10 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 
 // Bulk actions: what each answers is BulkResponse, in api-responses.ts.
 
-/** An item a bulk action changes, at the revision the editor read. */
+/** An item a bulk action changes, and its revision when the editor read it. */
 export interface BulkItemRef {
 	id: string;
-	revision: number;
+	startRevision: number;
 }
 
 export type BulkRequest =
