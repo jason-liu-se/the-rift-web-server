@@ -216,7 +216,7 @@ Every Redis command goes through `src/managers/redis-manager.ts`, as every
 MongoDB query goes through `mongo-manager`.
 
 The Discord login lives in `src/auth/discord-login.ts`, and every call to
-Discord in `src/helpers/discord.ts`, which throws `DiscordApiError` for any
+Discord in `src/managers/discord.ts`, which throws `DiscordApiError` for any
 Discord failure. The callback never answers with an error status; it redirects
 to the website with a `LoginErrorCode`, so a failure is always attributed to the
 user, this server, or Discord.

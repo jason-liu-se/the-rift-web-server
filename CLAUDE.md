@@ -47,9 +47,10 @@ edited.
   status codes.
 - **Routes are private unless listed in `src/api/public-routes.ts`**:
   `requireLogin` answers `401` to everything else when nobody is logged in.
-- **`src/managers/mongo-manager.ts` owns all database access**, and
-  `src/managers/redis-manager.ts` all Redis access. Routers never touch models
-  or the Redis client.
+- **`src/managers/` owns the access to databases and outside services**:
+  `mongo-manager.ts` all MongoDB access, `redis-manager.ts` all Redis access,
+  and `discord.ts` every call to Discord. Routers never touch models, the Redis
+  client, or Discord directly.
 - **`src/contract/api-responses.ts` is the contract with the website**, which
   keeps a verbatim copy. Endpoint paths, parameters, and response shapes must be
   changed conservatively since the frontend must be updated to maintain
