@@ -140,7 +140,7 @@ export async function getPublicGalleryCollections(): Promise<
 
 // A gallery's public images, newest first (by `_id`, which holds the creation
 // time). Omitting `limit` returns every image from `startIndex` onwards.
-export async function getGalleryCollection(
+export async function getPublicGalleryImages(
 	slug: string,
 	tags: readonly string[],
 	startIndex: number,
@@ -155,7 +155,7 @@ export async function getGalleryCollection(
 	return images.map(withId);
 }
 
-export async function countGalleryCollectionItems(
+export async function countPublicGalleryImages(
 	slug: string,
 	tags: readonly string[]
 ): Promise<number> {
@@ -163,7 +163,7 @@ export async function countGalleryCollectionItems(
 }
 
 // The tags on a gallery's public images, sorted.
-export async function getGalleryTags(slug: string): Promise<string[]> {
+export async function getPublicGalleryTags(slug: string): Promise<string[]> {
 	// Read from the tags index, an image without tags would be a null tag.
 	const tags = await galleryImageModel.distinct("tags", {
 		...publicImagesFilter(slug, []),
@@ -174,7 +174,7 @@ export async function getGalleryTags(slug: string): Promise<string[]> {
 
 // Returns public news posts newest first. Omitting `limit` returns every item
 // from `startIndex` onwards.
-export async function getNewsPosts(
+export async function getPublicNewsPosts(
 	startIndex: number,
 	limit?: number
 ): Promise<WithId<NewsPost>[]> {
@@ -187,12 +187,12 @@ export async function getNewsPosts(
 	return items.map(withId);
 }
 
-export async function countNewsPosts(): Promise<number> {
+export async function countPublicNewsPosts(): Promise<number> {
 	return newsPostModel.countDocuments(publicNewsFilter());
 }
 
 // A download collection's public items, in order.
-export async function getDownloadCollection(
+export async function getPublicDownloadItems(
 	slug: string
 ): Promise<WithId<DownloadItem>[]> {
 	const items = await sortedDownloadItems({ collection: slug, ...VISIBLE });
@@ -201,7 +201,7 @@ export async function getDownloadCollection(
 
 // Every visible download collection with its public items, sorted by slug:
 // two queries, grouped here.
-export async function getAllDownloadCollections(): Promise<
+export async function getPublicDownloadCollections(): Promise<
 	DownloadCollection[]
 > {
 	const [collections, items] = await Promise.all([
@@ -223,7 +223,7 @@ export async function getAllDownloadCollections(): Promise<
 
 // Returns every visible map season, oldest first. Unpaginated: there's one per
 // season.
-export async function getMapSeasons(): Promise<WithId<MapSeason>[]> {
+export async function getPublicMapSeasons(): Promise<WithId<MapSeason>[]> {
 	const seasons = await mapSeasonModel
 		.find(VISIBLE)
 		.sort({ season: 1 })
