@@ -59,7 +59,7 @@ function checkSize(fields: object): void {
 }
 
 // Creates the draft, or saves it from the revision the client last saw. A
-// repeated create (no startRevision, its response lost) saves nothing and returns
+// repeated create (no startingRevision, its response lost) saves nothing and returns
 // the draft as it is, for the website to carry on from or reconcile.
 export async function saveDraft(
 	owner: string,
@@ -78,14 +78,14 @@ export async function saveDraft(
 	if (stored.type !== body.type) {
 		throw new BadRequestError("type: a draft's type can't change");
 	}
-	if (body.startRevision === undefined) {
+	if (body.startingRevision === undefined) {
 		return { created: false, draft: parseResponse(draftResponse, stored) };
 	}
 
 	const result = await drafts.updateDraft(
 		owner,
 		id,
-		body.startRevision,
+		body.startingRevision,
 		body.fields
 	);
 	if (result.outcome !== "ok") {
@@ -216,14 +216,14 @@ async function writeItem(
 	FIELD_SCHEMAS[type].full.parse(stored.fields ?? {});
 	const { fields, changesFor } = parseUpdate(
 		type,
-		{ ...body, startRevision: target.startRevision },
+		{ ...body, startingRevision: target.startingRevision },
 		now
 	);
 	await checkCollection(type, fields);
 	return editorContent.updateItem(
 		type,
 		target.id,
-		target.startRevision,
+		target.startingRevision,
 		changesFor,
 		editor,
 		now

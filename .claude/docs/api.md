@@ -288,8 +288,8 @@ version once (even when it fails after writing some items).
 `src/managers/drafts.ts` is scoped to the owner, and another editor's draft is a
 `404`, never a `403`. Drafts are checked loosely (`draft` variants, plus
 `MAX_DRAFTS_PER_USER` and `MAX_DRAFT_BYTES`) and keep their own `revision` (a
-save sends it as `startRevision`), so a save from a second device makes the
-first one's next save `409`; a repeated create (no `startRevision`) is `200`
+save sends it as `startingRevision`), so a save from a second device makes the
+first one's next save `409`; a repeated create (no `startingRevision`) is `200`
 with the draft as stored. The list sends only what names each draft and its
 image; `GET /:id` sends its fields. Publishing checks the fields fully, then
 creates the item (with the draft's ID as its `createId`) or updates the one an

@@ -273,16 +273,16 @@ export type DraftContent =
 export interface DraftTarget {
 	id: string;
 	/** The item's revision when the draft started from it. */
-	startRevision: number;
+	startingRevision: number;
 }
 
 /**
- * Creates the draft (no `startRevision`; `target` for an edit) or saves it
- * (`startRevision`: the draft's revision when the save started; `type` must
+ * Creates the draft (no `startingRevision`; `target` for an edit) or saves it
+ * (`startingRevision`: the draft's revision when the save started; `type` must
  * match, `target` is ignored).
  */
 export type DraftSaveRequest = DraftContent & {
-	startRevision?: number;
+	startingRevision?: number;
 	target?: DraftTarget;
 };
 
