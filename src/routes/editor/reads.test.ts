@@ -301,8 +301,21 @@ describe("GET /editor/gallery/images", () => {
 		).toEqual(captions);
 	});
 
-	it("has no scheduled status", async () => {
-		await get("/editor/gallery/images?status=scheduled").expect(400);
+	it("reports a stored future date as live: only news can be scheduled", async () => {
+		await collection("gallery", "images").insertOne({
+			collection: "season5",
+			caption: "Dated",
+			imageUrl: "3.png",
+			date: LATER
+		});
+
+		const list = await get("/editor/gallery/images").expect(200);
+		const live = await get("/editor/gallery/images?status=live").expect(
+			200
+		);
+
+		expect(list.body.items).toMatchObject([{ status: "live" }]);
+		expect(live.body.total).toBe(1);
 	});
 });
 
@@ -438,6 +451,18 @@ describe("GET /editor/gallery/collections", () => {
 			}
 		]);
 		expect(res.headers["cache-control"]).toBe("private, no-cache");
+	});
+});
+
+describe("editor list statuses", () => {
+	it.each([
+		"/editor/gallery/images",
+		"/editor/downloads/items",
+		"/editor/maps/seasons"
+	])("has no scheduled status outside news (%s)", async (url) => {
+		const res = await get(`${url}?status=scheduled`).expect(400);
+
+		expect(res.body.error).toMatch(/status/);
 	});
 });
 

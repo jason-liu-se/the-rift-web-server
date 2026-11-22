@@ -128,13 +128,17 @@ const editorAuditFields = {
 	updatedAt: isoDate.optional()
 };
 
+// Every item's, but news's: only news can be scheduled (NewsStatus).
 const editorFields = {
 	...editorAuditFields,
-	status: z.enum(["live", "scheduled", "hidden"])
+	status: z.enum(["live", "hidden"])
 };
 
 export const editorNewsPost = z.toZod<EditorNewsPost>()(
-	newsPost.extend(editorFields)
+	newsPost.extend({
+		...editorAuditFields,
+		status: z.enum(["live", "scheduled", "hidden"])
+	})
 );
 
 export const editorGalleryImage = z.toZod<EditorGalleryImage>()(
