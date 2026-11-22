@@ -267,7 +267,7 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 //   GET /editor/maps/seasons/:id    EditorMapSeason
 //
 // Lists carry what a table shows; open an item (`/:id`) for all of it.
-// Lists are in the public order and take `startIndex`, `limit` (at most 100,
+// Lists are in the public order and take `startIndex`, `limit` (at most 25,
 // the default), and filters: `mine=true` (created by the caller), `status` (a
 // ContentStatus; `scheduled` only for news), `collection` (a slug; gallery and
 // downloads; an unknown one matches nothing), and a search,
