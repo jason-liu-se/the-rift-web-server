@@ -119,13 +119,13 @@ describe("PUT /editor/drafts/:id", () => {
 		const saved = await editor
 			.put(`/editor/drafts/${id}`, {
 				...newsDraft({ title: "Two" }),
-				revision: 1
+				startRevision: 1
 			})
 			.expect(200);
 		const stale = await editor
 			.put(`/editor/drafts/${id}`, {
 				...newsDraft({ title: "Old tab" }),
-				revision: 1
+				startRevision: 1
 			})
 			.expect(409);
 
@@ -153,7 +153,7 @@ describe("PUT /editor/drafts/:id", () => {
 	});
 
 	it("keeps one edit draft per editor per item", async () => {
-		const target = { id: await seedPost(), revision: 3 };
+		const target = { id: await seedPost(), startRevision: 3 };
 		const { id: first } = await createDraft({ ...newsDraft(), target });
 
 		const res = await editor
@@ -167,7 +167,10 @@ describe("PUT /editor/drafts/:id", () => {
 	});
 
 	it("answers 404 for an edit draft of a missing item", async () => {
-		const target = { id: new Types.ObjectId().toHexString(), revision: 0 };
+		const target = {
+			id: new Types.ObjectId().toHexString(),
+			startRevision: 0
+		};
 
 		await editor
 			.put(`/editor/drafts/${randomUUID()}`, { ...newsDraft(), target })
@@ -178,7 +181,7 @@ describe("PUT /editor/drafts/:id", () => {
 		const { id } = await createDraft();
 
 		const res = await other
-			.put(`/editor/drafts/${id}`, { ...newsDraft(), revision: 1 })
+			.put(`/editor/drafts/${id}`, { ...newsDraft(), startRevision: 1 })
 			.expect(404);
 
 		expect(res.body).toEqual({ error: `ERROR: draft '${id}' not found` });
@@ -216,7 +219,7 @@ describe("PUT /editor/drafts/:id", () => {
 			.put(`/editor/drafts/${id}`, {
 				type: "gallery",
 				fields: {},
-				revision: 1
+				startRevision: 1
 			})
 			.expect(400);
 	});
@@ -328,7 +331,7 @@ describe("POST /editor/drafts/:id/publish", () => {
 		await editor
 			.put(`/editor/drafts/${id}`, {
 				...newsDraft({ title: "Newer" }),
-				revision: 1
+				startRevision: 1
 			})
 			.expect(200);
 
@@ -363,7 +366,7 @@ describe("POST /editor/drafts/:id/publish", () => {
 	});
 
 	it("updates the item an edit draft started from, keeping its date", async () => {
-		const target = { id: await seedPost(), revision: 3 };
+		const target = { id: await seedPost(), startRevision: 3 };
 		const { id } = await createDraft({
 			type: "news",
 			fields: { title: "Edited", content: "New" },
@@ -387,7 +390,7 @@ describe("POST /editor/drafts/:id/publish", () => {
 	});
 
 	it("answers 409 with the item when it changed since the draft started", async () => {
-		const target = { id: await seedPost(), revision: 3 };
+		const target = { id: await seedPost(), startRevision: 3 };
 		const { id } = await createDraft({
 			type: "news",
 			fields: { title: "Mine", content: "Mine" },
@@ -407,7 +410,7 @@ describe("POST /editor/drafts/:id/publish", () => {
 	});
 
 	it("answers 404 when the item was deleted, then publishes it as new", async () => {
-		const target = { id: await seedPost(), revision: 3 };
+		const target = { id: await seedPost(), startRevision: 3 };
 		const { id } = await createDraft({
 			type: "news",
 			fields: { title: "Kept", content: "Kept" },
