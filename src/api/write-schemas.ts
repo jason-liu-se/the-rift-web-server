@@ -58,7 +58,12 @@ const tooManyTags = { error: `at most ${MAX_TAGS_PER_IMAGE} tags` };
 
 // Capped before normalising too, so a huge list is refused unread.
 const tags = z
-	.array(text(MAX_TAG_LENGTH).regex(/^[^,]*$/, "can't contain commas"))
+	.array(
+		text(MAX_TAG_LENGTH).regex(
+			/^[a-z0-9 ]*$/i,
+			"may contain only letters, digits, and spaces"
+		)
+	)
 	.max(MAX_TAGS_PER_IMAGE, tooManyTags)
 	.transform(normaliseTags)
 	.pipe(z.array(z.string()).max(MAX_TAGS_PER_IMAGE, tooManyTags));
