@@ -186,13 +186,12 @@ keep it hidden for up to a day. Areas registered in
 `GET /content/version/:area` (never cached, `404` for an unknown area), which
 callers send as `?dv=` with `v` on that area's routes. `cacheByContentVersion`
 caches them only when both are current; otherwise they're current content with
-`no-store`, and a `dv` that isn't `^\d+-\d+$` is `400` (other routes ignore
-`dv`). News's is `<date ms>-<revision>` of the newest public post (`0-0` with
-none), computed on every read, so it changes when a post goes live, and when the
-newest public post is hidden, deleted, or moved later (falling back to the next
-newest). It can return to an earlier value then, which is safe: each of those is
-a write, so `v` changed too. A new area is one entry: its routes and how to
-compute its key.
+`no-store`, and a `dv` that isn't digits is `400` (other routes ignore `dv`).
+News's is the date (ms) of the newest public post (`0` with none), computed on
+every read, so it changes when a post goes live. Only the date: every other
+change (an edit, hide, delete, or move) is a write, so `v` changes anyway, and
+`dv` may then return to an earlier value safely. A new area is one entry: its
+routes and how to compute its key.
 
 A cached response is shared by every caller, so it mustn't depend on who asks:
 no `Set-Cookie`, nothing from the session, and CORS headers that don't vary by
