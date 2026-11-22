@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { Types } from "mongoose";
+import { MAX_SEARCH_QUERY_LENGTH } from "../../config/content-limits.ts";
+import { MAX_EDITOR_PAGE_SIZE } from "../../config/requests.ts";
 import { app } from "../../../test/app.ts";
 import {
 	clearDatabase,
@@ -181,8 +183,11 @@ describe("GET /editor/news", () => {
 		["status=draft", /status/],
 		["in=caption", /in/],
 		["mine=maybe", /mine/],
-		[`q=${"a".repeat(101)}`, /q must be at most 100 characters/],
-		["limit=101", /limit/],
+		[
+			`q=${"a".repeat(MAX_SEARCH_QUERY_LENGTH + 1)}`,
+			`q must be at most ${MAX_SEARCH_QUERY_LENGTH} characters`
+		],
+		[`limit=${MAX_EDITOR_PAGE_SIZE + 1}`, /limit/],
 		["limit=0", /limit/],
 		["startIndex=-1", /startIndex/],
 		// Express's simple query parser never makes objects (`q[$ne]` is just
@@ -433,5 +438,22 @@ describe("GET /editor/gallery/collections", () => {
 			}
 		]);
 		expect(res.headers["cache-control"]).toBe("private, no-cache");
+	});
+});
+
+describe("editor list pages", () => {
+	it("sends at most MAX_EDITOR_PAGE_SIZE items by default", async () => {
+		await collection("news", "posts").insertMany(
+			Array.from({ length: MAX_EDITOR_PAGE_SIZE + 1 }, (_, i) => ({
+				title: `Post ${i}`,
+				content: "c",
+				date: new Date(2026, 0, 1 + i)
+			}))
+		);
+
+		const res = await get("/editor/news").expect(200);
+
+		expect(res.body.items).toHaveLength(MAX_EDITOR_PAGE_SIZE);
+		expect(res.body.total).toBe(MAX_EDITOR_PAGE_SIZE + 1);
 	});
 });

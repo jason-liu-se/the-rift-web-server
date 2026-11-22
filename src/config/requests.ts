@@ -4,4 +4,4 @@
 export const JSON_BODY_LIMIT = "100kb";
 
 /** The most items an editor list returns at once, and its default `limit`. */
-export const MAX_EDITOR_PAGE_SIZE = 100;
+export const MAX_EDITOR_PAGE_SIZE = 25;
