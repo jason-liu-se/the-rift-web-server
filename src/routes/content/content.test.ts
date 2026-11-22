@@ -8,15 +8,15 @@ import {
 	vi
 } from "vitest";
 import request from "supertest";
-import * as mongoManager from "../helpers/mongo-manager.ts";
-import { app } from "../../test/app.ts";
+import * as mongoManager from "../../managers/mongo-manager.ts";
+import { app } from "../../../test/app.ts";
 import {
 	clearDatabase,
 	collection,
 	startDatabase,
 	stopDatabase
-} from "../../test/database.ts";
-import { expectContractError } from "../../test/responses.ts";
+} from "../../../test/database.ts";
+import { expectContractError } from "../../../test/responses.ts";
 
 beforeAll(startDatabase);
 afterEach(async () => {

@@ -191,10 +191,11 @@ src/
 ├── config/       Environment variables and tunable settings
 ├── contract/     Response types shared with the website
 ├── errors/       Errors mapped to status codes
-├── helpers/      MongoDB, Redis, and Discord access
+├── helpers/      Discord access
+├── managers/     MongoDB and Redis access
 ├── middleware/   CORS, sessions, error handler
 ├── models/       Mongoose schemas
-├── routes/       Routers and request/response schemas
+├── routes/       Routers, one folder per URL group
 ├── app.ts        Builds the Express app
 └── index.ts      Entry point
 test/             Test helpers

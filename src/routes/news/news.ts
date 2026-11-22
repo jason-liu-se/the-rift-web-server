@@ -1,12 +1,12 @@
 import express from "express";
-import { cacheByContentVersion } from "../middleware/cache-control.ts";
-import * as mongoManager from "../helpers/mongo-manager.ts";
-import { paginationQuery } from "../api/query-schemas.ts";
+import { cacheByContentVersion } from "../../middleware/cache-control.ts";
+import * as mongoManager from "../../managers/mongo-manager.ts";
+import { paginationQuery } from "../../api/query-schemas.ts";
 import {
 	countResponse,
 	newsPostsPage,
 	parseResponse
-} from "../api/response-schemas.ts";
+} from "../../api/response-schemas.ts";
 
 export const newsRouter = express.Router();
 

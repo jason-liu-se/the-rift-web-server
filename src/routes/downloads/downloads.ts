@@ -1,13 +1,13 @@
 import express from "express";
-import { NotFoundError } from "../errors/not-found-error.ts";
-import { cacheByContentVersion } from "../middleware/cache-control.ts";
-import * as mongoManager from "../helpers/mongo-manager.ts";
-import { collectionParams } from "../api/query-schemas.ts";
+import { NotFoundError } from "../../errors/not-found-error.ts";
+import { cacheByContentVersion } from "../../middleware/cache-control.ts";
+import * as mongoManager from "../../managers/mongo-manager.ts";
+import { collectionParams } from "../../api/query-schemas.ts";
 import {
 	downloadCollections,
 	downloadItems,
 	parseResponse
-} from "../api/response-schemas.ts";
+} from "../../api/response-schemas.ts";
 
 export const downloadsRouter = express.Router();
 

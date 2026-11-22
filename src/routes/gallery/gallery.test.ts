@@ -1,14 +1,14 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { Types } from "mongoose";
-import { app } from "../../test/app.ts";
+import { app } from "../../../test/app.ts";
 import {
 	clearDatabase,
 	collection,
 	startDatabase,
 	stopDatabase
-} from "../../test/database.ts";
-import { expectContractError } from "../../test/responses.ts";
+} from "../../../test/database.ts";
+import { expectContractError } from "../../../test/responses.ts";
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);
