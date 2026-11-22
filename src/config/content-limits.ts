@@ -13,8 +13,8 @@ export const MAX_COLLECTION_SLUG_LENGTH = 40;
 export const MAX_COLLECTION_TITLE_LENGTH = 60;
 
 /** Tags per gallery image, and each tag's length. */
-export const MAX_TAGS_PER_IMAGE = 10;
-export const MAX_TAG_LENGTH = 32;
+export const MAX_TAGS_PER_IMAGE = 5;
+export const MAX_TAG_LENGTH = 16;
 
 /** Any URL: images, downloads, links. */
 export const MAX_URL_LENGTH = 2000;
