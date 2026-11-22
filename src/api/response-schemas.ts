@@ -222,7 +222,7 @@ const draftFields = {
 	id: z.string(),
 	revision: z.number().int(),
 	target: z
-		.object({ id: z.string(), startRevision: z.number().int() })
+		.object({ id: z.string(), startingRevision: z.number().int() })
 		.optional(),
 	createdAt: isoDate,
 	updatedAt: isoDate
