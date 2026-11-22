@@ -13,6 +13,7 @@ import {
 	parseResponse
 } from "../api/response-schemas.ts";
 import {
+	CONTENT_TYPES,
 	type CollectionTypeName,
 	type CollectionWriteResult,
 	type ContentTypeName,
@@ -44,12 +45,6 @@ export function itemNotFound(typeName: ContentTypeName, id: string) {
 	return new NotFoundError(`${ITEM_NAMES[typeName]} '${id}'`);
 }
 
-function isCollectionType(
-	typeName: ContentTypeName
-): typeName is CollectionTypeName {
-	return typeName === "gallery" || typeName === "downloads";
-}
-
 // An item may only name a collection that exists (public or not).
 export async function checkCollection(
 	typeName: ContentTypeName,
@@ -57,7 +52,7 @@ export async function checkCollection(
 ): Promise<void> {
 	const { collection } = fields;
 	if (
-		isCollectionType(typeName) &&
+		CONTENT_TYPES[typeName].collectionModel &&
 		typeof collection === "string" &&
 		!(await hasCollection(typeName, collection))
 	) {
