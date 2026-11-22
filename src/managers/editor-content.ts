@@ -4,7 +4,7 @@
 // content type (CONTENT_TYPES) holds what differs, so each query is written
 // once.
 import type { Model, PipelineStage, Types } from "mongoose";
-import type { ContentStatus } from "../contract/api-responses.ts";
+import type { NewsStatus } from "../contract/api-responses.ts";
 import type { Audited } from "../models/audit-fields.ts";
 import type { ContentCollection } from "../models/content-collection-schema.ts";
 import {
@@ -40,7 +40,7 @@ export interface StoredItem extends Audited {
 
 export type EditorItem = Omit<StoredItem, "_id"> & {
 	readonly id: string;
-	readonly status: ContentStatus;
+	readonly status: NewsStatus;
 };
 
 // A search in one field: `pattern` is the escaped, case-insensitive query.
@@ -48,8 +48,8 @@ type SearchField = (pattern: RegExp, query: string) => object;
 
 interface ContentType {
 	readonly model: Model<StoredItem>;
-	/** The statuses its items can have. */
-	readonly statuses: readonly ContentStatus[];
+	/** The statuses its items can have, and how each is found. */
+	readonly statuses: StatusRules;
 	readonly searchFields: Readonly<Record<string, SearchField>>;
 	/** The public order. */
 	readonly sort: PipelineStage[];
@@ -63,7 +63,47 @@ const textSearch =
 	(field: string): SearchField =>
 	(pattern) => ({ [field]: pattern });
 
-const WITHOUT_SCHEDULE: readonly ContentStatus[] = ["live", "hidden"];
+// Missing `visible` (documents from before the editor tools) counts as
+// visible.
+const VISIBLE = { visible: { $ne: false } };
+const HIDDEN = { visible: false };
+
+interface StatusRules {
+	/** An item's status. */
+	readonly of: (item: StoredItem, now: Date) => NewsStatus;
+	/** The filter for each status the type has (its list's `status`). */
+	readonly filters: Readonly<
+		Partial<Record<NewsStatus, (now: Date) => object>>
+	>;
+}
+
+// Every type's but news's: live when visible, else hidden.
+const LIVE_OR_HIDDEN: StatusRules = {
+	of: (item) => (item.visible === false ? "hidden" : "live"),
+	filters: { live: () => VISIBLE, hidden: () => HIDDEN }
+};
+
+// News also has `scheduled`: visible, but its date hasn't come.
+const NEWS_STATUSES: StatusRules = {
+	of: (item, now) => {
+		if (item.visible === false) {
+			return "hidden";
+		}
+		return item.date && item.date > now ? "scheduled" : "live";
+	},
+	filters: {
+		live: (now) => ({ ...VISIBLE, date: { $not: { $gt: now } } }),
+		scheduled: (now) => ({ ...VISIBLE, date: { $gt: now } }),
+		hidden: () => HIDDEN
+	}
+};
+
+// The statuses a type's list can filter by.
+export function statusesOf(typeName: ContentTypeName): NewsStatus[] {
+	return Object.keys(
+		CONTENT_TYPES[typeName].statuses.filters
+	) as NewsStatus[];
+}
 
 // Models of different documents share these queries; each is cast once here.
 function storedItems(model: object): Model<StoredItem> {
@@ -73,7 +113,7 @@ function storedItems(model: object): Model<StoredItem> {
 export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 	news: {
 		model: storedItems(newsPostModel),
-		statuses: ["live", "scheduled", "hidden"],
+		statuses: NEWS_STATUSES,
 		searchFields: {
 			title: textSearch("title"),
 			content: textSearch("content")
@@ -83,7 +123,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 	},
 	gallery: {
 		model: storedItems(galleryImageModel),
-		statuses: WITHOUT_SCHEDULE,
+		statuses: LIVE_OR_HIDDEN,
 		searchFields: {
 			caption: textSearch("caption"),
 			tags: textSearch("tags")
@@ -94,7 +134,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 	},
 	downloads: {
 		model: storedItems(downloadItemModel),
-		statuses: WITHOUT_SCHEDULE,
+		statuses: LIVE_OR_HIDDEN,
 		searchFields: {
 			title: textSearch("title"),
 			desc: textSearch("desc")
@@ -115,7 +155,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 	},
 	maps: {
 		model: storedItems(mapSeasonModel),
-		statuses: WITHOUT_SCHEDULE,
+		statuses: LIVE_OR_HIDDEN,
 		searchFields: {
 			// A season is a number, so only a whole-number query matches it.
 			season: (_pattern, query) =>
@@ -134,27 +174,18 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 	}
 };
 
-// Missing `visible` (documents from before the editor tools) counts as
-// visible.
-const VISIBLE = { visible: { $ne: false } };
-
-export function contentStatus(item: StoredItem, now: Date): ContentStatus {
-	if (item.visible === false) {
-		return "hidden";
+// A status the type doesn't have is a bug: the list query only takes the
+// type's own (statusesOf).
+function statusFilter(
+	type: ContentType,
+	status: NewsStatus,
+	now: Date
+): object {
+	const filter = type.statuses.filters[status];
+	if (!filter) {
+		throw new Error(`no '${status}' status for this content type`);
 	}
-	return item.date && item.date > now ? "scheduled" : "live";
-}
-
-function statusFilter(status: ContentStatus, now: Date): object {
-	switch (status) {
-		case "hidden":
-			return { visible: false };
-		case "scheduled":
-			return { ...VISIBLE, date: { $gt: now } };
-		case "live":
-			// Only news has dates; other items are live whenever visible.
-			return { ...VISIBLE, date: { $not: { $gt: now } } };
-	}
+	return filter(now);
 }
 
 function escapeRegExp(text: string): string {
@@ -166,7 +197,7 @@ export interface EditorListQuery {
 	readonly limit?: number;
 	/** Only items created by this Discord user. */
 	readonly createdBy?: string;
-	readonly status?: ContentStatus;
+	readonly status?: NewsStatus;
 	readonly collection?: string;
 	/** A search, in the fields `searchIn` names (all of the type's if empty). */
 	readonly q?: string;
@@ -183,7 +214,7 @@ function listFilter(
 		filters.push({ "createdBy.id": query.createdBy });
 	}
 	if (query.status) {
-		filters.push(statusFilter(query.status, now));
+		filters.push(statusFilter(type, query.status, now));
 	}
 	if (query.collection !== undefined) {
 		filters.push({ collection: query.collection });
@@ -205,11 +236,16 @@ function listFilter(
 	return filters.length > 0 ? { $and: filters } : {};
 }
 
-function toEditorItem({ _id, ...fields }: StoredItem, now: Date): EditorItem {
+function toEditorItem(
+	type: ContentType,
+	item: StoredItem,
+	now: Date
+): EditorItem {
+	const { _id, ...fields } = item;
 	return {
 		...fields,
 		id: _id.toHexString(),
-		status: contentStatus({ _id, ...fields }, now)
+		status: type.statuses.of(item, now)
 	};
 }
 
@@ -236,7 +272,7 @@ export async function listItems(
 		]),
 		type.model.countDocuments(filter)
 	]);
-	return { items: items.map((item) => toEditorItem(item, now)), total };
+	return { items: items.map((item) => toEditorItem(type, item, now)), total };
 }
 
 // One item, public or not, or undefined when there's none.
@@ -245,8 +281,9 @@ export async function getItem(
 	id: string,
 	now = new Date()
 ): Promise<EditorItem | undefined> {
-	const item = await CONTENT_TYPES[typeName].model.findById(id).lean();
-	return item ? toEditorItem(item as StoredItem, now) : undefined;
+	const type = CONTENT_TYPES[typeName];
+	const item = await type.model.findById(id).lean();
+	return item ? toEditorItem(type, item as StoredItem, now) : undefined;
 }
 
 export interface EditorCollectionSummary extends ContentCollection {

@@ -269,7 +269,7 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 // Lists carry what a table shows; open an item (`/:id`) for all of it.
 // Lists are in the public order and take `startIndex`, `limit` (at most 25,
 // the default), and filters: `mine=true` (created by the caller), `status` (a
-// ContentStatus; `scheduled` only for news), `collection` (a slug; gallery and
+// ContentStatus, or for news a NewsStatus), `collection` (a slug; gallery and
 // downloads; an unknown one matches nothing), and a search,
 // `q` (case-insensitive, at most 100 characters) in the fields `in` names
 // (comma-separated, default all): news `title,content`, gallery
@@ -285,10 +285,12 @@ export interface EditorRef {
 
 /**
  * - `live`: anyone can see it
- * - `scheduled`: visible, but its date hasn't come (news only)
  * - `hidden`: only in the editor tools
  */
-export type ContentStatus = "live" | "scheduled" | "hidden";
+export type ContentStatus = "live" | "hidden";
+
+/** News also has `scheduled`: visible, but its date hasn't come. */
+export type NewsStatus = ContentStatus | "scheduled";
 
 /**
  * What every item and collection the editor reads has. Old ones lack the
@@ -307,12 +309,14 @@ export interface EditorAuditFields {
 }
 
 /** What every item the editor reads has. */
-export interface EditorFields extends EditorAuditFields {
+export interface EditorFields<
+	Status extends NewsStatus = ContentStatus
+> extends EditorAuditFields {
 	/** From the item alone: an item in a hidden collection can be live. */
-	status: ContentStatus;
+	status: Status;
 }
 
-export type EditorNewsPost = NewsPost & EditorFields;
+export type EditorNewsPost = NewsPost & EditorFields<NewsStatus>;
 
 export type EditorGalleryImage = GalleryImage &
 	EditorFields & {
