@@ -44,7 +44,7 @@
 // version, so send it on every public read to see edits on the next page load.
 // /news and /news/count also take `dv`, the current DetailVersion of `news`:
 // they're cached only when both `v` and `dv` are current, so a scheduled post
-// shows once its date comes. A `dv` that isn't `<digits>-<digits>` is 400.
+// shows once its date comes. A `dv` that isn't digits is 400.
 
 export interface NewsPost {
 	id: string;

@@ -113,70 +113,64 @@ describe("GET /content/version/:area", () => {
 		return res.body.version;
 	}
 
-	it("is 0-0 for news when no post is public", async () => {
-		expect(await newsVersion()).toBe("0-0");
+	it("is 0 for news when no post is public", async () => {
+		expect(await newsVersion()).toBe("0");
 	});
 
-	it("is the newest public post's date and revision", async () => {
+	it("is the newest public post's date", async () => {
 		await Promise.all([
-			seedPost({ date: PAST, revision: 3 }),
-			seedPost({ date: OLDER, revision: 9 })
+			seedPost({ date: PAST }),
+			seedPost({ date: OLDER })
 		]);
 
-		expect(await newsVersion()).toBe(`${PAST.getTime()}-3`);
-	});
-
-	it("counts a missing revision as 0", async () => {
-		await seedPost({ date: PAST });
-
-		expect(await newsVersion()).toBe(`${PAST.getTime()}-0`);
+		expect(await newsVersion()).toBe(String(PAST.getTime()));
 	});
 
 	it("skips hidden and scheduled posts for the next newest public one", async () => {
 		await Promise.all([
-			seedPost({ date: OLDER, revision: 1 }),
-			seedPost({ date: PAST, revision: 2, visible: false }),
-			seedPost({ date: new Date(Date.now() + 60_000), revision: 1 })
+			seedPost({ date: OLDER }),
+			seedPost({ date: PAST, visible: false }),
+			seedPost({ date: new Date(Date.now() + 60_000) })
 		]);
 
-		expect(await newsVersion()).toBe(`${OLDER.getTime()}-1`);
+		expect(await newsVersion()).toBe(String(OLDER.getTime()));
 	});
 
 	it("changes when a scheduled post goes live, without a write", async () => {
 		const soon = new Date(Date.now() + 60_000);
 		await Promise.all([
-			seedPost({ date: OLDER, revision: 1 }),
-			seedPost({ date: soon, revision: 1 })
+			seedPost({ date: OLDER }),
+			seedPost({ date: soon })
 		]);
-		expect(await newsVersion()).toBe(`${OLDER.getTime()}-1`);
+		expect(await newsVersion()).toBe(String(OLDER.getTime()));
 
 		// Only Date: MongoDB's driver still needs real timers.
 		vi.useFakeTimers({ toFake: ["Date"] });
 		vi.setSystemTime(Date.now() + 120_000);
 
-		expect(await newsVersion()).toBe(`${soon.getTime()}-1`);
+		expect(await newsVersion()).toBe(String(soon.getTime()));
 	});
 
 	it("goes back to the next newest post when the newest is deleted", async () => {
-		await seedPost({ date: OLDER, revision: 1 });
-		const { insertedId } = await seedPost({ date: PAST, revision: 1 });
-		expect(await newsVersion()).toBe(`${PAST.getTime()}-1`);
+		await seedPost({ date: OLDER });
+		const { insertedId } = await seedPost({ date: PAST });
+		expect(await newsVersion()).toBe(String(PAST.getTime()));
 
 		await collection("news", "posts").deleteOne({ _id: insertedId });
 
-		expect(await newsVersion()).toBe(`${OLDER.getTime()}-1`);
+		expect(await newsVersion()).toBe(String(OLDER.getTime()));
 	});
 
 	it("goes back to the next newest post when the newest moves later", async () => {
-		await seedPost({ date: OLDER, revision: 1 });
-		const { insertedId } = await seedPost({ date: PAST, revision: 1 });
+		await seedPost({ date: OLDER });
+		const { insertedId } = await seedPost({ date: PAST });
 
 		await collection("news", "posts").updateOne(
 			{ _id: insertedId },
-			{ $set: { date: new Date(Date.now() + 60_000), revision: 2 } }
+			{ $set: { date: new Date(Date.now() + 60_000) } }
 		);
 
-		expect(await newsVersion()).toBe(`${OLDER.getTime()}-1`);
+		expect(await newsVersion()).toBe(String(OLDER.getTime()));
 	});
 
 	it.each(["gallery", "constructor", "__proto__"])(

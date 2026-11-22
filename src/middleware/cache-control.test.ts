@@ -40,7 +40,7 @@ const VERSION = 1763500000000;
 const NEVER_CACHED = ["/health", "/content/version", "/content/version/:area"];
 
 // The news detail version with no news posts seeded.
-const NO_NEWS = "0-0";
+const NO_NEWS = "0";
 
 // Every other public read, with a URL that answers 200.
 const CACHEABLE_ROUTES = [
@@ -199,7 +199,7 @@ describe("Cache-Control", () => {
 
 			it.each([
 				["no dv", current],
-				["an old dv", `${current}&dv=1-0`]
+				["an old dv", `${current}&dv=1`]
 			])(
 				"answers %s with current content, never cached",
 				async (_name, uncachedUrl) => {
@@ -231,14 +231,14 @@ describe("Cache-Control", () => {
 				const [old, live] = await Promise.all([
 					request(app).get(`${current}&dv=${NO_NEWS}`).expect(200),
 					request(app)
-						.get(`${current}&dv=${soon.getTime()}-0`)
+						.get(`${current}&dv=${soon.getTime()}`)
 						.expect(200)
 				]);
 				expect(old.headers["cache-control"]).toBe("no-store");
 				expect(live.headers).toMatchObject(VERSIONED);
 			});
 
-			it.each(["abc", "1", "1-", "-1", "1-2-3"])(
+			it.each(["abc", "1-0", "-1", "1.5"])(
 				"answers 400 when dv isn't a detail version (%s)",
 				async (dv) => {
 					const res = await request(app)
