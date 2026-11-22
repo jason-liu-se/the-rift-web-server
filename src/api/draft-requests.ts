@@ -11,7 +11,7 @@ import {
 	mapSeasonFields,
 	newsDate,
 	newsPostFields,
-	revision
+	startRevision
 } from "./write-schemas.ts";
 
 export const contentType = z.enum(CONTENT_TYPE_NAMES);
@@ -23,8 +23,8 @@ export const draftsQuery = queryFor<DraftListQuery>()({
 });
 
 const saveOptions = {
-	revision: revision.optional(),
-	target: idParams.extend({ revision }).optional()
+	startRevision: startRevision.optional(),
+	target: idParams.extend({ startRevision }).optional()
 };
 
 export const draftSaveRequest = z.discriminatedUnion("type", [
