@@ -164,7 +164,9 @@ describe("Cache-Control", () => {
 
 			const res = await request(app).get(withVersion("abc")).expect(400);
 
-			expect(res.body.error).toMatch(/v must be a content version/);
+			expect(res.body).toEqual({
+				error: "ERROR: invalid request parameters (v: must be a whole number, the version from GET /content/version)"
+			});
 			expect(res.headers["cache-control"]).toBe("no-store");
 		});
 	});
@@ -181,6 +183,15 @@ describe("Cache-Control", () => {
 				publicReads.filter((path) => path.startsWith("/news"))
 			)
 		);
+	});
+
+	it("caches outside a detail-version area without dv", async () => {
+		await seedCollections();
+
+		await request(app)
+			.get(`/gallery?v=${VERSION}`)
+			.expect(200)
+			.expect("cache-control", VERSIONED["cache-control"]);
 	});
 
 	it("ignores dv outside a detail-version area", async () => {
@@ -245,9 +256,9 @@ describe("Cache-Control", () => {
 						.get(`${current}&dv=${dv}`)
 						.expect(400);
 
-					expect(res.body.error).toMatch(
-						/dv must be a detail version/
-					);
+					expect(res.body).toEqual({
+						error: "ERROR: invalid request parameters (dv: must be a whole number, the version from GET /content/version/:area)"
+					});
 				}
 			);
 		}
