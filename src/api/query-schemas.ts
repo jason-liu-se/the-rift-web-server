@@ -10,7 +10,10 @@ export const COLLECTION_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export const collectionSlug = z
 	.string({ error: "a collection slug is required" })
-	.max(MAX_COLLECTION_SLUG_LENGTH, "invalid collection name")
+	.max(
+		MAX_COLLECTION_SLUG_LENGTH,
+		`collection name must be at most ${MAX_COLLECTION_SLUG_LENGTH} characters`
+	)
 	.regex(COLLECTION_SLUG, "invalid collection name");
 
 // For routes shaped like `/:collection`.
