@@ -7,7 +7,7 @@ import { handleError } from "./error-handler.ts";
 
 const CONTENT_VERSION = 1;
 
-vi.mock(import("../helpers/mongo-manager.ts"), () => ({
+vi.mock(import("../managers/mongo-manager.ts"), () => ({
 	getContentVersion: () => Promise.resolve(CONTENT_VERSION)
 }));
 

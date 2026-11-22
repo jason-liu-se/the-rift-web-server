@@ -1,6 +1,6 @@
 import express from "express";
-import * as mongoManager from "../helpers/mongo-manager.ts";
-import { contentVersion, parseResponse } from "../api/response-schemas.ts";
+import * as mongoManager from "../../managers/mongo-manager.ts";
+import { contentVersion, parseResponse } from "../../api/response-schemas.ts";
 
 export const contentRouter = express.Router();
 

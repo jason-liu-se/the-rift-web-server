@@ -1,13 +1,14 @@
 ---
 paths:
     - "src/helpers/**/*"
+    - "src/managers/**/*"
     - "src/models/**/*"
     - "test/database.ts"
 ---
 
 # Database
 
-`src/helpers/mongo-manager.ts` owns the connection and every query, and returns
+`src/managers/mongo-manager.ts` owns the connection and every query, and returns
 plain results. Routers never import models.
 
 ## Layout
@@ -27,9 +28,9 @@ per file in `src/models/`:
 Content and access grants are added to MongoDB directly; the server writes only
 the content version (`getContentVersion` creates it if missing,
 `updateContentVersion` changes it after a write). Login sessions and their
-refresh token hashes live in Redis instead (`src/helpers/redis-manager.ts`, keys
-`session:<session ID>`); see `.claude/docs/api.md` "Sessions". Discord IDs are
-stored as strings (numbers lose precision).
+refresh token hashes live in Redis instead (`src/managers/redis-manager.ts`,
+keys `session:<session ID>`); see `.claude/docs/api.md` "Sessions". Discord IDs
+are stored as strings (numbers lose precision).
 
 - Collection names are used as given: pluralization and auto-creation are off.
   Models compiled on import (before `connect` turns pluralization off) pass

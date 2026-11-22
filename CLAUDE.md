@@ -38,14 +38,18 @@ edited.
 - **`createApp` (`src/app.ts`) builds the app; `src/index.ts` runs it**
   (validates the environment, connects to MongoDB and Redis, listens, shuts down
   gracefully).
-- **Routers** (`src/routes/`) validate input with Zod, call `mongo-manager`, and
-  send bodies through the response schemas. They don't catch errors; the handler
-  in `src/middleware/error-handler.ts` maps them to status codes.
+- **Routers** (`src/routes/<group>/`, one folder per URL group: `auth`,
+  `editor`, `gallery`, ...) validate input with Zod, call the managers and
+  helpers, and send bodies through the response schemas. A route file holds only
+  its routers; logic they share or that isn't routing (checks, turning a write's
+  outcome into a response, bulk actions) lives in `src/helpers/`. They don't
+  catch errors; the handler in `src/middleware/error-handler.ts` maps them to
+  status codes.
 - **Routes are private unless listed in `src/api/public-routes.ts`**:
   `requireLogin` answers `401` to everything else when nobody is logged in.
-- **`src/helpers/mongo-manager.ts` owns all database access**, and
-  `src/helpers/redis-manager.ts` all Redis access. Routers never touch models or
-  the Redis client.
+- **`src/managers/mongo-manager.ts` owns all database access**, and
+  `src/managers/redis-manager.ts` all Redis access. Routers never touch models
+  or the Redis client.
 - **`src/contract/api-responses.ts` is the contract with the website**, which
   keeps a verbatim copy. Endpoint paths, parameters, and response shapes must be
   changed conservatively since the frontend must be updated to maintain

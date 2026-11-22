@@ -1,16 +1,16 @@
 import express, { type Request, type Router } from "express";
-import { finishLogin, startLogin } from "../auth/discord-login.ts";
-import { endSession, refreshSession } from "../auth/refresh-tokens.ts";
+import { finishLogin, startLogin } from "../../auth/discord-login.ts";
+import { endSession, refreshSession } from "../../auth/refresh-tokens.ts";
 import {
 	REFRESH_COOKIE,
 	clearSessionCookies,
 	setSessionCookies
-} from "../auth/session-cookie.ts";
-import { CURRENT_USER_PATH, LOGIN_CALLBACK_PATH } from "../config/auth.ts";
-import type { AppConfig } from "../config/env.ts";
-import { UnauthorizedError } from "../errors/unauthorized-error.ts";
-import { cookieValue } from "../api/query-schemas.ts";
-import { parseResponse, sessionUser } from "../api/response-schemas.ts";
+} from "../../auth/session-cookie.ts";
+import { CURRENT_USER_PATH, LOGIN_CALLBACK_PATH } from "../../config/auth.ts";
+import type { AppConfig } from "../../config/env.ts";
+import { UnauthorizedError } from "../../errors/unauthorized-error.ts";
+import { cookieValue } from "../../api/query-schemas.ts";
+import { parseResponse, sessionUser } from "../../api/response-schemas.ts";
 
 export function authRouter(config: AppConfig): Router {
 	const router = express.Router();

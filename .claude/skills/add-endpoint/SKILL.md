@@ -31,7 +31,7 @@ file dependency-free.
 
 ## 4. Data access
 
-Add, edit, or reuse a function in `src/helpers/mongo-manager.ts`. Keep reads
+Add, edit, or reuse a function in `src/managers/mongo-manager.ts`. Keep reads
 bounded, and let MongoDB filter, sort, and paginate. A new database needs a
 model in `src/models/`, and its database added to `DATABASES` in
 `test/database.ts`.
