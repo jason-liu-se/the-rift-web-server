@@ -20,7 +20,7 @@ import { PUBLIC_ROUTES } from "./api/public-routes.ts";
 import { authRouter } from "./routes/auth/auth.ts";
 import { contentRouter } from "./routes/content/content.ts";
 import { draftsRouter } from "./routes/editor/drafts.ts";
-import { IMAGE_UPLOAD_PATH, imagesRouter } from "./routes/images.ts";
+import { IMAGE_UPLOAD_PATH, imagesRouter } from "./routes/editor/images.ts";
 import { editorCollectionsRouter } from "./routes/editor/collections.ts";
 import { editorItemsRouter } from "./routes/editor/items.ts";
 import { newsRouter } from "./routes/news/news.ts";
