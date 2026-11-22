@@ -32,6 +32,8 @@ database, or Redis is needed; the first run downloads a MongoDB binary.
   check changes to it against a real Redis.
 - `test/responses.ts`: `expectContractError(path)` asserts a `500` with the
   generic body when stored data breaks the contract.
+- `test/routes.ts`: `definedRoutes()` lists every route the app defines, so a
+  test can check it covers every route of a kind.
 - Assert status codes, full response bodies, and errors. Cover the `400`
   (invalid params) and `404` (missing collection) paths, not just success.
 
