@@ -127,6 +127,18 @@ const WRITES: Record<string, Write> = {
 							)
 							.expect(204);
 					}
+				],
+				[
+					`post ${prefix}/bulk`,
+					async (e: Editor) => {
+						await seed();
+						return e
+							.post(`${prefix}/bulk`, {
+								action: "hide",
+								items: [{ id: ID.toHexString(), revision: 0 }]
+							})
+							.expect(200);
+					}
 				]
 			];
 		})
