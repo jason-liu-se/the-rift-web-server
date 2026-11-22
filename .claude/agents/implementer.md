@@ -68,7 +68,9 @@ through `tail` or `grep` for the summary and failures.
   share your scratchpad and git stash: name the body file after your branch
   (`pr-body-28.md`), and never `git stash` without a unique message.
 
-Never force-push, merge a PR (the orchestrator decides that), or push to `main`.
+Never force-push or run `gh stack` (only the orchestrator manages a PR stack,
+see `.claude/docs/workflow.md`), merge a PR (the orchestrator decides that), or
+push to `main`.
 
 ## 5. Report
 
