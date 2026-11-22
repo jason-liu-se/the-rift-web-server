@@ -1,14 +1,14 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { Types } from "mongoose";
-import { app } from "../../test/app.ts";
+import { app } from "../../../test/app.ts";
 import {
 	clearDatabase,
 	collection,
 	startDatabase,
 	stopDatabase
-} from "../../test/database.ts";
-import { EDITOR, sessionCookie } from "../../test/session.ts";
+} from "../../../test/database.ts";
+import { EDITOR, sessionCookie } from "../../../test/session.ts";
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);
