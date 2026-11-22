@@ -1,7 +1,10 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { Types } from "mongoose";
-import { MAX_COLLECTION_SLUG_LENGTH } from "../../config/content-limits.ts";
+import {
+	MAX_COLLECTION_SLUG_LENGTH,
+	MAX_TAGS_PER_IMAGE
+} from "../../config/content-limits.ts";
 import { app } from "../../../test/app.ts";
 import {
 	clearDatabase,
@@ -151,13 +154,18 @@ describe("GET /gallery/:collection", () => {
 
 	it("rejects more tags than an image can have", async () => {
 		await seedGallery();
-		const tags = Array.from({ length: 11 }, (_, i) => `t${i}`).toSorted();
+		const tags = Array.from(
+			{ length: MAX_TAGS_PER_IMAGE + 1 },
+			(_, i) => `t${i}`
+		).toSorted();
 
 		const res = await request(app)
 			.get(`/gallery/builds?tags=${tags.join(",")}`)
 			.expect(400);
 
-		expect(res.body.error).toMatch(/at most 10 tags/);
+		expect(res.body).toEqual({
+			error: `ERROR: invalid request parameters (tags: at most ${MAX_TAGS_PER_IMAGE} tags)`
+		});
 	});
 
 	it("returns an empty page for an existing, empty collection", async () => {

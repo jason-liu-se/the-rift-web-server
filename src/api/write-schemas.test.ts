@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import * as z from "zod";
+import {
+	MAX_COLLECTION_SLUG_LENGTH,
+	MAX_NEWS_TITLE_LENGTH,
+	MAX_TAGS_PER_IMAGE,
+	MAX_TAG_LENGTH
+} from "../config/content-limits.ts";
 import { BadRequestError } from "../errors/bad-request-error.ts";
 import {
 	collectionCreateRequest,
@@ -107,11 +113,11 @@ describe("newsPostFields", () => {
 	it("caps lengths and requires the title and content", () => {
 		expect(
 			problems(newsPostFields.full, {
-				title: "a".repeat(201),
+				title: "a".repeat(MAX_NEWS_TITLE_LENGTH + 1),
 				content: ""
 			})
 		).toEqual([
-			"title: must be at most 200 characters",
+			`title: must be at most ${MAX_NEWS_TITLE_LENGTH} characters`,
 			"content: is required"
 		]);
 	});
@@ -131,8 +137,12 @@ describe("newsPostFields", () => {
 			})
 		).toEqual([]);
 		expect(
-			problems(newsPostFields.draft, { title: "a".repeat(201) })
-		).toEqual(["title: must be at most 200 characters"]);
+			problems(newsPostFields.draft, {
+				title: "a".repeat(MAX_NEWS_TITLE_LENGTH + 1)
+			})
+		).toEqual([
+			`title: must be at most ${MAX_NEWS_TITLE_LENGTH} characters`
+		]);
 		expect(problems(newsPostFields.draft, { title: 5 })).toHaveLength(1);
 	});
 });
@@ -147,10 +157,10 @@ describe("galleryImageFields", () => {
 	it("normalises tags: lowercase, trimmed, unique, sorted", () => {
 		const parsed = galleryImageFields.full.parse({
 			...IMAGE_FIELDS,
-			tags: [" Spawn", "build", "spawn", ""]
+			tags: [" Spawn", "build 2", "spawn", ""]
 		});
 
-		expect(parsed.tags).toEqual(["build", "spawn"]);
+		expect(parsed.tags).toEqual(["build 2", "spawn"]);
 	});
 
 	it("rejects an empty image URL", () => {
@@ -162,20 +172,24 @@ describe("galleryImageFields", () => {
 	it.each([
 		[
 			"too many tags",
-			Array.from({ length: 11 }, (_, i) => `t${i}`),
-			"tags: at most 10 tags"
+			Array.from({ length: MAX_TAGS_PER_IMAGE + 1 }, (_, i) => `t${i}`),
+			`tags: at most ${MAX_TAGS_PER_IMAGE} tags`
 		],
 		[
 			"too many tags, even if duplicates",
-			Array.from({ length: 11 }, () => "t"),
-			"tags: at most 10 tags"
+			Array.from({ length: MAX_TAGS_PER_IMAGE + 1 }, () => "t"),
+			`tags: at most ${MAX_TAGS_PER_IMAGE} tags`
 		],
 		[
 			"a long tag",
-			["a".repeat(33)],
-			"tags.0: must be at most 32 characters"
+			["a".repeat(MAX_TAG_LENGTH + 1)],
+			`tags.0: must be at most ${MAX_TAG_LENGTH} characters`
 		],
-		["a comma", ["a,b"], "tags.0: can't contain commas"]
+		...["a,b", "a-b", "a_b", "é"].map((tag) => [
+			`the tag ${tag}`,
+			[tag],
+			"tags.0: may contain only letters, digits, and spaces"
+		])
 	])("rejects %s", (_name, tags, message) => {
 		expect(
 			problems(galleryImageFields.full, { ...IMAGE_FIELDS, tags })
@@ -186,7 +200,10 @@ describe("galleryImageFields", () => {
 		["Season5", "invalid collection name"],
 		["season_5", "invalid collection name"],
 		["-season", "invalid collection name"],
-		["a".repeat(41), "collection name must be at most 40 characters"]
+		[
+			"a".repeat(MAX_COLLECTION_SLUG_LENGTH + 1),
+			`collection name must be at most ${MAX_COLLECTION_SLUG_LENGTH} characters`
+		]
 	])("rejects the collection slug %s", (collection, message) => {
 		expect(
 			problems(galleryImageFields.full, {
