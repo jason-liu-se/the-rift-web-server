@@ -221,17 +221,17 @@ export const createOptions = z.object({
 
 // What an update sends besides the fields it changes.
 export const updateOptions = z.object({
-	revision: startRevision,
+	startRevision,
 	visible: z.boolean().optional()
 });
 
 // News creates and updates may also send `date`.
 export const newsDateOption = z.object({ date: newsDate.optional() });
 
-// A delete's `?revision=`: the revision the editor started from.
-export const revisionQuery = z.object({
-	revision: z
-		.string({ error: "revision is required" })
-		.regex(/^\d+$/, "revision must be a whole number")
+// A delete's `?startRevision=`: the revision the editor started from.
+export const startRevisionQuery = z.object({
+	startRevision: z
+		.string({ error: "startRevision is required" })
+		.regex(/^\d+$/, "startRevision must be a whole number")
 		.transform(Number)
 });
