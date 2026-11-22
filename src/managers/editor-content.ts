@@ -551,7 +551,7 @@ export async function deleteItem(
 }
 
 function collectionModelOf(
-	typeName: CollectionTypeName
+	typeName: ContentTypeName
 ): Model<ContentCollection> {
 	const { collectionModel } = CONTENT_TYPES[typeName];
 	if (!collectionModel) {
@@ -562,7 +562,7 @@ function collectionModelOf(
 
 // Whether a gallery or download collection exists, public or not.
 export async function hasCollection(
-	typeName: CollectionTypeName,
+	typeName: ContentTypeName,
 	slug: string
 ): Promise<boolean> {
 	return (await collectionModelOf(typeName).exists({ slug })) !== null;
