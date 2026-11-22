@@ -117,16 +117,20 @@ export const galleryPage = z.toZod<PaginatedResponse<GalleryImage>>()(
 
 const editorRef = z.object({ id: z.string(), username: z.string() });
 
-// What the editor reads about every item. Items from before the editor tools
-// have no `visible` (visible), `revision` (0), or audit fields.
-const editorFields = {
+// What the editor reads about every item and collection. Ones from before the
+// editor tools have no `visible` (visible), `revision` (0), or audit fields.
+const editorAuditFields = {
 	visible: z.boolean().default(true),
 	revision: z.number().int().default(0),
-	status: z.enum(["live", "scheduled", "hidden"]),
 	createdBy: editorRef.optional(),
 	lastUpdatedBy: editorRef.optional(),
 	createdAt: isoDate.optional(),
 	updatedAt: isoDate.optional()
+};
+
+const editorFields = {
+	...editorAuditFields,
+	status: z.enum(["live", "scheduled", "hidden"])
 };
 
 export const editorNewsPost = z.toZod<EditorNewsPost>()(
@@ -194,13 +198,8 @@ export const editorCollections = z.toZod<EditorCollection[]>()(
 		z.object({
 			slug: z.string(),
 			title: z.string(),
-			visible: editorFields.visible,
-			revision: editorFields.revision,
 			itemCount: z.number().int().min(0),
-			createdBy: editorFields.createdBy,
-			lastUpdatedBy: editorFields.lastUpdatedBy,
-			createdAt: editorFields.createdAt,
-			updatedAt: editorFields.updatedAt
+			...editorAuditFields
 		})
 	)
 );
