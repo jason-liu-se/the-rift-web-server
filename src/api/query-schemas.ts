@@ -57,11 +57,11 @@ export const contentVersionQuery = z.object({
 });
 
 // A public read's `dv`, the detail version of its area (DETAIL_VERSION_AREAS)
-// the caller last saw: two whole numbers joined by `-`, compared as sent.
+// the caller last saw: a whole number, compared as sent.
 export const detailVersionQuery = z.object({
 	dv: z
 		.string({ error: "dv must be a detail version" })
-		.regex(/^\d+-\d+$/, "dv must be a detail version")
+		.regex(/^\d+$/, "dv must be a detail version")
 		.optional()
 });
 
