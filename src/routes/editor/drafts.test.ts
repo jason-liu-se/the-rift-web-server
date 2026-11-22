@@ -10,6 +10,11 @@ import {
 import request from "supertest";
 import { randomUUID } from "node:crypto";
 import { Types } from "mongoose";
+import {
+	MAX_DRAFTS_PER_USER,
+	MAX_DRAFT_BYTES,
+	MAX_NEWS_TITLE_LENGTH
+} from "../../config/content-limits.ts";
 import { app, testConfig } from "../../../test/app.ts";
 import {
 	clearDatabase,
@@ -190,26 +195,25 @@ describe("PUT /editor/drafts/:id", () => {
 	it.each([
 		[
 			"a field over its limit",
-			newsDraft({ title: "a".repeat(201) }),
-			/title/
+			newsDraft({ title: "a".repeat(MAX_NEWS_TITLE_LENGTH + 1) }),
+			`title: must be at most ${MAX_NEWS_TITLE_LENGTH} characters`
 		],
-		["an unknown type", { type: "poll", fields: {} }, /type/],
+		["an unknown type", { type: "poll", fields: {} }, "type"],
 		[
-			"fields over 64 KB",
-			{
-				type: "gallery",
-				fields: {
-					tags: Array.from({ length: 3000 }, (_, i) => `t${i}`)
-				}
-			},
-			/tags|64 KB/
+			// JSON escapes the character to six bytes: just past MAX_DRAFT_BYTES,
+			// with the content within its own limit.
+			"fields over MAX_DRAFT_BYTES",
+			newsDraft({
+				content: "\u0001".repeat(Math.floor(MAX_DRAFT_BYTES / 6) + 1)
+			}),
+			`fields: a draft holds at most ${MAX_DRAFT_BYTES / 1024} KB`
 		]
 	])("refuses %s", async (_name, body, message) => {
 		const res = await editor
 			.put(`/editor/drafts/${randomUUID()}`, body)
 			.expect(400);
 
-		expect(res.body.error).toMatch(message);
+		expect(res.body.error).toContain(message);
 	});
 
 	it("refuses changing a draft's type", async () => {
@@ -226,7 +230,7 @@ describe("PUT /editor/drafts/:id", () => {
 
 	it("refuses a draft past the per-editor cap", async () => {
 		await stored().insertMany(
-			Array.from({ length: 100 }, () => ({
+			Array.from({ length: MAX_DRAFTS_PER_USER }, () => ({
 				_id: randomUUID() as never,
 				owner: EDITOR.id,
 				type: "news",
@@ -239,7 +243,9 @@ describe("PUT /editor/drafts/:id", () => {
 			.put(`/editor/drafts/${randomUUID()}`, newsDraft())
 			.expect(400);
 
-		expect(res.body.error).toMatch(/you have 100 drafts/);
+		expect(res.body.error).toContain(
+			`you have ${MAX_DRAFTS_PER_USER} drafts`
+		);
 	});
 });
 
