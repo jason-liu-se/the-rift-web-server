@@ -8,10 +8,10 @@ import {
 	vi
 } from "vitest";
 import request from "supertest";
-import { createApp } from "../app.ts";
-import { MAX_UPLOAD_BYTES } from "../config/uploads.ts";
-import { testConfig } from "../../test/app.ts";
-import { sessionCookie } from "../../test/session.ts";
+import { createApp } from "../../app.ts";
+import { MAX_UPLOAD_BYTES } from "../../config/uploads.ts";
+import { testConfig } from "../../../test/app.ts";
+import { sessionCookie } from "../../../test/session.ts";
 
 // Real enough to pass the type check: each starts with its format's magic
 // number.
