@@ -30,6 +30,7 @@ import type {
 	DeleteQuery,
 	DownloadItemFields,
 	GalleryImageFields,
+	ImageUploadForm,
 	MapSeasonFields,
 	NewsPostFields
 } from "../contract/api-requests.ts";
@@ -253,3 +254,13 @@ export const startingRevisionQuery = queryFor<DeleteQuery>()({
 		.regex(/^\d+$/, "startingRevision must be a whole number")
 		.transform(Number)
 });
+
+// An image upload's form fields: what the images are for, which names them.
+export const imageUploadFields = z.toZod<ImageUploadForm>()(
+	z.discriminatedUnion("use", [
+		z.object({ use: z.literal("gallery"), collection: collectionSlug }),
+		z.object({ use: z.enum(["news", "downloads", "maps"]) })
+	])
+);
+
+export type ImageUploadFields = z.infer<typeof imageUploadFields>;
