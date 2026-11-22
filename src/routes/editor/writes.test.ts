@@ -265,6 +265,99 @@ describe("PATCH /editor/news/:id", () => {
 		expect(res.body.error).toMatch(/date: must be now/);
 	});
 
+	it("moves a live post's date into the future, scheduling it", async () => {
+		const id = await seedPost({ revision: 1 });
+		const date = IN_A_DAY().toISOString();
+
+		const res = await editor
+			.patch(`/editor/news/${id}`, { startingRevision: 1, date })
+			.expect(200);
+
+		expect(res.body).toMatchObject({ date, status: "scheduled" });
+		expect(await posts().findOne()).toMatchObject({ date: new Date(date) });
+	});
+
+	it.each([
+		["title", "title: is required"],
+		["content", "content: is required"],
+		["imageUrl", "imageUrl: must start with an allowed image host"]
+	])("refuses an empty %s with 400", async (field, problem) => {
+		const id = await seedPost({ revision: 1 });
+
+		const res = await editor
+			.patch(`/editor/news/${id}`, { startingRevision: 1, [field]: "" })
+			.expect(400);
+
+		expect(res.body).toEqual({
+			error: `ERROR: invalid request parameters (${problem})`
+		});
+		expect(await posts().findOne()).toMatchObject({ revision: 1 });
+	});
+
+	it("hides a live post, and shows a hidden one, by visible", async () => {
+		const [liveId, hiddenId] = await Promise.all([
+			seedPost({ revision: 1 }),
+			seedPost({ revision: 1, visible: false })
+		]);
+
+		const [hidden, shown] = await Promise.all([
+			editor
+				.patch(`/editor/news/${liveId}`, {
+					startingRevision: 1,
+					visible: false
+				})
+				.expect(200),
+			editor
+				.patch(`/editor/news/${hiddenId}`, {
+					startingRevision: 1,
+					visible: true
+				})
+				.expect(200)
+		]);
+
+		expect(hidden.body).toMatchObject({ visible: false, status: "hidden" });
+		expect(shown.body).toMatchObject({ visible: true, status: "live" });
+	});
+
+	it("marks a post wasPublic once shown, so later edits set editedAt even when hidden", async () => {
+		const id = await seedPost({
+			revision: 1,
+			visible: false,
+			wasPublic: false
+		});
+
+		await editor
+			.patch(`/editor/news/${id}`, { startingRevision: 1, visible: true })
+			.expect(200);
+		expect(await posts().findOne()).toMatchObject({ wasPublic: true });
+		await editor
+			.patch(`/editor/news/${id}`, {
+				startingRevision: 2,
+				visible: false
+			})
+			.expect(200);
+		const res = await editor
+			.patch(`/editor/news/${id}`, {
+				startingRevision: 3,
+				content: "New"
+			})
+			.expect(200);
+
+		expect(res.body.editedAt).toBeDefined();
+		expect(await posts().findOne()).toMatchObject({ wasPublic: true });
+	});
+
+	it("answers 409 when the revision is ahead of the stored one", async () => {
+		const id = await seedPost({ revision: 2 });
+
+		const res = await editor
+			.patch(`/editor/news/${id}`, { startingRevision: 3, title: "Mine" })
+			.expect(409);
+
+		expect(res.body.current).toMatchObject({ id, revision: 2 });
+		expect(await posts().findOne()).toMatchObject({ title: "Live" });
+	});
+
 	it("answers 409 with the current post when the revision is stale", async () => {
 		const id = await seedPost({ revision: 4, title: "Saved elsewhere" });
 
