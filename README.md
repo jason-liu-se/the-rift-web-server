@@ -191,8 +191,7 @@ src/
 ├── config/       Environment variables and tunable settings
 ├── contract/     Response types shared with the website
 ├── errors/       Errors mapped to status codes
-├── helpers/      Discord access
-├── managers/     MongoDB and Redis access
+├── managers/     MongoDB, Redis, and Discord access
 ├── middleware/   CORS, sessions, error handler
 ├── models/       Mongoose schemas
 ├── routes/       Routers, one folder per URL group
