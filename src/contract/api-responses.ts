@@ -290,19 +290,26 @@ export interface EditorRef {
  */
 export type ContentStatus = "live" | "scheduled" | "hidden";
 
-/** What every item the editor reads has. Old items lack the audit fields. */
-export interface EditorFields {
+/**
+ * What every item and collection the editor reads has. Old ones lack the
+ * audit fields.
+ */
+export interface EditorAuditFields {
 	visible: boolean;
 	/** Send it back with an update or delete; a stale one is 409. */
 	revision: number;
-	/** From the item alone: an item in a hidden collection can be live. */
-	status: ContentStatus;
 	createdBy?: EditorRef;
 	lastUpdatedBy?: EditorRef;
 	/** ISO 8601 */
 	createdAt?: string;
 	/** ISO 8601 */
 	updatedAt?: string;
+}
+
+/** What every item the editor reads has. */
+export interface EditorFields extends EditorAuditFields {
+	/** From the item alone: an item in a hidden collection can be live. */
+	status: ContentStatus;
 }
 
 export type EditorNewsPost = NewsPost & EditorFields;
@@ -334,15 +341,9 @@ export type EditorMapSeasonSummary = Omit<EditorMapSeason, "dimensions"> & {
 };
 
 /** A gallery or download collection, public or not. */
-export interface EditorCollection {
+export interface EditorCollection extends EditorAuditFields {
 	slug: string;
 	title: string;
-	visible: boolean;
-	revision: number;
 	/** Every item in it, public or not (deleting it deletes them all). */
 	itemCount: number;
-	createdBy?: EditorRef;
-	lastUpdatedBy?: EditorRef;
-	createdAt?: string;
-	updatedAt?: string;
 }
