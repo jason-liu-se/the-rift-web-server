@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import express, { type Express, type Router } from "express";
+import express, { type Express } from "express";
 import request from "supertest";
 import { handleError } from "./error-handler.ts";
 import { requireLogin } from "./require-login.ts";
 import { type PublicRoute, PUBLIC_ROUTES } from "../api/public-routes.ts";
-import { apiRouters } from "../app.ts";
-import { testConfig } from "../../test/app.ts";
+import { type DefinedRoute, definedRoutes } from "../../test/routes.ts";
 
 // The gate alone, in front of a route that answers every request, so these
 // tests need no database.
@@ -19,31 +18,6 @@ function gate(publicRoutes: readonly PublicRoute[]): Express {
 }
 
 const gated = gate(PUBLIC_ROUTES);
-
-interface DefinedRoute {
-	readonly method: string;
-	readonly path: string;
-}
-
-// Every route the app defines, with its full path.
-function definedRoutes(): DefinedRoute[] {
-	return Object.entries(apiRouters(testConfig)).flatMap(([prefix, router]) =>
-		routesOf(router).map(({ method, path }) => ({
-			method,
-			path: path === "/" ? prefix : `${prefix}${path}`
-		}))
-	);
-}
-
-function routesOf(router: Router): DefinedRoute[] {
-	return router.stack.flatMap(({ route }) => {
-		if (!route) {
-			return [];
-		}
-		const methods = new Set(route.stack.map((layer) => layer.method));
-		return [...methods].map((method) => ({ method, path: route.path }));
-	});
-}
 
 function isPublic({ method, path }: DefinedRoute): boolean {
 	return PUBLIC_ROUTES.some(
