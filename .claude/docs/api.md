@@ -274,7 +274,8 @@ body again, and still changes the content version. Updates (`PATCH`, body
 started from; a stale one is `409` with the item as it is now. Every committed
 write calls `updateContentVersion`; `src/routes/editor/content-version.test.ts`
 fails if an editor write route isn't listed there with a write that changes it,
-or as one that changes nothing public (a draft's save or delete).
+or as one that changes nothing public (a draft's save or delete, an image
+upload).
 
 Bulk actions (`POST /editor/<items>/bulk`, `src/helpers/editor-bulk.ts`) check
 each item on its own, then write every valid one at once, without a transaction,

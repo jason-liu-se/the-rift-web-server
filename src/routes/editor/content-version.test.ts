@@ -203,10 +203,11 @@ const WRITES: Record<string, Write> = {
 };
 
 // Editor routes that write only what no public read shows: an editor's own
-// drafts.
+// drafts, and images uploaded to imgbb (shown once an item links them).
 const NO_PUBLIC_CHANGE = [
 	"put /editor/drafts/:id",
-	"delete /editor/drafts/:id"
+	"delete /editor/drafts/:id",
+	"post /editor/images"
 ];
 
 const READ_METHODS = new Set(["get", "head", "options"]);
