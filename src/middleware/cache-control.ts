@@ -37,19 +37,29 @@ export const noCachingByDefault: RequestHandler = (_req, res, next) => {
 // cached. A route in a detail-version area (src/config/detail-versions.ts)
 // also needs that area's current version as `dv`; other routes ignore `dv`.
 export const cacheByContentVersion: RequestHandler = async (req, res, next) => {
+	if (await sendsCurrentVersions(req)) {
+		allowCaching(res);
+	}
+	next();
+};
+
+// Whether the request names the current content version, and its area's
+// current detail version if it has one. A request missing either is never
+// cached, so it reads neither version from the database.
+async function sendsCurrentVersions(req: Request): Promise<boolean> {
 	const { v } = contentVersionQuery.parse(req.query);
 	const area = detailVersionAreaOf(routePattern(req));
 	const { dv } = area ? detailVersionQuery.parse(req.query) : {};
+	if (v === undefined || (area && dv === undefined)) {
+		return false;
+	}
 
 	const [version, detailVersion] = await Promise.all([
 		mongoManager.getContentVersion(),
 		area?.currentKey()
 	]);
-	if (v === String(version) && dv === detailVersion) {
-		allowCaching(res);
-	}
-	next();
-};
+	return v === String(version) && dv === detailVersion;
+}
 
 // The route's full Express pattern, e.g. `/gallery/:collection`, as listed in
 // PUBLIC_ROUTES.

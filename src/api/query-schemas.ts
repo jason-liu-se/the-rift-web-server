@@ -49,20 +49,17 @@ export const paginationQuery = z.object({
 // cacheByContentVersion). Kept as the digits sent and compared as text, so
 // `01…` or `1e12` can't add cache entries for the version a client normally
 // writes.
+const V_ERROR = "must be a whole number, the version from GET /content/version";
 export const contentVersionQuery = z.object({
-	v: z
-		.string({ error: "v must be a content version" })
-		.regex(/^\d+$/, "v must be a content version")
-		.optional()
+	v: z.string({ error: V_ERROR }).regex(/^\d+$/, V_ERROR).optional()
 });
 
 // A public read's `dv`, the detail version of its area (DETAIL_VERSION_AREAS)
 // the caller last saw: a whole number, compared as sent.
+const DV_ERROR =
+	"must be a whole number, the version from GET /content/version/:area";
 export const detailVersionQuery = z.object({
-	dv: z
-		.string({ error: "dv must be a detail version" })
-		.regex(/^\d+$/, "dv must be a detail version")
-		.optional()
+	dv: z.string({ error: DV_ERROR }).regex(/^\d+$/, DV_ERROR).optional()
 });
 
 // `GET /content/version/:area`.
