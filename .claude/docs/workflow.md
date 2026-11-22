@@ -64,9 +64,22 @@ The tests need no services, so every tier runs the whole suite.
   merge to the user, whatever the tier.
 - Merge your own PR into a feature branch only when it's Low tier with High
   confidence, CI passed, and review left nothing Critical or Important
-  (`gh pr merge --squash --delete-branch`, which always prompts the user, so
-  check the PR's base first). Everything else waits for the user.
-- Never force-push or push to `main`.
+  (`gh pr merge --squash --delete-branch`, or `gh stack merge --rebase <pr>` for
+  a stacked PR; both prompt the user, so check the PR's base first). Everything
+  else waits for the user.
+- Never push to `main`, and never force-push by hand.
+- Stacked PRs (each based on the one before) are managed with `gh stack` (the
+  `github/gh-stack` extension), so the history stays linear and each PR holds
+  only its own commits:
+    - Start or adopt a stack with `gh stack init -b <base> <branches…>`, bottom
+      to top.
+    - Fix a lower branch on that branch, then `gh stack rebase` and
+      `gh stack push` (per-branch `--force-with-lease`).
+    - Merge with `gh stack merge --rebase <pr>` (`gh pr merge` doesn't work on a
+      stacked PR), then `gh stack sync` to rebase and push the rest.
+    - It rewrites only the stack's branches, never `main` or the stack's base
+      branch (e.g. `feature/42-admin-tools`). Every `gh stack` command that
+      pushes or merges asks the user first (`.claude/settings.json`).
 - A contract change is two PRs, one per repo: this server's first, additive (new
   fields or routes, nothing removed), then the website's `npm run api:sync` and
   services. Remove the old shape only once the website no longer uses it.
