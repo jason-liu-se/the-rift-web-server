@@ -11,6 +11,8 @@ import {
 import request from "supertest";
 import { randomUUID } from "node:crypto";
 import { Types } from "mongoose";
+import { MAX_TAGS_PER_IMAGE } from "../../config/content-limits.ts";
+import { MAX_BULK_ITEMS } from "../../config/requests.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
 import { app, testConfig } from "../../../test/app.ts";
 import {
@@ -207,13 +209,20 @@ describe("POST /editor/<items>/bulk", () => {
 		const res = await editor
 			.post("/editor/gallery/images/bulk", {
 				action: "add-tags",
-				tags: Array.from({ length: 10 }, (_, i) => `tag${i}`),
+				tags: Array.from(
+					{ length: MAX_TAGS_PER_IMAGE },
+					(_, i) => `tag${i}`
+				),
 				items: [{ id: a, startRevision: 1 }]
 			})
 			.expect(200);
 
 		expect(res.body.results).toEqual([
-			{ id: a, outcome: "invalid", reason: "tags: at most 10 tags" }
+			{
+				id: a,
+				outcome: "invalid",
+				reason: `tags: at most ${MAX_TAGS_PER_IMAGE} tags`
+			}
 		]);
 	});
 
@@ -360,8 +369,8 @@ describe("POST /editor/<items>/bulk", () => {
 		expect(res.body.error).toMatch(message);
 	});
 
-	it("answers 400 for more than 100 items", async () => {
-		const items = Array.from({ length: 101 }, () => ({
+	it("answers 400 for more than MAX_BULK_ITEMS items", async () => {
+		const items = Array.from({ length: MAX_BULK_ITEMS + 1 }, () => ({
 			id: new Types.ObjectId().toHexString(),
 			startRevision: 0
 		}));
@@ -370,6 +379,6 @@ describe("POST /editor/<items>/bulk", () => {
 			.post("/editor/news/bulk", { action: "hide", items })
 			.expect(400);
 
-		expect(res.body.error).toMatch(/at most 100 items/);
+		expect(res.body.error).toContain(`at most ${MAX_BULK_ITEMS} items`);
 	});
 });
