@@ -15,8 +15,8 @@ newsRouter.get("/", cacheByContentVersion, async (req, res) => {
 	const { startIndex, limit } = paginationQuery.parse(req.query);
 
 	const [items, total] = await Promise.all([
-		mongoManager.getNewsPosts(startIndex, limit),
-		mongoManager.countNewsPosts()
+		mongoManager.getPublicNewsPosts(startIndex, limit),
+		mongoManager.countPublicNewsPosts()
 	]);
 	res.json(parseResponse(newsPostsPage, { items, total }));
 });
@@ -25,7 +25,7 @@ newsRouter.get("/", cacheByContentVersion, async (req, res) => {
 newsRouter.get("/count", cacheByContentVersion, async (req, res) => {
 	res.json(
 		parseResponse(countResponse, {
-			total: await mongoManager.countNewsPosts()
+			total: await mongoManager.countPublicNewsPosts()
 		})
 	);
 });
