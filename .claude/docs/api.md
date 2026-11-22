@@ -267,7 +267,8 @@ apart from a taken season by looking the season up. Updates (`PATCH`, body
 `startingRevision`) and deletes (`?startingRevision=`) send the revision they
 started from; a stale one is `409` with the item as it is now. Every committed
 write calls `updateContentVersion`; `src/routes/editor/content-version.test.ts`
-fails if an editor write route isn't listed there with a write that changes it.
+fails if an editor write route isn't listed there with a write that changes it,
+or as one that changes nothing public (a draft's save or delete).
 
 Bulk actions (`/editor/<items>/bulk`: `POST` creates, gallery only; `PATCH`
 updates; `DELETE` deletes) check each item on its own, then write every valid
