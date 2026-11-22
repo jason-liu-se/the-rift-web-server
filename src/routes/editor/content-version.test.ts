@@ -135,7 +135,9 @@ const WRITES: Record<string, Write> = {
 						return e
 							.post(`${prefix}/bulk`, {
 								action: "hide",
-								items: [{ id: ID.toHexString(), revision: 0 }]
+								items: [
+									{ id: ID.toHexString(), startRevision: 0 }
+								]
 							})
 							.expect(200);
 					}
