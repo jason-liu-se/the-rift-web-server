@@ -10,16 +10,16 @@ import {
 import request from "supertest";
 import { randomUUID } from "node:crypto";
 import { Types } from "mongoose";
-import { app, testConfig } from "../../test/app.ts";
+import { app, testConfig } from "../../../test/app.ts";
 import {
 	clearDatabase,
 	collection,
 	startDatabase,
 	stopDatabase
-} from "../../test/database.ts";
-import { markPublished } from "../managers/drafts.ts";
-import { asEditor } from "../../test/editor.ts";
-import { EDITOR, sessionCookie } from "../../test/session.ts";
+} from "../../../test/database.ts";
+import { markPublished } from "../../managers/drafts.ts";
+import { asEditor } from "../../../test/editor.ts";
+import { EDITOR, sessionCookie } from "../../../test/session.ts";
 
 beforeAll(startDatabase);
 afterEach(clearDatabase);

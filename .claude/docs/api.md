@@ -290,7 +290,8 @@ changes the content version once (even when it fails after writing some items).
 
 ### Drafts
 
-`/editor/drafts` (`src/routes/drafts.ts`) is per editor: every query in
+`/editor/drafts` (`src/routes/editor/drafts.ts`, logic in
+`src/helpers/draft-actions.ts`) is per editor: every query in
 `src/managers/drafts.ts` is scoped to the owner, and another editor's draft is a
 `404`, never a `403`. Drafts are checked loosely (`draft` variants, plus
 `MAX_DRAFTS_PER_USER` and `MAX_DRAFT_BYTES`) and keep their own `revision`, so a
