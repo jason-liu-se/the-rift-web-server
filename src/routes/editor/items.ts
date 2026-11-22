@@ -3,7 +3,7 @@
 // built from the same pieces: what differs per type lives in CONTENT_TYPES
 // (src/managers/editor-content.ts).
 import express, { type Router } from "express";
-import { currentEditorId, itemNotFound } from "../../helpers/editor-actions.ts";
+import { itemNotFound } from "../../helpers/editor-actions.ts";
 import * as editorContent from "../../managers/editor-content.ts";
 import type { ContentTypeName } from "../../managers/editor-content.ts";
 import { revalidateEveryTime } from "../../middleware/cache-control.ts";
@@ -25,11 +25,10 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 	router.use(revalidateEveryTime);
 
 	router.get("/", async (req, res) => {
-		const { mine, in: searchIn, ...filters } = listQuery.parse(req.query);
+		const { in: searchIn, ...filters } = listQuery.parse(req.query);
 
 		const page = await editorContent.listItems(typeName, {
 			...filters,
-			createdBy: mine ? currentEditorId(res) : undefined,
 			searchIn
 		});
 		res.json(parseResponse(pageSchema, page));

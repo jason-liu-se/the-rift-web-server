@@ -68,6 +68,10 @@ function nameList<const Name extends string>(allowed: readonly Name[]) {
 		.pipe(z.array(z.enum(allowed)));
 }
 
+// A Discord user in an editor list's filter: their ID or username (at most 32
+// characters, Discord's limit).
+const editorUser = z.string().min(1).max(32);
+
 // An editor list's filters and search, for one content type: its statuses,
 // its searchable fields, and whether it has collections.
 export function editorListQuery<
@@ -82,7 +86,8 @@ export function editorListQuery<
 			.min(1)
 			.max(MAX_EDITOR_PAGE_SIZE)
 			.default(MAX_EDITOR_PAGE_SIZE),
-		mine: z.stringbool().optional(),
+		createdBy: editorUser.optional(),
+		lastUpdatedBy: editorUser.optional(),
 		status: z.enum(statuses).optional(),
 		collection: collectionSlug.optional(),
 		q: z
