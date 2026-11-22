@@ -15,7 +15,7 @@ import {
 import {
 	collectionCreateRequest,
 	collectionUpdateRequest,
-	revisionQuery
+	startRevisionQuery
 } from "../../api/write-schemas.ts";
 
 export function editorCollectionsRouter(typeName: CollectionTypeName): Router {
@@ -49,7 +49,7 @@ export function editorCollectionsRouter(typeName: CollectionTypeName): Router {
 
 	router.patch("/:slug", async (req, res) => {
 		const { slug } = slugParams.parse(req.params);
-		const { revision, ...changes } = collectionUpdateRequest.parse(
+		const { startRevision, ...changes } = collectionUpdateRequest.parse(
 			req.body
 		);
 
@@ -59,7 +59,7 @@ export function editorCollectionsRouter(typeName: CollectionTypeName): Router {
 			await editorContent.updateCollection(
 				typeName,
 				slug,
-				revision,
+				startRevision,
 				changes,
 				editorOf(res)
 			)
@@ -70,12 +70,12 @@ export function editorCollectionsRouter(typeName: CollectionTypeName): Router {
 
 	router.delete("/:slug", async (req, res) => {
 		const { slug } = slugParams.parse(req.params);
-		const { revision } = revisionQuery.parse(req.query);
+		const { startRevision } = startRevisionQuery.parse(req.query);
 
 		writtenCollection(
 			typeName,
 			slug,
-			await editorContent.deleteCollection(typeName, slug, revision)
+			await editorContent.deleteCollection(typeName, slug, startRevision)
 		);
 		await mongoManager.updateContentVersion();
 		res.sendStatus(204);
