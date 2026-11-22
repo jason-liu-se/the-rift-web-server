@@ -144,13 +144,26 @@ describe("GET /editor/news", () => {
 		expect(res.body.total).toBe(expected.length);
 	});
 
-	it("filters to the caller's own posts", async () => {
-		await seedNews();
+	it.each([
+		["createdBy=123", ["Live post"]],
+		["createdBy=other", ["Scheduled post"]],
+		["lastUpdatedBy=456", ["Live post"]],
+		["lastUpdatedBy=other", ["Live post"]],
+		["createdBy=editor&lastUpdatedBy=other", ["Live post"]],
+		["createdBy=456&lastUpdatedBy=other", []],
+		// Exact matches only.
+		["createdBy=edit", []],
+		["createdBy=EDITOR", []]
+	])(
+		"filters by who created or last updated it (%s)",
+		async (query, expected) => {
+			await seedNews();
 
-		const res = await get("/editor/news?mine=true").expect(200);
+			const res = await get(`/editor/news?${query}`).expect(200);
 
-		expect(titles(res.body)).toEqual(["Live post"]);
-	});
+			expect(titles(res.body)).toEqual(expected);
+		}
+	);
 
 	it.each([
 		["q=SEASON", ["Live post"]],
@@ -182,7 +195,8 @@ describe("GET /editor/news", () => {
 	it.each([
 		["status=draft", /status/],
 		["in=caption", /in/],
-		["mine=maybe", /mine/],
+		["createdBy=", /createdBy/],
+		[`lastUpdatedBy=${"a".repeat(33)}`, /lastUpdatedBy/],
 		[
 			`q=${"a".repeat(MAX_SEARCH_QUERY_LENGTH + 1)}`,
 			`q must be at most ${MAX_SEARCH_QUERY_LENGTH} characters`
