@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 export interface DraftTarget {
 	readonly id: string;
 	/** The item's revision when the draft started from it. */
-	readonly startRevision: number;
+	readonly startingRevision: number;
 }
 
 export interface Draft {
@@ -31,7 +31,7 @@ export interface Draft {
 const draftTargetSchema = new mongoose.Schema<DraftTarget>(
 	{
 		id: { type: String, required: true },
-		startRevision: { type: Number, required: true }
+		startingRevision: { type: Number, required: true }
 	},
 	{ _id: false, id: false }
 );
