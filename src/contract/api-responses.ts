@@ -246,6 +246,15 @@ export type NewsPostUpdateRequest = UpdateRequest<NewsPostFields> & {
 	date?: NewsDate;
 };
 
+export type GalleryImageCreateRequest = CreateRequest<GalleryImageFields>;
+export type GalleryImageUpdateRequest = UpdateRequest<GalleryImageFields>;
+
+export type DownloadItemCreateRequest = CreateRequest<DownloadItemFields>;
+export type DownloadItemUpdateRequest = UpdateRequest<DownloadItemFields>;
+
+export type MapSeasonCreateRequest = CreateRequest<MapSeasonFields>;
+export type MapSeasonUpdateRequest = UpdateRequest<MapSeasonFields>;
+
 /** A gallery or download collection. */
 export interface CollectionCreateRequest extends VisibilityFields {
 	/** Kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`); fixed once created. */
