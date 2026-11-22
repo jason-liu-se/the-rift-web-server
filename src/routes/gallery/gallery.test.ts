@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import request from "supertest";
 import { Types } from "mongoose";
+import { MAX_COLLECTION_SLUG_LENGTH } from "../../config/content-limits.ts";
 import { app } from "../../../test/app.ts";
 import {
 	clearDatabase,
@@ -180,7 +181,7 @@ describe("GET /gallery/:collection", () => {
 		});
 	});
 
-	it.each(["bad%24name", "system.users", "Season5", "a".repeat(41)])(
+	it.each(["bad%24name", "system.users", "Season5"])(
 		"rejects an invalid collection name (%s)",
 		async (name) => {
 			const res = await request(app).get(`/gallery/${name}`).expect(400);
@@ -190,6 +191,16 @@ describe("GET /gallery/:collection", () => {
 			);
 		}
 	);
+
+	it("says how long a collection name may be", async () => {
+		const res = await request(app)
+			.get(`/gallery/${"a".repeat(MAX_COLLECTION_SLUG_LENGTH + 1)}`)
+			.expect(400);
+
+		expect(res.body.error).toMatch(
+			`collection: collection name must be at most ${MAX_COLLECTION_SLUG_LENGTH} characters`
+		);
+	});
 
 	it("rejects invalid pagination", async () => {
 		await seedGallery();
