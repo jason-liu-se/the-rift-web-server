@@ -7,5 +7,7 @@ export const mapsRouter = express.Router();
 
 // Every season's map, oldest season first.
 mapsRouter.get("/seasons", cacheByContentVersion, async (req, res) => {
-	res.json(parseResponse(mapSeasons, await mongoManager.getMapSeasons()));
+	res.json(
+		parseResponse(mapSeasons, await mongoManager.getPublicMapSeasons())
+	);
 });

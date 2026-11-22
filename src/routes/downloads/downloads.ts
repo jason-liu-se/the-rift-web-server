@@ -16,7 +16,7 @@ downloadsRouter.get("/", cacheByContentVersion, async (req, res) => {
 	res.json(
 		parseResponse(
 			downloadCollections,
-			await mongoManager.getAllDownloadCollections()
+			await mongoManager.getPublicDownloadCollections()
 		)
 	);
 });
@@ -32,7 +32,7 @@ downloadsRouter.get("/:collection", cacheByContentVersion, async (req, res) => {
 	res.json(
 		parseResponse(
 			downloadItems,
-			await mongoManager.getDownloadCollection(collection)
+			await mongoManager.getPublicDownloadItems(collection)
 		)
 	);
 });

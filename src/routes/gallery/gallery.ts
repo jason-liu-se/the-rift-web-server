@@ -46,8 +46,13 @@ galleryRouter.get("/:collection", cacheByContentVersion, async (req, res) => {
 	const collection = await parsePublicCollection(req.params);
 
 	const [items, total] = await Promise.all([
-		mongoManager.getGalleryCollection(collection, tags, startIndex, limit),
-		mongoManager.countGalleryCollectionItems(collection, tags)
+		mongoManager.getPublicGalleryImages(
+			collection,
+			tags,
+			startIndex,
+			limit
+		),
+		mongoManager.countPublicGalleryImages(collection, tags)
 	]);
 	res.json(parseResponse(galleryPage, { items, total }));
 });
@@ -62,7 +67,7 @@ galleryRouter.get(
 
 		res.json(
 			parseResponse(countResponse, {
-				total: await mongoManager.countGalleryCollectionItems(
+				total: await mongoManager.countPublicGalleryImages(
 					collection,
 					tags
 				)
@@ -81,7 +86,7 @@ galleryRouter.get(
 		res.json(
 			parseResponse(
 				galleryTags,
-				await mongoManager.getGalleryTags(collection)
+				await mongoManager.getPublicGalleryTags(collection)
 			)
 		);
 	}
