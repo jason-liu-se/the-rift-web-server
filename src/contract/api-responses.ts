@@ -230,11 +230,11 @@ export type CreateRequest<Fields> = Fields &
 	VisibilityFields & { createId: string };
 
 /**
- * An update: any of the fields, plus `startRevision`, the item's revision when
+ * An update: any of the fields, plus `startingRevision`, the item's revision when
  * the editor started (a stale one is a 409).
  */
 export type UpdateRequest<Fields> = Partial<Fields> &
-	VisibilityFields & { startRevision: number };
+	VisibilityFields & { startingRevision: number };
 
 export type NewsPostCreateRequest = CreateRequest<NewsPostFields> & {
 	/** Absent: now. */
@@ -255,7 +255,7 @@ export interface CollectionCreateRequest extends VisibilityFields {
 
 export interface CollectionUpdateRequest extends VisibilityFields {
 	/** The collection's revision when the editor started. */
-	startRevision: number;
+	startingRevision: number;
 	title?: string;
 }
 
@@ -306,7 +306,7 @@ export type NewsStatus = ContentStatus | "scheduled";
  */
 export interface EditorAuditFields {
 	visible: boolean;
-	/** Send it back as an update's or delete's `startRevision`; a stale one is 409. */
+	/** Send it back as an update's or delete's `startingRevision`; a stale one is 409. */
 	revision: number;
 	createdBy?: EditorRef;
 	lastUpdatedBy?: EditorRef;
