@@ -24,7 +24,7 @@ import {
 	normaliseTags
 } from "../api/query-schemas.ts";
 import { EDITOR_ITEM_SCHEMAS, parseResponse } from "../api/response-schemas.ts";
-import { startRevision, tagList } from "../api/write-schemas.ts";
+import { startingRevision, tagList } from "../api/write-schemas.ts";
 
 // Every item names itself, so its result can; the rest of it is checked per
 // item, so one bad item doesn't refuse the others.
@@ -56,7 +56,7 @@ const EXTRA_ACTIONS: Readonly<Record<ContentTypeName, readonly BulkAction[]>> =
 		maps: []
 	};
 
-const itemRef = idParams.extend({ startRevision });
+const itemRef = idParams.extend({ startingRevision });
 
 function problemsOf(error: z.ZodError): string {
 	return error.issues
@@ -118,7 +118,7 @@ async function settle(
 function changesFor(
 	typeName: ContentTypeName,
 	request: BulkRequest,
-	startRevision: number,
+	startingRevision: number,
 	now: Date
 ): (current: StoredItem) => FieldChanges {
 	switch (request.action) {
@@ -126,7 +126,7 @@ function changesFor(
 		case "hide":
 			return parseUpdate(
 				typeName,
-				{ startRevision, visible: request.action === "show" },
+				{ startingRevision, visible: request.action === "show" },
 				now
 			).changesFor;
 		case "move":
@@ -209,23 +209,23 @@ async function updateAll(
 	for (const item of request.items) {
 		results.push(
 			await settle(item.id, async () => {
-				const { id, startRevision } = itemRef.parse(item);
+				const { id, startingRevision } = itemRef.parse(item);
 				const result =
 					request.action === "delete"
 						? await editorContent.deleteItem(
 								typeName,
 								id,
-								startRevision,
+								startingRevision,
 								now
 							)
 						: await editorContent.updateItem(
 								typeName,
 								id,
-								startRevision,
+								startingRevision,
 								changesFor(
 									typeName,
 									request,
-									startRevision,
+									startingRevision,
 									now
 								),
 								editor,

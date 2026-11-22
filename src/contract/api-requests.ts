@@ -230,7 +230,7 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 /** An item a bulk action changes, and its revision when the editor read it. */
 export interface BulkItemRef {
 	id: string;
-	startRevision: number;
+	startingRevision: number;
 }
 
 export type BulkRequest =
