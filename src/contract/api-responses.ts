@@ -320,7 +320,7 @@ export interface BulkResponse<T> {
 export type Draft = DraftContent & {
 	/** The client's UUID; doubles as the published item's createId. */
 	id: string;
-	/** The draft's own revision; send it as the next save's `startRevision`. */
+	/** The draft's own revision; send it as the next save's `startingRevision`. */
 	revision: number;
 	/** Absent for a new item. */
 	target?: DraftTarget;
