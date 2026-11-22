@@ -221,9 +221,12 @@ export interface VisibilityFields {
 export type CreateRequest<Fields> = Fields &
 	VisibilityFields & { createId: string };
 
-/** An update: any of the fields, plus the revision the editor started from. */
+/**
+ * An update: any of the fields, plus `startRevision`, the item's revision when
+ * the editor started (a stale one is a 409).
+ */
 export type UpdateRequest<Fields> = Partial<Fields> &
-	VisibilityFields & { revision: number };
+	VisibilityFields & { startRevision: number };
 
 export type NewsPostCreateRequest = CreateRequest<NewsPostFields> & {
 	/** Absent: now. */
@@ -243,6 +246,7 @@ export interface CollectionCreateRequest extends VisibilityFields {
 }
 
 export interface CollectionUpdateRequest extends VisibilityFields {
-	revision: number;
+	/** The collection's revision when the editor started. */
+	startRevision: number;
 	title?: string;
 }

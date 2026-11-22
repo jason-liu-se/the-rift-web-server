@@ -180,8 +180,9 @@ export type GalleryImageInput = z.infer<typeof galleryShape>;
 export type DownloadItemInput = z.infer<typeof downloadShape>;
 export type MapSeasonInput = z.infer<typeof mapSeasonShape>;
 
-// The revision an update or delete started from (missing counts as 0).
-export const revision = z.number().int().min(0);
+// The revision an update or delete started from (a stored item missing one is
+// at 0).
+export const startRevision = z.number().int().min(0);
 
 export const visibility = z.object({ visible: z.boolean().optional() });
 
@@ -207,7 +208,7 @@ export const collectionCreateRequest = z.toZod<CollectionCreateRequest>()(
 
 export const collectionUpdateRequest = z.toZod<CollectionUpdateRequest>()(
 	z.object({
-		revision,
+		startRevision,
 		title: collectionTitle.optional(),
 		visible: z.boolean().optional()
 	})
