@@ -306,7 +306,7 @@ export type NewsStatus = ContentStatus | "scheduled";
  */
 export interface EditorAuditFields {
 	visible: boolean;
-	/** Send it back with an update or delete; a stale one is 409. */
+	/** Send it back as an update's or delete's `startRevision`; a stale one is 409. */
 	revision: number;
 	createdBy?: EditorRef;
 	lastUpdatedBy?: EditorRef;

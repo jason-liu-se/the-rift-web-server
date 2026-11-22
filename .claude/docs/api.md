@@ -260,10 +260,10 @@ read.
 Creates send a client UUID (`createId`, unique and sparse on every model): a
 repeat returns the item already made (`200`, not `201`), without checking the
 body again, and still changes the content version. Updates (`PATCH`, body
-`revision`) and deletes (`?revision=`) send the revision they started from; a
-stale one is `409` with the item as it is now. Every committed write calls
-`updateContentVersion`; `src/routes/editor/content-version.test.ts` fails if an
-editor write route isn't listed there with a write that changes it.
+`startRevision`) and deletes (`?startRevision=`) send the revision they started
+from; a stale one is `409` with the item as it is now. Every committed write
+calls `updateContentVersion`; `src/routes/editor/content-version.test.ts` fails
+if an editor write route isn't listed there with a write that changes it.
 
 ## Response contract
 

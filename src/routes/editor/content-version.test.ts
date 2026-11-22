@@ -111,7 +111,7 @@ const WRITES: Record<string, Write> = {
 						await seed();
 						return e
 							.patch(`${prefix}/${ID.toHexString()}`, {
-								revision: 0,
+								startRevision: 0,
 								...router.update
 							})
 							.expect(200);
@@ -122,7 +122,9 @@ const WRITES: Record<string, Write> = {
 					async (e: Editor) => {
 						await seed();
 						return e
-							.delete(`${prefix}/${ID.toHexString()}?revision=0`)
+							.delete(
+								`${prefix}/${ID.toHexString()}?startRevision=0`
+							)
 							.expect(204);
 					}
 				]
@@ -150,7 +152,7 @@ const WRITES: Record<string, Write> = {
 						await seed();
 						return e
 							.patch(`${prefix}/worlds`, {
-								revision: 0,
+								startRevision: 0,
 								title: "R"
 							})
 							.expect(200);
@@ -161,7 +163,7 @@ const WRITES: Record<string, Write> = {
 					async (e: Editor) => {
 						await seed();
 						return e
-							.delete(`${prefix}/worlds?revision=0`)
+							.delete(`${prefix}/worlds?startRevision=0`)
 							.expect(204);
 					}
 				]

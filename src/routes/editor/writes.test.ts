@@ -69,10 +69,10 @@ describe("editor writes, refused", () => {
 	it.each([
 		["post", "/editor/news"],
 		["patch", `/editor/news/${id}`],
-		["delete", `/editor/news/${id}?revision=0`],
+		["delete", `/editor/news/${id}?startRevision=0`],
 		["post", "/editor/gallery/collections"],
 		["patch", "/editor/gallery/collections/season5"],
-		["delete", "/editor/downloads/collections/worlds?revision=0"],
+		["delete", "/editor/downloads/collections/worlds?startRevision=0"],
 		["post", "/editor/maps/seasons"]
 	] as const)(
 		"answer %s %s with 401 when logged out",
@@ -89,7 +89,7 @@ describe("editor writes, refused", () => {
 	it.each([
 		["post", "/editor/news"],
 		["patch", `/editor/news/${id}`],
-		["delete", `/editor/news/${id}?revision=0`]
+		["delete", `/editor/news/${id}?startRevision=0`]
 	] as const)(
 		"answer %s %s with 403 without the website's Origin",
 		async (method, url) => {
@@ -201,7 +201,7 @@ describe("PATCH /editor/news/:id", () => {
 
 		const res = await editor
 			.patch(`/editor/news/${id}`, {
-				revision: 2,
+				startRevision: 2,
 				title: "New title",
 				imageUrl: null
 			})
@@ -224,7 +224,7 @@ describe("PATCH /editor/news/:id", () => {
 		const id = await seedPost();
 
 		const res = await editor
-			.patch(`/editor/news/${id}`, { revision: 0, content: "New" })
+			.patch(`/editor/news/${id}`, { startRevision: 0, content: "New" })
 			.expect(200);
 
 		expect(res.body.revision).toBe(1);
@@ -234,7 +234,7 @@ describe("PATCH /editor/news/:id", () => {
 		const id = await seedPost({ visible: false, revision: 1 });
 
 		const res = await editor
-			.patch(`/editor/news/${id}`, { revision: 1, content: "New" })
+			.patch(`/editor/news/${id}`, { startRevision: 1, content: "New" })
 			.expect(200);
 
 		expect(res.body).not.toHaveProperty("editedAt");
@@ -245,13 +245,13 @@ describe("PATCH /editor/news/:id", () => {
 
 		await editor
 			.patch(`/editor/news/${id}`, {
-				revision: 1,
+				startRevision: 1,
 				date: PAST.toISOString()
 			})
 			.expect(200);
 		const res = await editor
 			.patch(`/editor/news/${id}`, {
-				revision: 2,
+				startRevision: 2,
 				date: "2025-06-01T00:00:00.000Z"
 			})
 			.expect(400);
@@ -263,7 +263,7 @@ describe("PATCH /editor/news/:id", () => {
 		const id = await seedPost({ revision: 4, title: "Saved elsewhere" });
 
 		const res = await editor
-			.patch(`/editor/news/${id}`, { revision: 3, title: "Mine" })
+			.patch(`/editor/news/${id}`, { startRevision: 3, title: "Mine" })
 			.expect(409);
 
 		expect(res.body).toEqual({
@@ -283,18 +283,18 @@ describe("PATCH /editor/news/:id", () => {
 		const id = new Types.ObjectId().toHexString();
 
 		await editor
-			.patch(`/editor/news/${id}`, { revision: 0, title: "x" })
+			.patch(`/editor/news/${id}`, { startRevision: 0, title: "x" })
 			.expect(404);
 	});
 
-	it("needs a revision", async () => {
+	it("needs a startRevision", async () => {
 		const id = await seedPost();
 
 		const res = await editor
 			.patch(`/editor/news/${id}`, { title: "x" })
 			.expect(400);
 
-		expect(res.body.error).toMatch(/revision/);
+		expect(res.body.error).toMatch(/startRevision/);
 	});
 });
 
@@ -303,7 +303,7 @@ describe("DELETE /editor/news/:id", () => {
 		const id = await seedPost({ revision: 2 });
 		const before = await mongoManager.getContentVersion();
 
-		await editor.delete(`/editor/news/${id}?revision=2`).expect(204);
+		await editor.delete(`/editor/news/${id}?startRevision=2`).expect(204);
 
 		expect(await posts().countDocuments()).toBe(0);
 		expect(await mongoManager.getContentVersion()).not.toBe(before);
@@ -314,7 +314,7 @@ describe("DELETE /editor/news/:id", () => {
 		const before = await mongoManager.getContentVersion();
 
 		const res = await editor
-			.delete(`/editor/news/${id}?revision=1`)
+			.delete(`/editor/news/${id}?startRevision=1`)
 			.expect(409);
 
 		expect(res.body.current).toMatchObject({ id, revision: 2 });
@@ -325,10 +325,10 @@ describe("DELETE /editor/news/:id", () => {
 	it("answers 404 for a missing post", async () => {
 		const id = new Types.ObjectId().toHexString();
 
-		await editor.delete(`/editor/news/${id}?revision=0`).expect(404);
+		await editor.delete(`/editor/news/${id}?startRevision=0`).expect(404);
 	});
 
-	it.each(["", "?revision=abc", "?revision=-1"])(
+	it.each(["", "?startRevision=abc", "?startRevision=-1"])(
 		"answers 400 without a valid revision (%s)",
 		async (query) => {
 			const id = await seedPost();
@@ -390,7 +390,7 @@ describe("gallery images", () => {
 
 		const res = await editor
 			.patch(`/editor/gallery/images/${insertedId.toHexString()}`, {
-				revision: 0,
+				startRevision: 0,
 				collection: "season6"
 			})
 			.expect(200);
@@ -447,7 +447,7 @@ describe("map seasons", () => {
 
 		await editor
 			.patch(`/editor/maps/seasons/${nine.body.id}`, {
-				revision: 1,
+				startRevision: 1,
 				season: 8
 			})
 			.expect(409);
@@ -493,7 +493,7 @@ describe("collections", () => {
 
 		const res = await editor
 			.patch("/editor/downloads/collections/worlds", {
-				revision: 0,
+				startRevision: 0,
 				title: "Worlds",
 				visible: false,
 				slug: "ignored"
@@ -523,7 +523,7 @@ describe("collections", () => {
 		]);
 
 		await editor
-			.delete("/editor/downloads/collections/worlds?revision=2")
+			.delete("/editor/downloads/collections/worlds?startRevision=2")
 			.expect(204);
 
 		expect(await collections().countDocuments()).toBe(0);
@@ -545,7 +545,7 @@ describe("collections", () => {
 		]);
 
 		const res = await editor
-			.delete("/editor/downloads/collections/worlds?revision=1")
+			.delete("/editor/downloads/collections/worlds?startRevision=1")
 			.expect(409);
 
 		expect(res.body.current).toMatchObject({
@@ -558,7 +558,7 @@ describe("collections", () => {
 
 	it("answers 404 for a missing collection", async () => {
 		await editor
-			.patch("/editor/gallery/collections/missing", { revision: 0 })
+			.patch("/editor/gallery/collections/missing", { startRevision: 0 })
 			.expect(404);
 	});
 });
