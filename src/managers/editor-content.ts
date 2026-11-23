@@ -4,9 +4,9 @@
 // content type (CONTENT_TYPES) holds what differs, so each query is written
 // once.
 import { Document, mongo } from "mongoose";
-import type { Model, PipelineStage, Types } from "mongoose";
+import type { Model, PipelineStage } from "mongoose";
 import type { NewsStatus } from "../contract/api-responses.ts";
-import type { Audited, EditorRef } from "../models/audit-fields.ts";
+import type { EditorRef } from "../models/audit-fields.ts";
 import type { ContentCollection } from "../models/content-collection-schema.ts";
 import {
 	downloadCollectionModel,
@@ -18,88 +18,45 @@ import {
 } from "../models/gallery-schema.ts";
 import { mapSeasonModel } from "../models/map-season-schema.ts";
 import { newsPostModel } from "../models/news-post-schema.ts";
+import {
+	DUPLICATE_KEY,
+	LIVE_OR_HIDDEN,
+	NEWS_STATUSES,
+	duplicateKeyField,
+	duplicateOf,
+	listFilter,
+	revisionFilter,
+	staleOutcome,
+	textSearch,
+	toEditorItem,
+	updateOperators,
+	withoutNulls
+} from "../helpers/editor-queries.ts";
+import type {
+	CollectionTypeName,
+	CollectionWriteResult,
+	ContentType,
+	ContentTypeName,
+	CreateResult,
+	Duplicate,
+	EditorCollectionSummary,
+	EditorItem,
+	EditorListQuery,
+	ItemRef,
+	ItemUpdate,
+	NewItem,
+	Rejected,
+	StoredItem,
+	WriteOp,
+	WriteResult
+} from "../types/editor-content.ts";
 
 export const CONTENT_TYPE_NAMES = [
 	"news",
 	"gallery",
 	"downloads",
 	"maps"
-] as const;
-
-export type ContentTypeName = (typeof CONTENT_TYPE_NAMES)[number];
-
-export type CollectionTypeName = "gallery" | "downloads";
-
-// A stored content document, whatever its type: the fields the shared
-// queries use, plus the type's own.
-export interface StoredItem extends Audited {
-	readonly _id: Types.ObjectId;
-	readonly date?: Date;
-	readonly collection?: string;
-	readonly [field: string]: unknown;
-}
-
-export type EditorItem = Omit<StoredItem, "_id"> & {
-	readonly id: string;
-	readonly status: NewsStatus;
-};
-
-// A search in one field: `pattern` is the escaped, case-insensitive query.
-type SearchField = (pattern: RegExp, query: string) => object;
-
-interface ContentType {
-	/** What an item is called in messages. */
-	readonly itemName: string;
-	readonly model: Model<StoredItem>;
-	/** The statuses its items can have, and how each is found. */
-	readonly statuses: StatusRules;
-	readonly searchFields: Readonly<Record<string, SearchField>>;
-	/** The public order. */
-	readonly sort: PipelineStage[];
-	/** What makes an item a list's summary (only `getItem` sends it whole). */
-	readonly summary: PipelineStage[];
-	/** For gallery and downloads: their collections' metadata. */
-	readonly collectionModel?: Model<ContentCollection>;
-}
-
-const textSearch =
-	(field: string): SearchField =>
-	(pattern) => ({ [field]: pattern });
-
-// Missing `visible` (documents from before the editor tools) counts as
-// visible.
-const VISIBLE = { visible: { $ne: false } };
-const HIDDEN = { visible: false };
-
-interface StatusRules {
-	/** An item's status. */
-	readonly of: (item: StoredItem, now: Date) => NewsStatus;
-	/** The filter for each status the type has (its list's `status`). */
-	readonly filters: Readonly<
-		Partial<Record<NewsStatus, (now: Date) => object>>
-	>;
-}
-
-// Every type's but news's: live when visible, else hidden.
-const LIVE_OR_HIDDEN: StatusRules = {
-	of: (item) => (item.visible === false ? "hidden" : "live"),
-	filters: { live: () => VISIBLE, hidden: () => HIDDEN }
-};
-
-// News also has `scheduled`: visible, but its date hasn't come.
-const NEWS_STATUSES: StatusRules = {
-	of: (item, now) => {
-		if (item.visible === false) {
-			return "hidden";
-		}
-		return item.date && item.date > now ? "scheduled" : "live";
-	},
-	filters: {
-		live: (now) => ({ ...VISIBLE, date: { $not: { $gt: now } } }),
-		scheduled: (now) => ({ ...VISIBLE, date: { $gt: now } }),
-		hidden: () => HIDDEN
-	}
-};
+] as const satisfies readonly ContentTypeName[];
 
 // The statuses a type's list can filter by.
 export function statusesOf(typeName: ContentTypeName): NewsStatus[] {
@@ -181,91 +138,6 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 	}
 };
 
-// A status the type doesn't have is a bug: the list query only takes the
-// type's own (statusesOf).
-function statusFilter(
-	type: ContentType,
-	status: NewsStatus,
-	now: Date
-): object {
-	const filter = type.statuses.filters[status];
-	if (!filter) {
-		throw new Error(`no '${status}' status for this content type`);
-	}
-	return filter(now);
-}
-
-function escapeRegExp(text: string): string {
-	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-export interface EditorListQuery {
-	readonly startIndex: number;
-	readonly limit?: number;
-	/** Only items created by this Discord user (ID or username). */
-	readonly createdBy?: string;
-	/** Only items last updated by this Discord user (ID or username). */
-	readonly lastUpdatedBy?: string;
-	readonly status?: NewsStatus;
-	readonly collection?: string;
-	/** A search, in the fields `searchIn` names (all of the type's if empty). */
-	readonly q?: string;
-	readonly searchIn: readonly string[];
-}
-
-function listFilter(
-	type: ContentType,
-	query: EditorListQuery,
-	now: Date
-): object {
-	const filters: object[] = [];
-	for (const field of ["createdBy", "lastUpdatedBy"] as const) {
-		const user = query[field];
-		if (user !== undefined) {
-			filters.push({
-				$or: [
-					{ [`${field}.id`]: user },
-					{ [`${field}.username`]: user }
-				]
-			});
-		}
-	}
-	if (query.status) {
-		filters.push(statusFilter(type, query.status, now));
-	}
-	if (query.collection !== undefined) {
-		filters.push({ collection: query.collection });
-	}
-	const { q } = query;
-	if (q) {
-		const pattern = new RegExp(escapeRegExp(q), "i");
-		const fields =
-			query.searchIn.length > 0
-				? query.searchIn
-				: Object.keys(type.searchFields);
-		filters.push({
-			$or: fields.flatMap((field) => {
-				const search = type.searchFields[field];
-				return search ? [search(pattern, q)] : [];
-			})
-		});
-	}
-	return filters.length > 0 ? { $and: filters } : {};
-}
-
-function toEditorItem(
-	type: ContentType,
-	item: StoredItem,
-	now: Date
-): EditorItem {
-	const { _id, ...fields } = item;
-	return {
-		...fields,
-		id: _id.toHexString(),
-		status: type.statuses.of(item, now)
-	};
-}
-
 // A page of a type's items, public or not, in the public order, with the
 // number matching. As the type's summaries: see getItem for whole items.
 export async function listItems(
@@ -303,10 +175,6 @@ export async function getItem(
 	return item ? toEditorItem(type, item as StoredItem, now) : undefined;
 }
 
-export interface EditorCollectionSummary extends ContentCollection {
-	readonly itemCount: number;
-}
-
 // Every gallery or download collection, public or not, by slug, with how many
 // items each holds (for the delete confirmation).
 export async function listCollections(
@@ -339,128 +207,6 @@ export async function listCollections(
 // item, in order, rather than throwing, so a bulk action can report every
 // item's outcome; routes turn one into a status.
 
-export type WriteResult =
-	| { readonly outcome: "ok"; readonly item?: EditorItem }
-	| { readonly outcome: "conflict"; readonly current: EditorItem }
-	| { readonly outcome: "not-found" }
-	| Duplicate;
-
-/** A taken unique value other than `createId`: a slug or a season. */
-export interface Duplicate {
-	readonly outcome: "duplicate";
-	readonly field: string;
-}
-
-/** An update whose `changesFor` threw (e.g. too many tags): nothing written. */
-export interface Rejected {
-	readonly outcome: "rejected";
-	readonly error: unknown;
-}
-
-/** A field set to null is removed (e.g. a news post's `imageUrl`). */
-export type FieldChanges = Readonly<Record<string, unknown>>;
-
-/** An item to update or delete, at the revision the editor started from. */
-export interface ItemRef {
-	readonly id: string;
-	readonly startingRevision: number;
-}
-
-export interface ItemUpdate extends ItemRef {
-	/**
-	 * The changes, from the stored item (news dates depend on it). Runs only
-	 * once the revision has matched; the write checks it again, so nothing
-	 * saved in between is overwritten.
-	 */
-	readonly changesFor: (current: StoredItem) => FieldChanges;
-}
-
-export interface NewItem {
-	readonly createId: string;
-	readonly fields: FieldChanges;
-}
-
-export type CreateResult =
-	| {
-			readonly outcome: "ok";
-			readonly item: EditorItem;
-			/** False when the createId had already made it (a repeat). */
-			readonly created: boolean;
-	  }
-	| Duplicate;
-
-const DUPLICATE_KEY = 11000;
-
-// The field a MongoDB duplicate key error is about, or undefined for any
-// other error.
-function duplicateKeyField(error: unknown): string | undefined {
-	if (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		error.code === DUPLICATE_KEY &&
-		"keyPattern" in error &&
-		typeof error.keyPattern === "object" &&
-		error.keyPattern !== null
-	) {
-		return Object.keys(error.keyPattern)[0];
-	}
-	return undefined;
-}
-
-// A type's unique fields other than createId, from its schema's indexes
-// (a map's season).
-function uniqueFieldsOf(type: ContentType): string[] {
-	return type.model.schema
-		.indexes()
-		.filter(([, options]) => options.unique)
-		.flatMap(([fields]) => Object.keys(fields))
-		.filter((field) => field !== "createId");
-}
-
-// Bulk write errors don't name the unique index a duplicate key broke, so
-// it's the type's one unique field (createId is told apart by looking it up).
-function duplicateOf(type: ContentType): Duplicate {
-	const [field, ...others] = uniqueFieldsOf(type);
-	if (!field || others.length > 0) {
-		throw new Error(
-			`duplicate key on a ${type.itemName} without exactly one unique field`
-		);
-	}
-	return { outcome: "duplicate", field };
-}
-
-function revisionFilter(revision: number): object {
-	return revision === 0 ? { revision: { $in: [0, null] } } : { revision };
-}
-
-// $set for the values, $unset for the nulls.
-function updateOperators(
-	changes: FieldChanges,
-	editor: EditorRef
-): Record<string, object> {
-	const set: Record<string, unknown> = { lastUpdatedBy: editor };
-	const unset: Record<string, ""> = {};
-	for (const [field, value] of Object.entries(changes)) {
-		if (value === null) {
-			unset[field] = "";
-		} else if (value !== undefined) {
-			set[field] = value;
-		}
-	}
-	return {
-		$set: set,
-		$inc: { revision: 1 },
-		...(Object.keys(unset).length > 0 && { $unset: unset })
-	};
-}
-
-function withoutNulls(fields: FieldChanges): FieldChanges {
-	return Object.fromEntries(
-		Object.entries(fields).filter(([, value]) => value != null)
-	);
-}
-
 // The stored items among `ids`, by id, in one query.
 async function itemsById(
 	type: ContentType,
@@ -474,25 +220,6 @@ async function itemsById(
 		items.map((item) => [item._id.toHexString(), item as StoredItem])
 	);
 }
-
-// Why a revision-checked write matched nothing: deleted, or saved since.
-function staleOutcome(
-	type: ContentType,
-	current: StoredItem | undefined,
-	now: Date
-): WriteResult {
-	return current
-		? { outcome: "conflict", current: toEditorItem(type, current, now) }
-		: { outcome: "not-found" };
-}
-
-type WriteOp =
-	| {
-			readonly name: "updateOne";
-			readonly filter: object;
-			readonly update: object;
-	  }
-	| { readonly name: "deleteOne"; readonly filter: object };
 
 // Runs every op in one unordered bulk write, so one failing op doesn't stop
 // the others, returning each op's matched (update) or deleted count, or a
@@ -790,15 +517,6 @@ export async function missingCollections(
 	});
 	return slugs.filter((slug) => !found.includes(slug));
 }
-
-export type CollectionWriteResult =
-	| { readonly outcome: "ok"; readonly collection?: EditorCollectionSummary }
-	| Duplicate
-	| {
-			readonly outcome: "conflict";
-			readonly current: EditorCollectionSummary;
-	  }
-	| { readonly outcome: "not-found" };
 
 async function collectionSummary(
 	typeName: CollectionTypeName,

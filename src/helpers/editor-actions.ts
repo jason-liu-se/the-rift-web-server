@@ -10,13 +10,13 @@ import {
 	editorCollection,
 	parseResponse
 } from "../api/response-schemas.ts";
-import {
-	CONTENT_TYPES,
-	type CollectionTypeName,
-	type CollectionWriteResult,
-	type ContentTypeName
-} from "../managers/editor-content.ts";
-import type { ItemOutcome } from "./editor-bulk.ts";
+import { CONTENT_TYPES } from "../managers/editor-content.ts";
+import type {
+	CollectionTypeName,
+	CollectionWriteResult,
+	ContentTypeName,
+	ItemOutcome
+} from "../types/editor-content.ts";
 
 // Who's writing, as stored on the item (never the avatar).
 export function editorOf(res: Response): EditorRef {
