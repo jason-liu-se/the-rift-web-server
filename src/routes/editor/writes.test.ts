@@ -501,6 +501,33 @@ describe("gallery images", () => {
 		expect(await collection("gallery", "images").countDocuments()).toBe(0);
 	});
 
+	it("makes the image again for a create repeated after it was deleted", async () => {
+		// Rare (a retry landing after another editor's delete), so the editor
+		// just deletes it again; lastUpdatedBy shows who made it.
+		const image = {
+			createId: randomUUID(),
+			collection: "season5",
+			caption: "x",
+			imageUrl: IMAGE
+		};
+		const first = await editor
+			.post("/editor/gallery/images", image)
+			.expect(201);
+		await editor
+			.delete(
+				`/editor/gallery/images/${first.body.id}?startingRevision=1`
+			)
+			.expect(204);
+
+		const repeat = await editor
+			.post("/editor/gallery/images", image)
+			.expect(201);
+
+		expect(repeat.body).toMatchObject({ caption: "x", revision: 1 });
+		expect(repeat.body.id).not.toBe(first.body.id);
+		expect(await collection("gallery", "images").countDocuments()).toBe(1);
+	});
+
 	it("moves an image to another existing collection", async () => {
 		await collection("gallery", "collections").insertOne({
 			slug: "season6",
