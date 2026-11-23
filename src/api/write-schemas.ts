@@ -100,7 +100,7 @@ const downloadShape = z.object({
 
 const mapSeasonShape = z.object({
 	season: z.number().int().min(0),
-	imageUrl: url,
+	imageUrl: url.nullable().optional(),
 	dimensions: z
 		.array(mapDimension)
 		.max(MAX_MAP_DIMENSIONS, `at most ${MAX_MAP_DIMENSIONS} dimensions`)

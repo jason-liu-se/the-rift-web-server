@@ -593,6 +593,34 @@ describe("map seasons", () => {
 		});
 	});
 
+	it("creates a season without an image, and removes one with null", async () => {
+		// JSON leaves out the undefined imageUrl.
+		const created = await editor
+			.post("/editor/maps/seasons", {
+				...newSeason(8),
+				imageUrl: undefined
+			})
+			.expect(201);
+		expect(created.body).not.toHaveProperty("imageUrl");
+
+		await editor
+			.patch(`/editor/maps/seasons/${created.body.id}`, {
+				startingRevision: 1,
+				imageUrl: IMAGE
+			})
+			.expect(200);
+		const removed = await editor
+			.patch(`/editor/maps/seasons/${created.body.id}`, {
+				startingRevision: 2,
+				imageUrl: null
+			})
+			.expect(200);
+
+		expect(removed.body).not.toHaveProperty("imageUrl");
+		const [stored] = await collection("maps", "seasons").find().toArray();
+		expect(stored).not.toHaveProperty("imageUrl");
+	});
+
 	it("answers 409 for a season that already exists", async () => {
 		await editor.post("/editor/maps/seasons", newSeason(8)).expect(201);
 

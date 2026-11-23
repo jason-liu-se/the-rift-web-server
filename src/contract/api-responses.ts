@@ -110,7 +110,7 @@ export interface MapSeason {
 	id: string;
 	/** Season number */
 	season: number;
-	imageUrl: string;
+	imageUrl?: string;
 	dimensions: MapDimension[];
 }
 
