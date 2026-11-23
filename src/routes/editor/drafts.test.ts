@@ -289,6 +289,38 @@ describe("GET /editor/drafts", () => {
 		]);
 	});
 
+	it("counts a map season draft's dimensions instead of listing them", async () => {
+		const dimension = {
+			name: "Overworld",
+			imageUrl: IMAGE,
+			worldId: "world",
+			perspective: ""
+		};
+		const { id: some } = await createDraft({
+			type: "maps",
+			fields: { season: 6, dimensions: [dimension, dimension] }
+		});
+		const { id: none } = await createDraft({
+			type: "maps",
+			fields: { season: 7 }
+		});
+
+		const res = await editor.get("/editor/drafts?type=maps").expect(200);
+
+		expect(res.body).toEqual([
+			expect.objectContaining({
+				id: none,
+				fields: { season: 7 },
+				dimensionCount: 0
+			}),
+			expect.objectContaining({
+				id: some,
+				fields: { season: 6 },
+				dimensionCount: 2
+			})
+		]);
+	});
+
 	it("answers 404 for another editor's draft", async () => {
 		const { id } = await createDraft();
 
