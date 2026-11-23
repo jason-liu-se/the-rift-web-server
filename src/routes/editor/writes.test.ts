@@ -620,6 +620,59 @@ describe("map seasons", () => {
 	});
 });
 
+describe("blank text", () => {
+	it.each([
+		[
+			"gallery/images",
+			{ collection: "art", caption: "", imageUrl: IMAGE },
+			{ caption: "" }
+		],
+		[
+			"downloads/items",
+			{
+				collection: "art",
+				title: "Pack",
+				desc: "",
+				downloadUrl: "https://example.com/pack.zip",
+				imageUrl: IMAGE
+			},
+			{ desc: "" }
+		],
+		[
+			"maps/seasons",
+			{
+				season: 1,
+				imageUrl: IMAGE,
+				dimensions: [
+					{
+						name: "overworld",
+						imageUrl: IMAGE,
+						worldId: "s1_overworld",
+						perspective: ""
+					}
+				]
+			},
+			{ dimensions: [expect.objectContaining({ perspective: "" })] }
+		]
+	])(
+		"creates %s with a field that may be blank left blank",
+		async (path, fields, blank) => {
+			await Promise.all([
+				collection("gallery", "collections").insertOne({ slug: "art" }),
+				collection("downloads", "collections").insertOne({
+					slug: "art"
+				})
+			]);
+
+			const res = await editor
+				.post(`/editor/${path}`, { createId: randomUUID(), ...fields })
+				.expect(201);
+
+			expect(res.body).toMatchObject(blank);
+		}
+	);
+});
+
 describe("collections", () => {
 	const collections = () => collection("downloads", "collections");
 
