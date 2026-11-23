@@ -88,8 +88,9 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 	router.post("/", async (req, res) => {
 		const { createId } = createOptions.parse(req.body);
 		const result =
-			(await editorContent.findCreated(typeName, createId)) ??
-			(await createFromBody(typeName, req.body, editorOf(res)));
+			(await editorContent.findCreated(typeName, [createId])).get(
+				createId
+			) ?? (await createFromBody(typeName, req.body, editorOf(res)));
 
 		const item = writtenItem(typeName, createId, result);
 		await mongoManager.updateContentVersion();
