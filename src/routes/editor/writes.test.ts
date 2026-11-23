@@ -19,12 +19,14 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../../test/database.ts";
+import { raceCreateWithDelete } from "../../../test/create-race.ts";
 import { asEditor } from "../../../test/editor.ts";
 import { EDITOR, sessionCookie } from "../../../test/session.ts";
 
 beforeAll(startDatabase);
 afterEach(async () => {
 	vi.useRealTimers();
+	vi.restoreAllMocks();
 	await clearDatabase();
 });
 afterAll(stopDatabase);
@@ -480,6 +482,25 @@ describe("gallery images", () => {
 		expect(res.body.error).toBe("ERROR: collection: no such collection");
 	});
 
+	it("answers 404 for a repeated create whose image was deleted meanwhile", async () => {
+		const image = {
+			createId: randomUUID(),
+			collection: "season5",
+			caption: "x",
+			imageUrl: IMAGE
+		};
+		raceCreateWithDelete("gallery", "images", image);
+
+		const res = await editor
+			.post("/editor/gallery/images", image)
+			.expect(404);
+
+		expect(res.body).toEqual({
+			error: `ERROR: gallery image '${image.createId}' not found`
+		});
+		expect(await collection("gallery", "images").countDocuments()).toBe(0);
+	});
+
 	it("moves an image to another existing collection", async () => {
 		await collection("gallery", "collections").insertOne({
 			slug: "season6",
@@ -540,6 +561,21 @@ describe("map seasons", () => {
 		expect(res.body).toEqual({
 			error: "ERROR: a map season with that season already exists"
 		});
+	});
+
+	it("answers 404, not 409, for a repeated create whose season was deleted meanwhile", async () => {
+		const season = newSeason(8);
+		raceCreateWithDelete("maps", "seasons", season);
+
+		await editor.post("/editor/maps/seasons", season).expect(404);
+	});
+
+	it("answers 409 for a taken season in a create that raced a delete", async () => {
+		await editor.post("/editor/maps/seasons", newSeason(8)).expect(201);
+		const season = newSeason(8);
+		raceCreateWithDelete("maps", "seasons", { createId: season.createId });
+
+		await editor.post("/editor/maps/seasons", season).expect(409);
 	});
 
 	it("answers 409 for an update to a taken season", async () => {

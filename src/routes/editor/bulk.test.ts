@@ -21,6 +21,7 @@ import {
 	startDatabase,
 	stopDatabase
 } from "../../../test/database.ts";
+import { raceCreateWithDelete } from "../../../test/create-race.ts";
 import { asEditor } from "../../../test/editor.ts";
 import { EDITOR } from "../../../test/session.ts";
 
@@ -544,6 +545,29 @@ describe("/editor/<items>/bulk", () => {
 		expect(second).toEqual(first);
 		expect(await images().countDocuments()).toBe(1);
 		expect(insertMany).toHaveBeenCalledTimes(1);
+	});
+
+	it("reports a repeated create whose image was deleted meanwhile as not found", async () => {
+		const [raced, other] = [randomUUID(), randomUUID()];
+		const image = (createId: string) => ({
+			createId,
+			collection: "season5",
+			caption: "x",
+			imageUrl: IMAGE
+		});
+		raceCreateWithDelete("gallery", "images", image(raced));
+
+		const res = await editor
+			.post("/editor/gallery/images/bulk", {
+				items: [image(raced), image(other)]
+			})
+			.expect(200);
+
+		expect(res.body.results).toEqual([
+			{ id: raced, outcome: "not-found" },
+			expect.objectContaining({ id: other, outcome: "ok" })
+		]);
+		expect(await images().countDocuments()).toBe(1);
 	});
 
 	it("shows news posts by the news rules", async () => {

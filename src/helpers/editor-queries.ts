@@ -138,7 +138,7 @@ export function duplicateKeyField(error: unknown): string | undefined {
 
 // A type's unique fields other than createId, from its schema's indexes
 // (a map's season).
-function uniqueFieldsOf(type: ContentType): string[] {
+export function uniqueFieldsOf(type: ContentType): string[] {
 	return type.model.schema
 		.indexes()
 		.filter(([, options]) => options.unique)
