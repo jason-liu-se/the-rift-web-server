@@ -4,7 +4,11 @@ import { SESSION_COOKIE } from "../src/auth/session-cookie.ts";
 import type { SessionUser } from "../src/contract/api-responses.ts";
 import { testConfig } from "./app.ts";
 
-export const EDITOR: SessionUser = { id: "123", username: "editor" };
+export const EDITOR: SessionUser = {
+	id: "123",
+	username: "editor",
+	avatarUrl: "https://cdn.discordapp.com/avatars/123/abc.png"
+};
 
 // A Cookie header value holding an access token for user, logged in now.
 export async function sessionCookie(

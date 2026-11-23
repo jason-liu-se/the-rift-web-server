@@ -124,7 +124,11 @@ export const galleryPage = z.toZod<PaginatedResponse<GalleryImage>>()(
 	countResponse.extend({ items: z.array(galleryImage) })
 );
 
-const editorRef = z.object({ id: z.string(), username: z.string() });
+const editorRef = z.object({
+	id: z.string(),
+	username: z.string(),
+	avatarUrl: z.string().optional()
+});
 
 // What the editor reads about every item and collection. Ones from before the
 // editor tools have no `visible` (visible), `revision` (0), or audit fields.

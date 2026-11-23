@@ -18,13 +18,13 @@ import type {
 	ItemOutcome
 } from "../types/editor-content.ts";
 
-// Who's writing, as stored on the item (never the avatar).
+// Who's writing, as stored on the item.
 export function editorOf(res: Response): EditorRef {
-	const { id, username } = res.locals.user ?? {};
+	const { id, username, avatarUrl } = res.locals.user ?? {};
 	if (id === undefined || username === undefined) {
 		throw new Error("editor route reached without a logged-in user");
 	}
-	return { id, username };
+	return { id, username, ...(avatarUrl && { avatarUrl }) };
 }
 
 export function itemNotFound(typeName: ContentTypeName, id: string) {
