@@ -115,10 +115,12 @@ gets `403`. Request bodies must be JSON (`415` otherwise).
 | `GET /editor/<…>/:id`                                                                           |                                                                                        | One whole item, public or not                                 |
 | `GET /editor/gallery/collections`, `/editor/downloads/collections`                              |                                                                                        | Every collection, with its item count                         |
 
-Errors are `{ "error": string }`. Response types:
-[`src/contract/api-responses.ts`](./src/contract/api-responses.ts), which the
-website copies (see its README's "API contract"). How routes, errors, and
-sessions work: [api.md](./.claude/docs/api.md).
+Errors are `{ "error": string }`. Request types (each endpoint's query and
+body): [`src/contract/api-requests.ts`](./src/contract/api-requests.ts);
+response types:
+[`src/contract/api-responses.ts`](./src/contract/api-responses.ts). The website
+copies both (see its README's "API contract"). How routes, errors, and sessions
+work: [api.md](./.claude/docs/api.md).
 
 ## Sessions and access
 
