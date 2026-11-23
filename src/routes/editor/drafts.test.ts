@@ -337,6 +337,14 @@ describe("DELETE /editor/drafts/:id", () => {
 		await editor.delete(`/editor/drafts/${id}`).expect(204);
 		await editor.get(`/editor/drafts/${id}`).expect(404);
 	});
+
+	it("answers 404 for a draft that doesn't exist", async () => {
+		const id = randomUUID();
+
+		const res = await editor.delete(`/editor/drafts/${id}`).expect(404);
+
+		expect(res.body).toEqual({ error: `ERROR: draft '${id}' not found` });
+	});
 });
 
 describe("POST /editor/drafts/:id/publish", () => {
@@ -486,6 +494,136 @@ describe("POST /editor/drafts/:id/publish", () => {
 
 		await editor.post(`/editor/drafts/${id}/publish`, {}).expect(400);
 	});
+
+	it("answers 404 for a draft that doesn't exist", async () => {
+		const id = randomUUID();
+
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, { visible: true })
+			.expect(404);
+
+		expect(res.body).toEqual({ error: `ERROR: draft '${id}' not found` });
+	});
+
+	// Only the required fields, with every optional one left out.
+	it.each([
+		["news", { title: "Title", content: "Body" }],
+		["gallery", { collection: "art", caption: "Caption", imageUrl: IMAGE }],
+		[
+			"downloads",
+			{
+				collection: "art",
+				title: "Pack",
+				desc: "Description",
+				downloadUrl: "https://example.com/pack.zip",
+				imageUrl: IMAGE
+			}
+		],
+		[
+			"maps",
+			{
+				season: 1,
+				imageUrl: IMAGE,
+				dimensions: [
+					{
+						name: "Overworld",
+						imageUrl: IMAGE,
+						worldId: "world",
+						perspective: "top"
+					}
+				]
+			}
+		]
+	])(
+		"publishes a %s draft with only its required fields",
+		async (type, fields) => {
+			await Promise.all([
+				collection("gallery", "collections").insertOne({ slug: "art" }),
+				collection("downloads", "collections").insertOne({
+					slug: "art"
+				})
+			]);
+			const { id } = await createDraft({ type, fields });
+
+			const res = await editor
+				.post(`/editor/drafts/${id}/publish`, { visible: true })
+				.expect(200);
+
+			expect(res.body).toMatchObject({ ...fields, revision: 1 });
+		}
+	);
+
+	it("answers 500 for a stored draft of an unknown type, publishing nothing", async () => {
+		const id = randomUUID();
+		await stored().insertOne({
+			_id: id as never,
+			owner: EDITOR.id,
+			type: "poll",
+			fields: { title: "Draft" },
+			revision: 1
+		});
+
+		await editor
+			.post(`/editor/drafts/${id}/publish`, { visible: true })
+			.expect(500);
+
+		expect(await stored().findOne()).toMatchObject({ revision: 1 });
+		expect(await stored().findOne()).not.toHaveProperty("publishedAs");
+	});
+
+	it("returns the same item for an edit draft published twice", async () => {
+		const target = { id: await seedPost(), startingRevision: 3 };
+		const { id } = await createDraft({
+			type: "news",
+			fields: { title: "Edited", content: "New" },
+			target
+		});
+
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, { visible: true })
+			.expect(200);
+		const repeat = await editor
+			.post(`/editor/drafts/${id}/publish`, { visible: true })
+			.expect(200);
+
+		expect(repeat.body).toEqual(res.body);
+		expect(await posts().findOne()).toMatchObject({ revision: 4 });
+	});
+
+	// The marker a publish leaves behind, gone as the TTL index deletes it
+	// PUBLISHED_DRAFT_TTL_MS later.
+	const expire = (id: string) => stored().deleteOne({ _id: id as never });
+
+	it.each([
+		["before", false],
+		["after", true]
+	])(
+		"answers 404 to a repeated publish %s its marker expires, once the item was deleted",
+		async (_when, expired) => {
+			const { id } = await createDraft(newsDraft({ content: "Body" }));
+			const published = await editor
+				.post(`/editor/drafts/${id}/publish`, { visible: true })
+				.expect(200);
+			const { id: editId } = await createDraft({
+				...newsDraft({ title: "Edited", content: "Body" }),
+				target: { id: published.body.id, startingRevision: 1 }
+			});
+			await editor
+				.delete(`/editor/news/${published.body.id}?startingRevision=1`)
+				.expect(204);
+			if (expired) {
+				await expire(id);
+			}
+
+			await editor
+				.post(`/editor/drafts/${id}/publish`, { visible: true })
+				.expect(404);
+			await editor
+				.post(`/editor/drafts/${editId}/publish`, { visible: true })
+				.expect(404);
+			expect(await posts().countDocuments()).toBe(0);
+		}
+	);
 });
 
 describe("a published draft", () => {
