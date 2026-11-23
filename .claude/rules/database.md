@@ -11,7 +11,9 @@ paths:
 `src/managers/mongo-manager.ts` owns the connection, the public reads, the
 content version, and access grants; `src/managers/editor-content.ts` the editor
 tools' queries, written once for every content type from its `CONTENT_TYPES`
-descriptor. Both return plain results. Routers never import models.
+descriptor (its types in `src/types/editor-content.ts`, and the pure functions
+that build its queries in `src/helpers/editor-queries.ts`). Both return plain
+results. Routers never import models.
 
 ## Layout
 

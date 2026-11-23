@@ -23,7 +23,7 @@ import {
 } from "../../helpers/editor-bulk.ts";
 import { BULK_CREATE_REQUESTS } from "../../api/bulk-requests.ts";
 import * as editorContent from "../../managers/editor-content.ts";
-import type { ContentTypeName } from "../../managers/editor-content.ts";
+import type { ContentTypeName } from "../../types/editor-content.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
 import { revalidateEveryTime } from "../../middleware/cache-control.ts";
 import { listQueryFor, parseUpdate } from "../../api/editor-requests.ts";

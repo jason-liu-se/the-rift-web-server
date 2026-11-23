@@ -4,7 +4,7 @@
 import express, { type Router } from "express";
 import { editorOf, writtenCollection } from "../../helpers/editor-actions.ts";
 import * as editorContent from "../../managers/editor-content.ts";
-import type { CollectionTypeName } from "../../managers/editor-content.ts";
+import type { CollectionTypeName } from "../../types/editor-content.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
 import { revalidateEveryTime } from "../../middleware/cache-control.ts";
 import { slugParams } from "../../api/query-schemas.ts";

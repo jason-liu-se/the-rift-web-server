@@ -8,13 +8,13 @@ import { BadRequestError } from "../errors/bad-request-error.ts";
 import * as editorContent from "../managers/editor-content.ts";
 import type {
 	ContentTypeName,
-	CreateResult,
 	FieldChanges,
+	Invalid,
+	ItemOutcome,
 	ItemUpdate,
 	NewItem,
-	StoredItem,
-	WriteResult
-} from "../managers/editor-content.ts";
+	StoredItem
+} from "../types/editor-content.ts";
 import type { EditorRef } from "../models/audit-fields.ts";
 import type { BulkItemResult } from "../contract/api-responses.ts";
 import { MAX_TAGS_PER_IMAGE } from "../config/content-limits.ts";
@@ -28,14 +28,6 @@ import { parseCreate, parseUpdate } from "../api/editor-requests.ts";
 import { idParams, normaliseTags } from "../api/query-schemas.ts";
 import { EDITOR_ITEM_SCHEMAS, parseResponse } from "../api/response-schemas.ts";
 import { startingRevision } from "../api/write-schemas.ts";
-
-/** An item refused before writing, with why (a single write's 400). */
-export interface Invalid {
-	readonly outcome: "invalid";
-	readonly error: unknown;
-}
-
-export type ItemOutcome = WriteResult | CreateResult | Invalid;
 
 /** A create's item: its createId and the rest of its body, unchecked. */
 export interface NewItemBody {

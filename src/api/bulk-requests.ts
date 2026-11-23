@@ -13,7 +13,7 @@ import type {
 	MapSeasonBulkUpdateRequest,
 	NewsPostBulkUpdateRequest
 } from "../contract/api-requests.ts";
-import type { ContentTypeName } from "../managers/editor-content.ts";
+import type { ContentTypeName } from "../types/editor-content.ts";
 import { collectionSlug } from "./query-schemas.ts";
 import { tagList } from "./write-schemas.ts";
 
