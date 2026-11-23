@@ -6,9 +6,10 @@
 // compile on their own.
 //
 // The query schemas in src/api/query-schemas.ts are built with `queryFor`, so
-// each reads exactly its type's parameters. Of the bodies, only the *Fields
-// and collection schemas in src/api/write-schemas.ts are checked against
-// these types; the rest are kept in step by hand.
+// each reads exactly its type's parameters. Of the bodies, the *Fields and
+// collection schemas in src/api/write-schemas.ts are checked against these
+// types, and the bulk ones in src/api/bulk-requests.ts for their actions and
+// top-level fields; the rest are kept in step by hand.
 //
 // Path parameters: `:collection` and `:slug` are a collection's slug
 // (kebab-case), `:id` an item's ID (24 hex characters), `:area` a detail
@@ -39,7 +40,10 @@
 //   POST   /editor/<items>          NewsPostCreateRequest, ...
 //   PATCH  /editor/<items>/:id      NewsPostUpdateRequest, ...
 //   DELETE /editor/<items>/:id      DeleteQuery
-//   POST   /editor/<items>/bulk     BulkRequest
+//   POST   /editor/<items>/bulk     GalleryImageBulkCreateRequest (gallery
+//                                   only)
+//   PATCH  /editor/<items>/bulk     NewsPostBulkUpdateRequest, ...
+//   DELETE /editor/<items>/bulk     BulkDeleteRequest
 //
 // And for the collections, at /editor/gallery/collections and
 // /editor/downloads/collections:
@@ -233,16 +237,41 @@ export interface BulkItemRef {
 	startingRevision: number;
 }
 
-export type BulkRequest =
-	| { action: "delete" | "show" | "hide"; items: BulkItemRef[] }
-	| { action: "move"; collection: string; items: BulkItemRef[] }
-	| {
-			action: "add-tags" | "remove-tags";
-			tags: string[];
-			items: BulkItemRef[];
-	  }
-	| {
-			action: "create";
-			/** `id` is the new image's createId (a UUID). */
-			items: (GalleryImageFields & VisibilityFields & { id: string })[];
-	  };
+/** Deletes every item. */
+export interface BulkDeleteRequest {
+	items: BulkItemRef[];
+}
+
+// What a bulk update does to every item: every type can show and hide, and
+// each type has its own actions too (its *BulkUpdateRequest).
+
+export interface BulkVisibilityUpdate {
+	action: "show" | "hide";
+	items: BulkItemRef[];
+}
+
+/** Moves every item to another collection of its type (it must exist). */
+export interface BulkMoveUpdate {
+	action: "move";
+	collection: string;
+	items: BulkItemRef[];
+}
+
+/** Adds or removes every tag on every image. */
+export interface BulkTagsUpdate {
+	action: "add-tags" | "remove-tags";
+	tags: string[];
+	items: BulkItemRef[];
+}
+
+export type NewsPostBulkUpdateRequest = BulkVisibilityUpdate;
+export type GalleryImageBulkUpdateRequest =
+	BulkVisibilityUpdate | BulkMoveUpdate | BulkTagsUpdate;
+export type DownloadItemBulkUpdateRequest =
+	BulkVisibilityUpdate | BulkMoveUpdate;
+export type MapSeasonBulkUpdateRequest = BulkVisibilityUpdate;
+
+/** Creates every image; each result's `id` is its item's createId. */
+export interface GalleryImageBulkCreateRequest {
+	items: GalleryImageCreateRequest[];
+}

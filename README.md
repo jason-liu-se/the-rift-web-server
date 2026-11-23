@@ -116,7 +116,7 @@ gets `403`. Request bodies must be JSON (`415` otherwise).
 | `GET /editor/gallery/collections`, `/editor/downloads/collections`                              |                                                                                        | Every collection, with its item count                         |
 | `POST /editor/<items>`                                                                          | Body: the fields and a `createId`                                                      | `201` with the item (`200` for a repeat)                      |
 | `PATCH /editor/<items>/:id`, `DELETE /editor/<items>/:id`                                       | Body or query: `startingRevision`                                                      | The item, or `204`; `409` with it when stale                  |
-| `POST /editor/<items>/bulk`                                                                     | Body: `action`, `items`                                                                | `{ results }`, one per item                                   |
+| `POST`, `PATCH`, `DELETE /editor/<items>/bulk`                                                  | Body: `items` (and `action` for `PATCH`); `POST` for the gallery only                  | `{ results }`, one per item                                   |
 | `POST`, `PATCH /:slug`, `DELETE /:slug` on `/editor/<…>/collections`                            | Body or query: `startingRevision`                                                      | The collection, or `204`                                      |
 
 Errors are `{ "error": string }`. Request types (each endpoint's query and
