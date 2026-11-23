@@ -260,7 +260,7 @@ export interface EditorCollection extends EditorAuditFields {
 }
 
 // Bulk actions: POST /editor/<items>/bulk (e.g. /editor/gallery/images/bulk)
-// with a BulkRequest (api-requests.ts) of at most 100 items answers 200 with
+// with a BulkRequest (api-requests.ts) of at most 50 items answers 200 with
 // one BulkResponse, once every item has been processed: never streamed or
 // split, so the website reports every failure together. Each item is checked and written on its own
 // (no transaction), so some may succeed while others fail. `move` is for
