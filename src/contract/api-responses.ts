@@ -193,10 +193,12 @@ export interface ConflictResponse<T> extends ErrorResponse {
 // Lists carry what a table shows; open an item (`/:id`) for all of it.
 // Lists take an EditorListQuery (api-requests.ts). A missing item is 404.
 
-/** The Discord user behind an edit. */
+/** The Discord user behind an edit, as they were when they made it. */
 export interface EditorRef {
 	id: string;
 	username: string;
+	/** Stops loading once they change their avatar: show a fallback. */
+	avatarUrl?: string;
 }
 
 /**

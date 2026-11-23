@@ -6,10 +6,15 @@ import mongoose from "mongoose";
 // tools lack them. A missing `visible` counts as visible, a missing `revision`
 // as 0, and missing audit fields stay missing ("unknown" in the editor).
 
-/** The Discord user behind an edit, stored so listing needs no Discord call. */
+/**
+ * The Discord user behind an edit, as they were when they made it, stored so
+ * listing needs no Discord call. The avatar's URL stops loading once they
+ * change it.
+ */
 export interface EditorRef {
 	readonly id: string;
 	readonly username: string;
+	readonly avatarUrl?: string;
 }
 
 export interface Audited {
@@ -27,7 +32,8 @@ export interface Audited {
 const editorRefSchema = new mongoose.Schema<EditorRef>(
 	{
 		id: { type: String, required: true },
-		username: { type: String, required: true }
+		username: { type: String, required: true },
+		avatarUrl: { type: String }
 	},
 	{ _id: false, id: false }
 );

@@ -222,6 +222,21 @@ describe("PATCH /editor/news/:id", () => {
 		expect(await mongoManager.getContentVersion()).not.toBe(before);
 	});
 
+	it("replaces the last editor, avatar and all", async () => {
+		const id = await seedPost({ revision: 1, lastUpdatedBy: EDITOR });
+		const noAvatar = { id: "456", username: "other" };
+
+		const res = await (
+			await asEditor(noAvatar)
+		)
+			.patch(`/editor/news/${id}`, { startingRevision: 1, title: "New" })
+			.expect(200);
+
+		expect(res.body.lastUpdatedBy).toEqual(noAvatar);
+		const [stored] = await posts().find().toArray();
+		expect(stored?.["lastUpdatedBy"]).toEqual(noAvatar);
+	});
+
 	it("counts a missing revision as 0", async () => {
 		const id = await seedPost();
 
