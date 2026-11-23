@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { type Audited, auditedFields } from "./audit-fields.ts";
+import { blankableText } from "./text-field.ts";
 import {
 	COLLECTIONS_COLLECTION,
 	type ContentCollection,
@@ -23,7 +24,7 @@ const downloadItemSchema = new mongoose.Schema<DownloadItem>(
 	{
 		collection: { type: String, required: true },
 		title: { type: String, required: true },
-		desc: { type: String, required: true },
+		desc: blankableText<DownloadItem>("desc"),
 		downloadUrl: { type: String, required: true },
 		imageUrl: { type: String, required: true },
 		sortOrder: { type: Number },

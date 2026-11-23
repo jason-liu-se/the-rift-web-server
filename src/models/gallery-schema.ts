@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { type Audited, auditedFields } from "./audit-fields.ts";
+import { blankableText } from "./text-field.ts";
 import {
 	COLLECTIONS_COLLECTION,
 	type ContentCollection,
@@ -21,7 +22,7 @@ export interface GalleryImage extends Audited {
 const galleryImageSchema = new mongoose.Schema<GalleryImage>(
 	{
 		collection: { type: String, required: true },
-		caption: { type: String, required: true },
+		caption: blankableText<GalleryImage>("caption"),
 		imageUrl: { type: String, required: true },
 		tags: { type: [String], default: undefined },
 		...auditedFields
