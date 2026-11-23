@@ -29,6 +29,6 @@ export const LOGIN_CALLBACK_PATH = "/discord/callback";
 
 /**
  * The logged-in user, under /auth. The website calls it (its copy of
- * src/contract/api-responses.ts), so a change must reach the website too.
+ * src/contract/), so a change must reach the website too.
  */
 export const CURRENT_USER_PATH = "/me";
