@@ -355,7 +355,7 @@ export type DraftSummary = (
 	Omit<Draft, "type" | "fields">;
 
 // Image uploads: POST /editor/images with an ImageUploadForm
-// (api-requests.ts). Each file goes to imgbb named by its use (e.g.
+// (api-requests.ts). Each file goes to imgbb named for its album (e.g.
 // `g-season5-spawn`), so one file can fail while others succeed: 200 with a
 // result per file, in order.
 

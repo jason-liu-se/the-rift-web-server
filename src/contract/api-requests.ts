@@ -332,7 +332,7 @@ export interface DraftPublishRequest {
 // `files` (PNG, JPEG, WebP, or GIF, 10 MB each; 413 when larger) and these
 // fields. What it answers is ImageUploadResponse, in api-responses.ts.
 
-/** What the files are for; the gallery's also name the collection (its slug). */
+/** The album to sort the files into; the gallery's names its collection (slug). */
 export type ImageUploadForm =
-	| { use: "gallery"; collection: string }
-	| { use: "news" | "downloads" | "maps" };
+	| { album: "gallery"; collection: string }
+	| { album: "news" | "downloads" | "maps" };
