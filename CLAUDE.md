@@ -52,10 +52,10 @@ edited.
   `editor-content.ts` the editor's queries, `redis-manager.ts` all Redis access,
   and `discord.ts` every call to Discord. Routers never touch models, the Redis
   client, or Discord directly.
-- **`src/contract/api-responses.ts` is the contract with the website**, which
-  keeps a verbatim copy. Endpoint paths, parameters, and response shapes must be
-  changed conservatively since the frontend must be updated to maintain
-  synchronicity.
+- **`src/contract/` is the contract with the website** (`api-requests.ts` what
+  each endpoint takes, `api-responses.ts` what it sends), which keeps a verbatim
+  copy. Endpoint paths, parameters, and response shapes must be changed
+  conservatively since the frontend must be updated to maintain synchronicity.
 
 ## Conventions
 

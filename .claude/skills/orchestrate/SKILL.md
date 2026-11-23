@@ -53,10 +53,10 @@ Before launching, settle each of these that isn't already decided:
   class). Write it down exactly; one task owns it.
 - **Ownership**: which task owns each file or folder. Hot files shared by many
   features (`src/app.ts`, `src/api/public-routes.ts`,
-  `src/api/query-schemas.ts`, `src/api/response-schemas.ts`,
-  `src/contract/api-responses.ts`, `src/managers/mongo-manager.ts`,
-  `src/config/caching.ts`, `src/middleware/cache-control.test.ts`,
-  `test/database.ts`, `README.md`) get one owner, or are marked append-only.
+  `src/api/query-schemas.ts`, `src/api/response-schemas.ts`, `src/contract/`,
+  `src/managers/mongo-manager.ts`, `src/config/caching.ts`,
+  `src/middleware/cache-control.test.ts`, `test/database.ts`, `README.md`) get
+  one owner, or are marked append-only.
 - **Order**: tasks that depend on another's output run after it, or after its
   contract is merged. Parallelize only independent tasks.
 - **The website**: a contract change needs a website task too

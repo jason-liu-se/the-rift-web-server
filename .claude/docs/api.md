@@ -265,18 +265,27 @@ started from; a stale one is `409` with the item as it is now. Every committed
 write calls `updateContentVersion`; `src/routes/editor/content-version.test.ts`
 fails if an editor write route isn't listed there with a write that changes it.
 
-## Response contract
+## Contract
 
-`src/contract/api-responses.ts` holds the response types. The website keeps a
-verbatim copy, so keep the file dependency-free.
+`src/contract/api-requests.ts` holds each endpoint's query and body types, and
+`src/contract/api-responses.ts` the response types, each file with an index of
+the endpoints. The website keeps a verbatim copy of both, so they import only
+from each other.
 
-Each schema in `response-schemas.ts` is typed with `z.toZod<ContractType>()`, so
-it fails to compile if it drifts from the contract. `parseResponse` drops fields
-outside the contract (e.g. `_id`), turns Dates into ISO strings, and throws a
-`500` if stored data is missing a required field: bad stored data is a server
-fault, not the caller's.
+Each query schema in `query-schemas.ts` is built with
+`queryFor<ContractType>()`, which fails to compile if it reads a parameter the
+type doesn't name or misses one, or if a parameter can't take what the website
+sends (coerced numbers are typed `z.coerce.number<string>()` so this holds). Of
+the bodies, the `*Fields` schemas in `write-schemas.ts` are checked with
+`satisfies` (they must produce the type) and the collection ones with `z.toZod`;
+the bulk, draft, and create/update option bodies aren't checked yet. Each schema
+in `response-schemas.ts` is typed with `z.toZod<ContractType>()`, so it fails to
+compile if it drifts from the contract. `parseResponse` drops fields outside the
+contract (e.g. `_id`), turns Dates into ISO strings, and throws a `500` if
+stored data is missing a required field: bad stored data is a server fault, not
+the caller's.
 
-To change a response:
+To change a request or response:
 
 1. Edit the contract file.
 2. Update the schemas until they compile.
