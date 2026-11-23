@@ -255,11 +255,11 @@ export const startingRevisionQuery = queryFor<DeleteQuery>()({
 		.transform(Number)
 });
 
-// An image upload's form fields: what the images are for, which names them.
+// An image upload's form fields: the album, which names the images.
 export const imageUploadFields = z.toZod<ImageUploadForm>()(
-	z.discriminatedUnion("use", [
-		z.object({ use: z.literal("gallery"), collection: collectionSlug }),
-		z.object({ use: z.enum(["news", "downloads", "maps"]) })
+	z.discriminatedUnion("album", [
+		z.object({ album: z.literal("gallery"), collection: collectionSlug }),
+		z.object({ album: z.enum(["news", "downloads", "maps"]) })
 	])
 );
 

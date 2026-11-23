@@ -68,7 +68,7 @@ describe("POST /editor/images", () => {
 
 	it("uploads each image to imgbb, named for its gallery", async () => {
 		const res = await upload()
-			.field("use", "gallery")
+			.field("album", "gallery")
 			.field("collection", "season5")
 			.attach("files", PNG, "Spawn Area.PNG")
 			.attach("files", WEBP, "castle.webp")
@@ -97,9 +97,9 @@ describe("POST /editor/images", () => {
 		["news", "n-"],
 		["downloads", "d-"],
 		["maps", "m-"]
-	])("prefixes %s uploads with %s", async (use, prefix) => {
+	])("prefixes %s uploads with %s", async (album, prefix) => {
 		const res = await upload()
-			.field("use", use)
+			.field("album", album)
 			.attach("files", GIF, "banner.gif")
 			.expect(200);
 
@@ -108,7 +108,7 @@ describe("POST /editor/images", () => {
 
 	it("refuses a file that isn't an image, whatever its name", async () => {
 		const res = await upload()
-			.field("use", "news")
+			.field("album", "news")
 			.attach("files", TEXT, "fake.png")
 			.attach("files", PNG, "real.png")
 			.expect(200);
@@ -132,7 +132,7 @@ describe("POST /editor/images", () => {
 			.mockImplementation(() => undefined);
 
 		const res = await upload()
-			.field("use", "news")
+			.field("album", "news")
 			.attach("files", PNG, "a.png")
 			.expect(200);
 
@@ -149,7 +149,7 @@ describe("POST /editor/images", () => {
 		vi.spyOn(console, "error").mockImplementation(() => undefined);
 
 		const res = await upload()
-			.field("use", "news")
+			.field("album", "news")
 			.attach("files", PNG, "a.png")
 			.expect(200);
 
@@ -160,7 +160,7 @@ describe("POST /editor/images", () => {
 
 	it("answers 413 for a file over the size limit", async () => {
 		const res = await upload()
-			.field("use", "news")
+			.field("album", "news")
 			.attach("files", Buffer.alloc(MAX_UPLOAD_BYTES + 1), "big.png")
 			.expect(413);
 
@@ -168,7 +168,7 @@ describe("POST /editor/images", () => {
 	});
 
 	it("answers 400 for more than 20 files", async () => {
-		let req = upload().field("use", "news");
+		let req = upload().field("album", "news");
 		for (let i = 0; i < 21; i += 1) {
 			req = req.attach("files", PNG, `${i}.png`);
 		}
@@ -180,18 +180,18 @@ describe("POST /editor/images", () => {
 	it.each([
 		[
 			"no files",
-			(req: request.Test) => req.field("use", "news"),
+			(req: request.Test) => req.field("album", "news"),
 			/at least one image/
 		],
 		[
-			"no use",
+			"no album",
 			(req: request.Test) => req.attach("files", PNG, "a.png"),
-			/use/
+			/album/
 		],
 		[
 			"a gallery upload without a collection",
 			(req: request.Test) =>
-				req.field("use", "gallery").attach("files", PNG, "a.png"),
+				req.field("album", "gallery").attach("files", PNG, "a.png"),
 			/collection/
 		]
 	])("answers 400 for %s", async (_name, build, message) => {
@@ -205,7 +205,7 @@ describe("POST /editor/images", () => {
 			.post("/Editor/Images/")
 			.set("Cookie", cookie)
 			.set("Origin", testConfig.FRONTEND_URL)
-			.field("use", "news")
+			.field("album", "news")
 			.attach("files", PNG, "a.png")
 			.expect(200);
 	});
@@ -214,7 +214,7 @@ describe("POST /editor/images", () => {
 		const res = await upload()
 			.set("Content-Type", "multipart/form-data; boundary=x")
 			.send(
-				'--x\r\nContent-Disposition: form-data; name="use"\r\n\r\nnews'
+				'--x\r\nContent-Disposition: form-data; name="album"\r\n\r\nnews'
 			)
 			.expect(400);
 
@@ -228,7 +228,7 @@ describe("POST /editor/images", () => {
 		vi.spyOn(console, "error").mockImplementation(() => undefined);
 
 		const res = await upload()
-			.field("use", "news")
+			.field("album", "news")
 			.attach("files", PNG, "a.png")
 			.expect(200);
 
