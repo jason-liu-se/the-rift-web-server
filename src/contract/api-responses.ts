@@ -1,9 +1,10 @@
-// The response bodies this API sends: the contract with The Rift website.
+// The response bodies this API sends: the contract with The Rift website,
+// with src/contract/api-requests.ts (what each endpoint takes).
 //
 // Edit the contract here, never in the website: the website keeps a verbatim
-// copy at ../website/src/app/interfaces/api-responses.ts (refresh it with
-// `npm run api:sync` there). Keep this file dependency-free so the copy
-// compiles on its own.
+// copy of both files in ../website/src/app/interfaces/ (refresh them with
+// `npm run api:sync` there). Import only from api-requests.ts, so the copies
+// compile on their own.
 //
 // Every route sends its body through a schema in
 // src/api/response-schemas.ts, which z.toZod checks against these types, so
@@ -16,9 +17,8 @@
 //   GET /news/count              CountResponse
 //   GET /gallery                 GalleryCollection[], sorted by slug
 //   GET /gallery/:collection     PaginatedResponse<GalleryImage>, newest
-//                                first; `tags=a,b` keeps images with every
-//                                tag (lowercase, unique, sorted, else 400)
-//   GET /gallery/:collection/count  CountResponse; takes `tags` too
+//                                first, with every tag in `tags`
+//   GET /gallery/:collection/count  CountResponse
 //   GET /gallery/:collection/tags   GalleryTags
 //   GET /downloads               DownloadCollection[], sorted by slug
 //   GET /downloads/:collection   DownloadItem[], by sortOrder, then the
@@ -39,12 +39,9 @@
 // Public reads return only public content: visible, in a visible collection
 // (a hidden or missing one is 404), and for news, dated now or earlier.
 //
-// Every GET above from /news to /maps/seasons takes an optional `v`, the
-// current ContentVersion's `version`: with it, responses are cached under that
-// version, so send it on every public read to see edits on the next page load.
-// /news and /news/count also take `dv`, the current DetailVersion of `news`:
-// they're cached only when both `v` and `dv` are current, so a scheduled post
-// shows once its date comes. A `dv` that isn't digits is 400.
+// Every GET above from /news to /maps/seasons takes `v` (and news `dv`), so
+// it's cached under the current content version: see VersionQuery in
+// api-requests.ts.
 
 export interface NewsPost {
 	id: string;
@@ -169,105 +166,6 @@ export interface ConflictResponse<T> extends ErrorResponse {
 	current?: T;
 }
 
-// Request bodies the editor tools send (see the /editor routes). Every write
-// is checked against the limits in the server's src/config/content-limits.ts,
-// image URLs against its src/config/images.ts allowlist, and news markdown
-// for raw HTML and unsafe links or images. A 400 names each wrong field and
-// why.
-
-/**
- * When a news post goes live: `"now"` (the server's time), or an ISO 8601
- * date-time in the future (scheduled). An update may also send the post's
- * current date (unchanged); any other past date is 400.
- */
-export type NewsDate = "now" | string;
-
-/** A news post's own fields. `title` is inline markdown, `content` markdown. */
-export interface NewsPostFields {
-	title: string;
-	content: string;
-	/** null removes it (updates). */
-	imageUrl?: string | null;
-}
-
-export interface GalleryImageFields {
-	/** The gallery's slug. */
-	collection: string;
-	caption: string;
-	imageUrl: string;
-	/** Lowercased, trimmed, and deduplicated by the server. */
-	tags?: string[];
-}
-
-export interface DownloadItemFields {
-	/** The download collection's slug. */
-	collection: string;
-	title: string;
-	desc: string;
-	downloadUrl: string;
-	imageUrl: string;
-	/** Ascending; items without one come last, by title. null removes it. */
-	sortOrder?: number | null;
-}
-
-export interface MapSeasonFields {
-	season: number;
-	imageUrl: string;
-	dimensions: MapDimension[];
-}
-
-/** Publishing options every create and update may set. */
-export interface VisibilityFields {
-	/** Hidden items are only in the editor tools. Creates default to true. */
-	visible?: boolean;
-}
-
-/**
- * A create. `createId` is a UUID the client makes per new item (a draft's ID
- * doubles as it): repeating the create returns the item already made.
- */
-export type CreateRequest<Fields> = Fields &
-	VisibilityFields & { createId: string };
-
-/**
- * An update: any of the fields, plus `startingRevision`, the item's revision when
- * the editor started (a stale one is a 409).
- */
-export type UpdateRequest<Fields> = Partial<Fields> &
-	VisibilityFields & { startingRevision: number };
-
-export type NewsPostCreateRequest = CreateRequest<NewsPostFields> & {
-	/** Absent: now. */
-	date?: NewsDate;
-};
-
-export type NewsPostUpdateRequest = UpdateRequest<NewsPostFields> & {
-	/** Absent: unchanged. */
-	date?: NewsDate;
-};
-
-export type GalleryImageCreateRequest = CreateRequest<GalleryImageFields>;
-export type GalleryImageUpdateRequest = UpdateRequest<GalleryImageFields>;
-
-export type DownloadItemCreateRequest = CreateRequest<DownloadItemFields>;
-export type DownloadItemUpdateRequest = UpdateRequest<DownloadItemFields>;
-
-export type MapSeasonCreateRequest = CreateRequest<MapSeasonFields>;
-export type MapSeasonUpdateRequest = UpdateRequest<MapSeasonFields>;
-
-/** A gallery or download collection. */
-export interface CollectionCreateRequest extends VisibilityFields {
-	/** Kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`); fixed once created. */
-	slug: string;
-	title: string;
-}
-
-export interface CollectionUpdateRequest extends VisibilityFields {
-	/** The collection's revision when the editor started. */
-	startingRevision: number;
-	title?: string;
-}
-
 // What the editor tools read (GET /editor/*, logged in): every item, public
 // or not, with its edit history. Sent `Cache-Control: private, no-cache` with
 // an ETag, so the browser revalidates (304 when unchanged).
@@ -284,15 +182,7 @@ export interface CollectionUpdateRequest extends VisibilityFields {
 //   GET /editor/maps/seasons/:id    EditorMapSeason
 //
 // Lists carry what a table shows; open an item (`/:id`) for all of it.
-// Lists are in the public order and take `startIndex`, `limit` (at most 25,
-// the default), and filters: `createdBy` and `lastUpdatedBy` (a Discord user
-// ID or username, matched exactly), `status` (a ContentStatus, or for news a
-// NewsStatus), `collection` (a slug; gallery and downloads; an unknown one
-// matches nothing), and a search, `q` (case-insensitive, at most 100
-// characters) in the fields `in` names (comma-separated, default all): news
-// `title,content`, gallery `caption,tags`, downloads `title,desc`, maps
-// `season,dimensions` (season matches a whole number exactly; dimensions by
-// name). `total` counts every match. A missing item is 404.
+// Lists take an EditorListQuery (api-requests.ts). A missing item is 404.
 
 /** The Discord user behind an edit. */
 export interface EditorRef {
