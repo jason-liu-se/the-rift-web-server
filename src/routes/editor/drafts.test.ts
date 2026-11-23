@@ -487,3 +487,38 @@ describe("POST /editor/drafts/:id/publish", () => {
 		await editor.post(`/editor/drafts/${id}/publish`, {}).expect(400);
 	});
 });
+
+describe("a published draft", () => {
+	it("no longer counts towards the cap, nor can be saved, before or after its marker expires", async () => {
+		await stored().insertMany(
+			Array.from({ length: MAX_DRAFTS_PER_USER - 1 }, () => ({
+				_id: randomUUID() as never,
+				owner: EDITOR.id,
+				type: "news",
+				fields: {},
+				revision: 1
+			}))
+		);
+		const { id } = await createDraft(newsDraft({ content: "Body" }));
+		await editor
+			.put(`/editor/drafts/${randomUUID()}`, newsDraft())
+			.expect(400);
+
+		await editor
+			.post(`/editor/drafts/${id}/publish`, { visible: true })
+			.expect(200);
+		const save = {
+			...newsDraft({ title: "Late", content: "Body" }),
+			startingRevision: 1
+		};
+		await editor.get(`/editor/drafts/${id}`).expect(404);
+		await editor.put(`/editor/drafts/${id}`, save).expect(409);
+		await stored().deleteOne({ _id: id as never });
+		await editor.get(`/editor/drafts/${id}`).expect(404);
+		await editor.put(`/editor/drafts/${id}`, save).expect(404);
+
+		await editor
+			.put(`/editor/drafts/${randomUUID()}`, newsDraft())
+			.expect(201);
+	});
+});

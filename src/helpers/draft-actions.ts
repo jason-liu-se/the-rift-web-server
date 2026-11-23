@@ -64,6 +64,11 @@ export async function saveDraft(
 
 	const stored = await drafts.getDraft(owner, id);
 	if (!stored) {
+		// A save of a draft that's gone (deleted, or published and its marker
+		// expired) mustn't make it again: its publish would return the old item.
+		if (body.startingRevision !== undefined) {
+			throw draftNotFound(id);
+		}
 		return { created: true, draft: await createDraft(owner, id, body) };
 	}
 	if (stored.publishedAs) {
