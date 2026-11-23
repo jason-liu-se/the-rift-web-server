@@ -117,7 +117,9 @@ export type CreateResult =
 			/** False when the createId had already made it (a repeat). */
 			readonly created: boolean;
 	  }
-	| Duplicate;
+	| Duplicate
+	/** A repeat whose item was deleted since the first create made it. */
+	| { readonly outcome: "not-found" };
 
 /** An item refused before writing, with why (a single write's 400). */
 export interface Invalid {

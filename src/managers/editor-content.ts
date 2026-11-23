@@ -29,6 +29,7 @@ import {
 	staleOutcome,
 	textSearch,
 	toEditorItem,
+	uniqueFieldsOf,
 	updateOperators,
 	withoutNulls
 } from "../helpers/editor-queries.ts";
@@ -307,6 +308,51 @@ export async function findCreated(
 	);
 }
 
+// Why the insert refused each of these items as a duplicate key: its
+// createId already made an item (a repeat, which returns that item), or
+// another item holds one of its unique values (a season). Neither means the
+// createId's item was deleted since the insert met it, so it's not found.
+// Insert errors name the index only in their message, so taken values are
+// looked up instead: one query per unique field, if any.
+async function explainDuplicates(
+	typeName: ContentTypeName,
+	items: readonly NewItem[],
+	now: Date
+): Promise<Map<string, CreateResult>> {
+	const type = CONTENT_TYPES[typeName];
+	const createdDocs = await findCreated(
+		typeName,
+		items.map(({ createId }) => createId),
+		now
+	);
+	const unexplained = items.filter(
+		({ createId }) => !createdDocs.has(createId)
+	);
+	const fields = unexplained.length > 0 ? uniqueFieldsOf(type) : [];
+	const taken = await Promise.all(
+		fields.map(async (field) => {
+			const values = unexplained.map((item) => item.fields[field]);
+			const found: unknown[] = await type.model.distinct(field, {
+				[field]: { $in: values }
+			});
+			return { field, found };
+		})
+	);
+	const explain = ({ createId, fields: values }: NewItem): CreateResult => {
+		const repeat = createdDocs.get(createId);
+		if (repeat) {
+			return repeat;
+		}
+		const takenField = taken.find(({ field, found }) =>
+			found.includes(values[field])
+		)?.field;
+		return takenField
+			? { outcome: "duplicate", field: takenField }
+			: { outcome: "not-found" };
+	};
+	return new Map(items.map((item) => [item.createId, explain(item)]));
+}
+
 // Creates each item at revision 1 in one unordered insert, or returns the
 // one its createId already made (a repeat, or a concurrent repeat that won
 // the race). Mongoose makes the ObjectIds in order, so items keep their order
@@ -353,11 +399,9 @@ export async function createItems(
 		result !== null &&
 		"code" in result &&
 		result.code === DUPLICATE_KEY;
-	const createdDocs = await findCreated(
+	const duplicates = await explainDuplicates(
 		typeName,
-		items.flatMap(({ createId }, index) =>
-			isDuplicate(results[index]) ? [createId] : []
-		),
+		items.filter((_item, index) => isDuplicate(results[index])),
 		now
 	);
 	return items.map(({ createId }, index): CreateResult => {
@@ -369,8 +413,9 @@ export async function createItems(
 				created: true
 			};
 		}
-		if (isDuplicate(result)) {
-			return createdDocs.get(createId) ?? duplicateOf(type);
+		const duplicate = isDuplicate(result) && duplicates.get(createId);
+		if (duplicate) {
+			return duplicate;
 		}
 		// A schema validation error, which the request schemas should have
 		// caught first, or a failed write.

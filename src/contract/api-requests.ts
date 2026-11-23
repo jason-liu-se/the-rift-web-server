@@ -185,7 +185,8 @@ export interface VisibilityFields {
 
 /**
  * A create. `createId` is a UUID the client makes per new item (a draft's ID
- * doubles as it): repeating the create returns the item already made.
+ * doubles as it): repeating the create returns the item already made, or
+ * 404 (a bulk create's `not-found`) if it was deleted while the repeat ran.
  */
 export type CreateRequest<Fields> = Fields &
 	VisibilityFields & { createId: string };
