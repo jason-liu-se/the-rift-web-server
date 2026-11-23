@@ -535,14 +535,14 @@ async function writeEach(
 			}
 			return duplicateOf(type);
 		}
-		const count =
+		const numModified =
 			op.name === "updateOne"
 				? result?.updateResults?.get(index)?.matchedCount
 				: result?.deleteResults?.get(index)?.deletedCount;
-		if (count === undefined) {
+		if (numModified === undefined) {
 			throw new Error(`bulk write reported nothing for op ${index}`);
 		}
-		return count;
+		return numModified;
 	});
 }
 
@@ -554,12 +554,12 @@ export async function findCreated(
 	now = new Date()
 ): Promise<Map<string, Extract<CreateResult, { outcome: "ok" }>>> {
 	const type = CONTENT_TYPES[typeName];
-	const made =
+	const createdDocs =
 		createIds.length > 0
 			? await type.model.find({ createId: { $in: createIds } }).lean()
 			: [];
 	return new Map(
-		made.map((item) => [
+		createdDocs.map((item) => [
 			String(item.createId),
 			{
 				outcome: "ok",
@@ -616,7 +616,7 @@ export async function createItems(
 		result !== null &&
 		"code" in result &&
 		result.code === DUPLICATE_KEY;
-	const made = await findCreated(
+	const createdDocs = await findCreated(
 		typeName,
 		items.flatMap(({ createId }, index) =>
 			isDuplicate(results[index]) ? [createId] : []
@@ -633,7 +633,7 @@ export async function createItems(
 			};
 		}
 		if (isDuplicate(result)) {
-			return made.get(createId) ?? duplicateOf(type);
+			return createdDocs.get(createId) ?? duplicateOf(type);
 		}
 		// A schema validation error, which the request schemas should have
 		// caught first, or a failed write.
@@ -699,12 +699,12 @@ export async function updateItems(
 		type,
 		pending.map(({ id }) => id)
 	);
-	let next = 0;
+	let pendingIndex = 0;
 	return planned.map((plan) => {
 		if (!("op" in plan)) {
 			return plan;
 		}
-		const outcome = outcomes[next++];
+		const outcome = outcomes[pendingIndex++];
 		const after = written.get(plan.id);
 		if (typeof outcome === "object") {
 			return outcome;
