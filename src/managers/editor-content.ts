@@ -60,8 +60,6 @@ interface ContentType {
 	readonly summary: PipelineStage[];
 	/** For gallery and downloads: their collections' metadata. */
 	readonly collectionModel?: Model<ContentCollection>;
-	/** Its unique field other than `createId`, if any (a map's season). */
-	readonly uniqueField?: string;
 }
 
 const textSearch =
@@ -172,7 +170,6 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			dimensions: textSearch("dimensions.name")
 		},
 		sort: [{ $sort: { season: 1 } }],
-		uniqueField: "season",
 		summary: [
 			{
 				$set: {
@@ -411,13 +408,26 @@ function duplicateKeyField(error: unknown): string | undefined {
 	return undefined;
 }
 
+// A type's unique fields other than createId, from its schema's indexes
+// (a map's season).
+function uniqueFieldsOf(type: ContentType): string[] {
+	return type.model.schema
+		.indexes()
+		.filter(([, options]) => options.unique)
+		.flatMap(([fields]) => Object.keys(fields))
+		.filter((field) => field !== "createId");
+}
+
 // Bulk write errors don't name the unique index a duplicate key broke, so
 // it's the type's one unique field (createId is told apart by looking it up).
 function duplicateOf(type: ContentType): Duplicate {
-	if (!type.uniqueField) {
-		throw new Error(`duplicate key on a ${type.itemName} without one`);
+	const [field, ...others] = uniqueFieldsOf(type);
+	if (!field || others.length > 0) {
+		throw new Error(
+			`duplicate key on a ${type.itemName} without exactly one unique field`
+		);
 	}
-	return { outcome: "duplicate", field: type.uniqueField };
+	return { outcome: "duplicate", field };
 }
 
 function revisionFilter(revision: number): object {
