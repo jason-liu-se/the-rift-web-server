@@ -27,17 +27,18 @@ import {
 import type {
 	CollectionCreateRequest,
 	CollectionUpdateRequest,
+	DeleteQuery,
 	DownloadItemFields,
 	GalleryImageFields,
 	MapSeasonFields,
 	NewsPostFields
-} from "../contract/api-responses.ts";
+} from "../contract/api-requests.ts";
 import {
 	inlineMarkdownProblem,
 	isAllowedImageUrl,
 	markdownProblem
 } from "./markdown.ts";
-import { collectionSlug, normaliseTags } from "./query-schemas.ts";
+import { collectionSlug, normaliseTags, queryFor } from "./query-schemas.ts";
 
 function text(max: number) {
 	return z.string().trim().max(max, `must be at most ${max} characters`);
@@ -229,7 +230,7 @@ export const updateOptions = z.object({
 export const newsDateOption = z.object({ date: newsDate.optional() });
 
 // A delete's `?startingRevision=`: the revision the editor started from.
-export const startingRevisionQuery = z.object({
+export const startingRevisionQuery = queryFor<DeleteQuery>()({
 	startingRevision: z
 		.string({ error: "startingRevision is required" })
 		.regex(/^\d+$/, "startingRevision must be a whole number")
