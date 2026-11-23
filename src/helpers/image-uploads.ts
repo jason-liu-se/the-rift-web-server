@@ -1,13 +1,14 @@
 // Uploads the editor's image files to imgbb (POST /editor/images), a few at a
 // time, each named for its album. A file that isn't an image, or that
 // imgbb fails on, gets an error result instead of failing the others.
-import { IMGBB_CONCURRENT_UPLOADS } from "../config/uploads.ts";
+import {
+	IMGBB_CONCURRENT_UPLOADS,
+	MAX_UPLOAD_NAME_LENGTH
+} from "../config/uploads.ts";
 import type { ImageUploadResult } from "../contract/api-responses.ts";
 import type { ImageUploadFields } from "../api/write-schemas.ts";
 import { imageTypeOf } from "./image-files.ts";
 import { ImgbbError, uploadImage } from "../managers/imgbb.ts";
-
-const MAX_NAME_LENGTH = 60;
 
 export interface UploadFile {
 	readonly originalname: string;
@@ -29,7 +30,7 @@ function baseName(originalName: string): string {
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "")
-		.slice(0, MAX_NAME_LENGTH);
+		.slice(0, MAX_UPLOAD_NAME_LENGTH);
 	return name || "image";
 }
 
