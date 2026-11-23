@@ -9,7 +9,10 @@ import {
 } from "vitest";
 import request from "supertest";
 import { createApp } from "../../app.ts";
-import { MAX_UPLOAD_BYTES } from "../../config/uploads.ts";
+import {
+	IMGBB_CONCURRENT_UPLOADS,
+	MAX_UPLOAD_BYTES
+} from "../../config/uploads.ts";
 import { testConfig } from "../../../test/app.ts";
 import { sessionCookie } from "../../../test/session.ts";
 
@@ -104,6 +107,37 @@ describe("POST /editor/images", () => {
 			.expect(200);
 
 		expect(res.body.results[0].name).toBe(`${prefix}banner`);
+	});
+
+	it("sends at most IMGBB_CONCURRENT_UPLOADS files to imgbb at once, keeping their order", async () => {
+		const count = IMGBB_CONCURRENT_UPLOADS * 2 + 1;
+		let inFlight = 0;
+		let mostInFlight = 0;
+		imgbb.mockImplementation(async (_url, init) => {
+			inFlight += 1;
+			mostInFlight = Math.max(mostInFlight, inFlight);
+			await new Promise((resolve) => setTimeout(resolve, 5));
+			inFlight -= 1;
+			const name = (init?.body as FormData).get("name");
+			return Response.json({
+				data: { url: `https://i.ibb.co/x/${String(name)}.png` }
+			});
+		});
+		let req = upload().field("album", "news");
+		for (let index = 0; index < count; index += 1) {
+			req = req.attach("files", PNG, `${index}.png`);
+		}
+
+		const res = await req.expect(200);
+
+		expect(mostInFlight).toBe(IMGBB_CONCURRENT_UPLOADS);
+		expect(imgbb).toHaveBeenCalledTimes(count);
+		expect(res.body.results).toEqual(
+			Array.from({ length: count }, (_, index) => ({
+				name: `n-${index}`,
+				url: `https://i.ibb.co/x/n-${index}.png`
+			}))
+		);
 	});
 
 	it("refuses a file that isn't an image, whatever its name", async () => {
