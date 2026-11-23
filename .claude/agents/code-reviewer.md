@@ -109,7 +109,9 @@ findings. You are **strictly read-only**.
 
 Any violation of the `CLAUDE.md` conventions and engineering standards (erasable
 TypeScript only, named exports, `.ts` import extensions, reuse, clarity, writing
-less code, scope and debt).
+less code, scope and debt), and names that break `.claude/rules/naming.md`
+(vague or generic names, booleans without an `is`/`has`/`should`/`can`/`was`
+prefix, functions that don't say what they do).
 
 Don't flag pure formatting that Prettier/ESLint would catch, and don't pad the
 report with style nitpicks or speculation. Verify each finding against the code

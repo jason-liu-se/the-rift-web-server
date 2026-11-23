@@ -25,8 +25,8 @@ deploys. A Husky pre-commit hook lints and formats staged files.
 ## Docs and rules
 
 `.claude/docs/` holds context every session needs, imported below.
-`.claude/rules/` holds standards for one area (database access, tests); each
-sets `paths` frontmatter so it loads only when matching files are read or
+`.claude/rules/` holds standards for one area (naming, database access, tests);
+each sets `paths` frontmatter so it loads only when matching files are read or
 edited.
 
 @.claude/docs/api.md
@@ -76,9 +76,9 @@ edited.
   before writing new logic; extract duplication into a shared function or schema
   that variants compose. Single responsibility, low coupling, pure functions,
   side effects (database, network, logging) at the edges.
-- **Clarity.** Descriptive names, small functions, guard clauses, named
-  constants. Simple over clever; comment a non-obvious version that's worth
-  keeping.
+- **Clarity.** Descriptive names (`.claude/rules/naming.md`), small functions,
+  guard clauses, named constants. Simple over clever; comment a non-obvious
+  version that's worth keeping.
 - **Write less code.** Humans review every line. Use what Express, Mongoose, and
   Zod provide, and skip speculative code (unused options, "just in case"
   branches, single-caller abstractions).
