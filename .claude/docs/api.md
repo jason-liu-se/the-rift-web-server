@@ -265,14 +265,20 @@ started from; a stale one is `409` with the item as it is now. Every committed
 write calls `updateContentVersion`; `src/routes/editor/content-version.test.ts`
 fails if an editor write route isn't listed there with a write that changes it.
 
-Bulk actions (`POST /editor/<items>/bulk`, `src/helpers/editor-bulk.ts`) run
-each item through the same functions as single writes, one at a time and without
-a transaction, and answer once with every item's result: a bad item is
+Bulk actions (`POST /editor/<items>/bulk`, `src/helpers/editor-bulk.ts`) check
+each item on its own, then write every valid one at once, without a transaction,
+through the same `editor-content` functions as single writes (a single write is
+a batch of one). They answer once with every item's result: a bad item is
 `invalid`, never a failed request, so the website reports all failures together.
-Only what's wrong with the whole request (the action, the target collection,
-over `MAX_BULK_ITEMS`) is a `400`. One request is one write for the rate limit,
-and changes the content version once (even when it fails after writing some
-items).
+A batch is a few queries however many items it has: updates read the items, run
+one unordered bulk write, and read the results; deletes run the bulk write, then
+read the items it missed; creates run one unordered `insertMany`. The bulk write
+is MongoDB 8.0's client bulk write (`connection.bulkWrite` with
+`verboseResults`), the only one that reports each op's matched or deleted count,
+so a stale revision or a missing item is known exactly. Only what's wrong with
+the whole request (the action, the target collection, over `MAX_BULK_ITEMS`) is
+a `400`. One request is one write for the rate limit, and changes the content
+version once (even when it fails after writing some items).
 
 ## Contract
 

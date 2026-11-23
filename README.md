@@ -9,7 +9,7 @@ Express + Mongoose in TypeScript.
 
 - Node.js at the version in [`.nvmrc`](./.nvmrc) (keep the
   [`Dockerfile`](./Dockerfile)'s base image on the same major), npm 11+
-- MongoDB
+- MongoDB 8.0+ (bulk editor writes)
 - Redis 7+ (login sessions); enable persistence (AOF) in production, or a Redis
   restart logs everyone out
 
