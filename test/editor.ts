@@ -21,6 +21,6 @@ export async function asEditor(user?: SessionUser) {
 		post: (url: string, body?: object) => write("post", url).send(body),
 		put: (url: string, body?: object) => write("put", url).send(body),
 		patch: (url: string, body?: object) => write("patch", url).send(body),
-		delete: (url: string) => write("delete", url)
+		delete: (url: string, body?: object) => write("delete", url).send(body)
 	};
 }

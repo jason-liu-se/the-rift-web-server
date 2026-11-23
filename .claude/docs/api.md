@@ -265,20 +265,24 @@ started from; a stale one is `409` with the item as it is now. Every committed
 write calls `updateContentVersion`; `src/routes/editor/content-version.test.ts`
 fails if an editor write route isn't listed there with a write that changes it.
 
-Bulk actions (`POST /editor/<items>/bulk`, `src/helpers/editor-bulk.ts`) check
-each item on its own, then write every valid one at once, without a transaction,
-through the same `editor-content` functions as single writes (a single write is
-a batch of one). They answer once with every item's result: a bad item is
-`invalid`, never a failed request, so the website reports all failures together.
-A batch is a few queries however many items it has: updates read the items, run
-one unordered bulk write, and read the results; deletes run the bulk write, then
-read the items it missed; creates run one unordered `insertMany`. The bulk write
-is MongoDB 8.0's client bulk write (`connection.bulkWrite` with
+Bulk actions (`/editor/<items>/bulk`: `POST` creates, gallery only; `PATCH`
+updates; `DELETE` deletes) check each item on its own, then write every valid
+one at once, without a transaction. Single writes run the same functions
+(`src/helpers/editor-bulk.ts`) with one item, and turn its outcome into a
+status. Each type's `PATCH` takes `show` and `hide` (`DEFAULT_UPDATES`) plus its
+own actions, one schema per type in `src/api/bulk-requests.ts`, each checked
+against the type's `*BulkUpdateRequest`. A bulk action answers once with every
+item's result: a bad item is `invalid`, never a failed request, so the website
+reports all failures together. A batch is a few queries however many items it
+has: updates read the items, run one unordered bulk write, and read the results;
+deletes run the bulk write, then read the items it missed; creates run one
+unordered `insertMany`; collections named by the items are checked in one query.
+The bulk write is MongoDB 8.0's client bulk write (`connection.bulkWrite` with
 `verboseResults`), the only one that reports each op's matched or deleted count,
 so a stale revision or a missing item is known exactly. Only what's wrong with
-the whole request (the action, the target collection, over `MAX_BULK_ITEMS`) is
-a `400`. One request is one write for the rate limit, and changes the content
-version once (even when it fails after writing some items).
+the whole request (an action the type doesn't have, the target collection, over
+`MAX_BULK_ITEMS`) is a `400`. One request is one write for the rate limit, and
+changes the content version once (even when it fails after writing some items).
 
 ## Contract
 
@@ -292,9 +296,13 @@ Each query schema in `query-schemas.ts` is built with
 type doesn't name or misses one, or if a parameter can't take what the website
 sends (coerced numbers are typed `z.coerce.number<string>()` so this holds). Of
 the bodies, the `*Fields` schemas in `write-schemas.ts` are checked with
-`satisfies` (they must produce the type) and the collection ones with `z.toZod`;
-the bulk, draft, and create/update option bodies aren't checked yet. Each schema
-in `response-schemas.ts` is typed with `z.toZod<ContractType>()`, so it fails to
+`satisfies` (they must produce the type), the collection ones with `z.toZod`,
+and the bulk ones with `bodyFor<ContractType>()` (`bulk-requests.ts`), which
+fails to compile if a schema doesn't have exactly the contract's actions or
+can't take its top-level fields and each item's `id` or `createId` (the rest of
+each item is checked at run time, by the same schemas as a single write); the
+draft and create/update option bodies aren't checked yet. Each schema in
+`response-schemas.ts` is typed with `z.toZod<ContractType>()`, so it fails to
 compile if it drifts from the contract. `parseResponse` drops fields outside the
 contract (e.g. `_id`), turns Dates into ISO strings, and throws a `500` if
 stored data is missing a required field: bad stored data is a server fault, not

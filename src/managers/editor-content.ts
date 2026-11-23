@@ -751,61 +751,6 @@ export async function deleteItems(
 	);
 }
 
-// One item's write, as a batch of one.
-function onlyResult<T>(results: readonly T[]): T {
-	const [result] = results;
-	if (result === undefined || results.length !== 1) {
-		throw new Error("expected one write result");
-	}
-	return result;
-}
-
-export async function createItem(
-	typeName: ContentTypeName,
-	createId: string,
-	fields: FieldChanges,
-	editor: EditorRef,
-	now = new Date()
-): Promise<CreateResult> {
-	return onlyResult(
-		await createItems(typeName, [{ createId, fields }], editor, now)
-	);
-}
-
-// Throws whatever `changesFor` threw.
-export async function updateItem(
-	typeName: ContentTypeName,
-	id: string,
-	startingRevision: number,
-	changesFor: (current: StoredItem) => FieldChanges,
-	editor: EditorRef,
-	now = new Date()
-): Promise<WriteResult> {
-	const result = onlyResult(
-		await updateItems(
-			typeName,
-			[{ id, startingRevision, changesFor }],
-			editor,
-			now
-		)
-	);
-	if (result.outcome === "rejected") {
-		throw result.error;
-	}
-	return result;
-}
-
-export async function deleteItem(
-	typeName: ContentTypeName,
-	id: string,
-	startingRevision: number,
-	now = new Date()
-): Promise<WriteResult> {
-	return onlyResult(
-		await deleteItems(typeName, [{ id, startingRevision }], now)
-	);
-}
-
 // Runs a collection write, turning a duplicate key into a Duplicate outcome.
 async function unlessDuplicate<T>(
 	write: () => Promise<T>
@@ -831,19 +776,15 @@ function collectionModelOf(
 	return collectionModel;
 }
 
-// Whether a gallery or download collection exists, public or not.
-export async function hasCollection(
-	typeName: ContentTypeName,
-	slug: string
-): Promise<boolean> {
-	return (await collectionModelOf(typeName).exists({ slug })) !== null;
-}
-
-// Every slug in `slugs` that names no collection.
+// Every slug in `slugs` that names no collection, public or not (none for a
+// type without collections).
 export async function missingCollections(
-	typeName: CollectionTypeName,
+	typeName: ContentTypeName,
 	slugs: readonly string[]
 ): Promise<string[]> {
+	if (slugs.length === 0 || !CONTENT_TYPES[typeName].collectionModel) {
+		return [];
+	}
 	const found = await collectionModelOf(typeName).distinct("slug", {
 		slug: { $in: slugs }
 	});
