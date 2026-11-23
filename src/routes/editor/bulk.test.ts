@@ -58,13 +58,13 @@ async function seedImages(...revisions: number[]): Promise<string[]> {
 	return docs.map(({ _id }) => _id.toHexString());
 }
 
-describe("POST /editor/<items>/bulk", () => {
+describe("/editor/<items>/bulk", () => {
 	it("answers 401 logged out and 403 without the website's Origin", async () => {
 		await request(app)
-			.post("/editor/news/bulk")
+			.patch("/editor/news/bulk")
 			.set("Origin", testConfig.FRONTEND_URL)
 			.expect(401);
-		await request(app).post("/editor/news/bulk").expect(403);
+		await request(app).patch("/editor/news/bulk").expect(403);
 	});
 
 	it("hides every item, reporting each outcome in one response", async () => {
@@ -73,7 +73,7 @@ describe("POST /editor/<items>/bulk", () => {
 		const before = await mongoManager.getContentVersion();
 
 		const res = await editor
-			.post("/editor/gallery/images/bulk", {
+			.patch("/editor/gallery/images/bulk", {
 				action: "hide",
 				items: [
 					{ id: a, startingRevision: 1 },
@@ -119,7 +119,7 @@ describe("POST /editor/<items>/bulk", () => {
 		vi.spyOn(console, "error").mockImplementation(() => undefined);
 
 		await editor
-			.post("/editor/gallery/images/bulk", {
+			.patch("/editor/gallery/images/bulk", {
 				action: "hide",
 				items: [
 					{ id: a, startingRevision: 1 },
@@ -136,8 +136,7 @@ describe("POST /editor/<items>/bulk", () => {
 		const [a, b] = await seedImages(1, 1);
 
 		const res = await editor
-			.post("/editor/gallery/images/bulk", {
-				action: "delete",
+			.delete("/editor/gallery/images/bulk", {
 				items: [
 					{ id: a, startingRevision: 1 },
 					{ id: b, startingRevision: 0 }
@@ -157,7 +156,7 @@ describe("POST /editor/<items>/bulk", () => {
 		const [a] = await seedImages(1);
 
 		const res = await editor
-			.post("/editor/gallery/images/bulk", {
+			.patch("/editor/gallery/images/bulk", {
 				action: "hide",
 				items: [
 					{ id: a, startingRevision: 1 },
@@ -189,8 +188,7 @@ describe("POST /editor/<items>/bulk", () => {
 		const missing = new Types.ObjectId().toHexString();
 
 		const res = await editor
-			.post("/editor/gallery/images/bulk", {
-				action: "delete",
+			.delete("/editor/gallery/images/bulk", {
 				items: [
 					{ id: a, startingRevision: 1 },
 					{ id: a, startingRevision: 1 },
@@ -218,11 +216,10 @@ describe("POST /editor/<items>/bulk", () => {
 		const items = ids.map((id) => ({ id, startingRevision: 1 }));
 
 		await editor
-			.post("/editor/gallery/images/bulk", { action: "hide", items })
+			.patch("/editor/gallery/images/bulk", { action: "hide", items })
 			.expect(200);
 		await editor
-			.post("/editor/gallery/images/bulk", {
-				action: "delete",
+			.delete("/editor/gallery/images/bulk", {
 				items: items.map(({ id }) => ({ id, startingRevision: 2 }))
 			})
 			.expect(200);
@@ -235,7 +232,7 @@ describe("POST /editor/<items>/bulk", () => {
 		const [a] = await seedImages(1);
 
 		const res = await editor
-			.post("/editor/gallery/images/bulk", {
+			.patch("/editor/gallery/images/bulk", {
 				action: "move",
 				collection: "season6",
 				items: [{ id: a, startingRevision: 1 }]
@@ -249,7 +246,7 @@ describe("POST /editor/<items>/bulk", () => {
 		const [a] = await seedImages(1);
 
 		const res = await editor
-			.post("/editor/gallery/images/bulk", {
+			.patch("/editor/gallery/images/bulk", {
 				action: "move",
 				collection: "missing",
 				items: [{ id: a, startingRevision: 1 }]
@@ -263,14 +260,14 @@ describe("POST /editor/<items>/bulk", () => {
 		const [a] = await seedImages(1);
 
 		const added = await editor
-			.post("/editor/gallery/images/bulk", {
+			.patch("/editor/gallery/images/bulk", {
 				action: "add-tags",
 				tags: ["Build", "spawn"],
 				items: [{ id: a, startingRevision: 1 }]
 			})
 			.expect(200);
 		const removed = await editor
-			.post("/editor/gallery/images/bulk", {
+			.patch("/editor/gallery/images/bulk", {
 				action: "remove-tags",
 				tags: ["spawn"],
 				items: [{ id: a, startingRevision: 2 }]
@@ -285,7 +282,7 @@ describe("POST /editor/<items>/bulk", () => {
 		const [a] = await seedImages(1);
 
 		const res = await editor
-			.post("/editor/gallery/images/bulk", {
+			.patch("/editor/gallery/images/bulk", {
 				action: "add-tags",
 				tags: Array.from(
 					{ length: MAX_TAGS_PER_IMAGE },
@@ -312,16 +309,15 @@ describe("POST /editor/<items>/bulk", () => {
 			randomUUID()
 		];
 		const body = {
-			action: "create",
 			items: [
 				{
-					id: first,
+					createId: first,
 					collection: "season5",
 					caption: "One",
 					imageUrl: IMAGE
 				},
 				{
-					id: second,
+					createId: second,
 					collection: "season5",
 					caption: "Two",
 					imageUrl: IMAGE,
@@ -329,13 +325,13 @@ describe("POST /editor/<items>/bulk", () => {
 					visible: false
 				},
 				{
-					id: bad,
+					createId: bad,
 					collection: "season5",
 					caption: "x",
 					imageUrl: "nope"
 				},
 				{
-					id: elsewhere,
+					createId: elsewhere,
 					collection: "missing",
 					caption: "y",
 					imageUrl: IMAGE
@@ -385,7 +381,7 @@ describe("POST /editor/<items>/bulk", () => {
 	it("creates an image sent twice once, in one insert", async () => {
 		const id = randomUUID();
 		const image = {
-			id,
+			createId: id,
 			collection: "season5",
 			caption: "x",
 			imageUrl: IMAGE
@@ -394,7 +390,6 @@ describe("POST /editor/<items>/bulk", () => {
 
 		const res = await editor
 			.post("/editor/gallery/images/bulk", {
-				action: "create",
 				items: [image, image]
 			})
 			.expect(200);
@@ -416,7 +411,7 @@ describe("POST /editor/<items>/bulk", () => {
 		const id = insertedId.toHexString();
 
 		const res = await editor
-			.post("/editor/news/bulk", {
+			.patch("/editor/news/bulk", {
 				action: "show",
 				items: [{ id, startingRevision: 0 }]
 			})
@@ -431,44 +426,75 @@ describe("POST /editor/<items>/bulk", () => {
 	it.each([
 		[
 			"an action another type has",
+			"patch",
 			"/editor/news/bulk",
 			{ action: "move", collection: "a", items: [{ id: "x" }] },
-			/action: move isn't available/
+			/action/
 		],
 		[
-			"create outside the gallery",
+			"a tag action outside the gallery",
+			"patch",
 			"/editor/downloads/items/bulk",
-			{ action: "create", items: [{ id: "x" }] },
-			/action: create isn't available/
+			{ action: "add-tags", tags: ["a"], items: [{ id: "x" }] },
+			/action/
 		],
 		[
 			"an unknown action",
+			"patch",
 			"/editor/news/bulk",
 			{ action: "explode", items: [{ id: "x" }] },
 			/action/
 		],
 		[
 			"no items",
+			"patch",
 			"/editor/news/bulk",
 			{ action: "hide", items: [] },
 			/at least one item/
 		],
 		[
 			"an item without an id",
+			"patch",
 			"/editor/news/bulk",
 			{ action: "hide", items: [{ startingRevision: 0 }] },
 			/id/
 		],
 		[
 			"no tags",
+			"patch",
 			"/editor/gallery/images/bulk",
 			{ action: "add-tags", tags: [], items: [{ id: "x" }] },
 			/at least one tag/
+		],
+		[
+			"a delete with no items",
+			"delete",
+			"/editor/gallery/images/bulk",
+			{ items: [] },
+			/at least one item/
+		],
+		[
+			"a new item without a createId",
+			"post",
+			"/editor/gallery/images/bulk",
+			{ items: [{ caption: "x" }] },
+			/createId/
 		]
-	])("answers 400 for %s", async (_name, url, body, message) => {
-		const res = await editor.post(url, body).expect(400);
+	] as const)(
+		"answers 400 for %s",
+		async (_name, method, url, body, message) => {
+			const res = await editor[method](url, body).expect(400);
 
-		expect(res.body.error).toMatch(message);
+			expect(res.body.error).toMatch(message);
+		}
+	);
+
+	it("has no bulk create outside the gallery", async () => {
+		await editor
+			.post("/editor/downloads/items/bulk", {
+				items: [{ createId: "x" }]
+			})
+			.expect(404);
 	});
 
 	it("answers 400 for more than MAX_BULK_ITEMS items", async () => {
@@ -478,7 +504,7 @@ describe("POST /editor/<items>/bulk", () => {
 		}));
 
 		const res = await editor
-			.post("/editor/news/bulk", { action: "hide", items })
+			.patch("/editor/news/bulk", { action: "hide", items })
 			.expect(400);
 
 		expect(res.body.error).toContain(`at most ${MAX_BULK_ITEMS} items`);

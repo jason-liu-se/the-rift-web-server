@@ -1,12 +1,10 @@
-// What the editor routes do around editor-content's queries: who's writing,
-// the checks a write needs beyond its body's schema, and turning a write's
-// outcome into the response body or the error the handler answers with.
+// What the editor routes do around the writes: who's writing, and turning
+// a write's outcome into the response body or the error the handler answers
+// with.
 import type { Response } from "express";
-import { BadRequestError } from "../errors/bad-request-error.ts";
 import { ConflictError } from "../errors/conflict-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import type { EditorRef } from "../models/audit-fields.ts";
-import { parseCreate } from "../api/editor-requests.ts";
 import {
 	EDITOR_ITEM_SCHEMAS,
 	editorCollection,
@@ -16,13 +14,9 @@ import {
 	CONTENT_TYPES,
 	type CollectionTypeName,
 	type CollectionWriteResult,
-	type ContentTypeName,
-	type CreateResult,
-	type FieldChanges,
-	type WriteResult,
-	createItem,
-	hasCollection
+	type ContentTypeName
 } from "../managers/editor-content.ts";
+import type { ItemOutcome } from "./editor-bulk.ts";
 
 // Who's writing, as stored on the item (never the avatar).
 export function editorOf(res: Response): EditorRef {
@@ -37,37 +31,11 @@ export function itemNotFound(typeName: ContentTypeName, id: string) {
 	return new NotFoundError(`${CONTENT_TYPES[typeName].itemName} '${id}'`);
 }
 
-// An item may only name a collection that exists (public or not).
-export async function checkCollection(
-	typeName: ContentTypeName,
-	fields: FieldChanges
-): Promise<void> {
-	const { collection } = fields;
-	if (
-		CONTENT_TYPES[typeName].collectionModel &&
-		typeof collection === "string" &&
-		!(await hasCollection(typeName, collection))
-	) {
-		throw new BadRequestError("collection: no such collection");
-	}
-}
-
-// Checks a create body fully, then creates its item.
-export async function createFromBody(
-	typeName: ContentTypeName,
-	body: unknown,
-	editor: EditorRef
-): Promise<CreateResult> {
-	const { createId, fields } = parseCreate(typeName, body, new Date());
-	await checkCollection(typeName, fields);
-	return createItem(typeName, createId, fields, editor);
-}
-
 // The item a successful write returns, or the error for any other outcome.
 export function writtenItem(
 	typeName: ContentTypeName,
 	id: string,
-	result: WriteResult | CreateResult
+	result: ItemOutcome
 ): unknown {
 	const schema = EDITOR_ITEM_SCHEMAS[typeName];
 	const { itemName } = CONTENT_TYPES[typeName];
@@ -85,6 +53,8 @@ export function writtenItem(
 			throw new ConflictError(
 				`a ${itemName} with that ${result.field} already exists`
 			);
+		case "invalid":
+			throw result.error;
 	}
 }
 

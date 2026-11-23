@@ -259,13 +259,15 @@ export interface EditorCollection extends EditorAuditFields {
 	itemCount: number;
 }
 
-// Bulk actions: POST /editor/<items>/bulk (e.g. /editor/gallery/images/bulk)
-// with a BulkRequest (api-requests.ts) of at most 50 items answers 200 with
+// Bulk actions at /editor/<items>/bulk (e.g. /editor/gallery/images/bulk):
+// POST creates (gallery only), PATCH updates, and DELETE deletes, each with
+// its request in api-requests.ts of at most the server's MAX_BULK_ITEMS
+// (src/config/requests.ts) items. Each answers 200 with
 // one BulkResponse, once every item has been processed: never streamed or
-// split, so the website reports every failure together. Each item is checked and written on its own
-// (no transaction), so some may succeed while others fail. `move` is for
-// gallery and downloads, `add-tags`, `remove-tags`, and `create` for gallery
-// only (400 for other types); `move` to a missing collection is 400.
+// split, so the website reports every failure together. Each item is checked
+// and written on its own (no transaction), so some may succeed while others
+// fail. An action the type doesn't have (see its *BulkUpdateRequest) is 400,
+// as is `move` to a missing collection.
 
 /**
  * One item's outcome, in the order sent. `ok` has the item as written (none

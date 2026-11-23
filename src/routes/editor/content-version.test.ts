@@ -129,11 +129,11 @@ const WRITES: Record<string, Write> = {
 					}
 				],
 				[
-					`post ${prefix}/bulk`,
+					`patch ${prefix}/bulk`,
 					async (e: Editor) => {
 						await seed();
 						return e
-							.post(`${prefix}/bulk`, {
+							.patch(`${prefix}/bulk`, {
 								action: "hide",
 								items: [
 									{
@@ -144,7 +144,42 @@ const WRITES: Record<string, Write> = {
 							})
 							.expect(200);
 					}
-				]
+				],
+				[
+					`delete ${prefix}/bulk`,
+					async (e: Editor) => {
+						await seed();
+						return e
+							.delete(`${prefix}/bulk`, {
+								items: [
+									{
+										id: ID.toHexString(),
+										startingRevision: 0
+									}
+								]
+							})
+							.expect(200);
+					}
+				],
+				// Only the gallery has a bulk create.
+				...(prefix === "/editor/gallery/images"
+					? [
+							[
+								`post ${prefix}/bulk`,
+								(e: Editor) =>
+									e
+										.post(`${prefix}/bulk`, {
+											items: [
+												{
+													createId: randomUUID(),
+													...router.create
+												}
+											]
+										})
+										.expect(200)
+							]
+						]
+					: [])
 			];
 		})
 	),
