@@ -31,9 +31,10 @@ Editors write content through `/editor/*` (`editor-content.ts`); access grants
 are added to MongoDB directly. Every committed content write then calls
 `updateContentVersion` (`getContentVersion` creates the version if missing).
 Updates and deletes are revision-checked in the query itself (`revisionFilter`),
-so a stale write changes nothing, and writes return a `WriteResult` (`ok`,
-`conflict`, `not-found`, `duplicate`) instead of throwing, so bulk actions can
-report each item. Login sessions and their refresh token hashes live in Redis
+so a stale write changes nothing. Writes take many items and return a
+`WriteResult` per item (`ok`, `conflict`, `not-found`, `duplicate`) instead of
+throwing, so bulk actions can report each item (see `.claude/docs/api.md`
+"Editor writes"). Login sessions and their refresh token hashes live in Redis
 instead (`src/managers/redis-manager.ts`, keys `session:<session ID>`); see
 `.claude/docs/api.md` "Sessions". Discord IDs are stored as strings (numbers
 lose precision).
