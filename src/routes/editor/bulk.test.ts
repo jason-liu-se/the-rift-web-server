@@ -10,7 +10,7 @@ import {
 } from "vitest";
 import request from "supertest";
 import { randomUUID } from "node:crypto";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { MAX_TAGS_PER_IMAGE } from "../../config/content-limits.ts";
 import { MAX_BULK_ITEMS } from "../../config/requests.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
@@ -151,6 +151,84 @@ describe("POST /editor/<items>/bulk", () => {
 		]);
 		expect(res.body.results[0]).not.toHaveProperty("item");
 		expect(await images().countDocuments()).toBe(1);
+	});
+
+	it("writes an item sent twice once, the second a conflict", async () => {
+		const [a] = await seedImages(1);
+
+		const res = await editor
+			.post("/editor/gallery/images/bulk", {
+				action: "hide",
+				items: [
+					{ id: a, startingRevision: 1 },
+					{ id: a, startingRevision: 1 }
+				]
+			})
+			.expect(200);
+
+		// Unordered, either copy may be written.
+		expect(res.body.results).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: a,
+					outcome: "ok",
+					item: expect.objectContaining({ revision: 2 })
+				}),
+				expect.objectContaining({
+					id: a,
+					outcome: "conflict",
+					current: expect.objectContaining({ revision: 2 })
+				})
+			])
+		);
+		expect(await images().findOne()).toMatchObject({ revision: 2 });
+	});
+
+	it("deletes an item sent twice once, the second not found", async () => {
+		const [a] = await seedImages(1);
+		const missing = new Types.ObjectId().toHexString();
+
+		const res = await editor
+			.post("/editor/gallery/images/bulk", {
+				action: "delete",
+				items: [
+					{ id: a, startingRevision: 1 },
+					{ id: a, startingRevision: 1 },
+					{ id: missing, startingRevision: 1 }
+				]
+			})
+			.expect(200);
+
+		// Unordered, either copy may be deleted.
+		expect(res.body.results.slice(0, 2)).toEqual(
+			expect.arrayContaining([
+				{ id: a, outcome: "ok" },
+				{ id: a, outcome: "not-found" }
+			])
+		);
+		expect(res.body.results[2]).toEqual({
+			id: missing,
+			outcome: "not-found"
+		});
+	});
+
+	it("writes every item in one bulk write, however many", async () => {
+		const ids = await seedImages(1, 1, 1, 1, 1);
+		const bulkWrite = vi.spyOn(mongoose.Connection.prototype, "bulkWrite");
+		const items = ids.map((id) => ({ id, startingRevision: 1 }));
+
+		await editor
+			.post("/editor/gallery/images/bulk", { action: "hide", items })
+			.expect(200);
+		await editor
+			.post("/editor/gallery/images/bulk", {
+				action: "delete",
+				items: items.map(({ id }) => ({ id, startingRevision: 2 }))
+			})
+			.expect(200);
+
+		expect(bulkWrite).toHaveBeenCalledTimes(2);
+		expect(await images().countDocuments()).toBe(0);
 	});
 
 	it("moves images to another collection", async () => {
@@ -302,6 +380,30 @@ describe("POST /editor/<items>/bulk", () => {
 		);
 		const stored = await images().find().sort({ _id: 1 }).toArray();
 		expect(stored.map(({ caption }) => caption)).toEqual(["One", "Two"]);
+	});
+
+	it("creates an image sent twice once, in one insert", async () => {
+		const id = randomUUID();
+		const image = {
+			id,
+			collection: "season5",
+			caption: "x",
+			imageUrl: IMAGE
+		};
+		const insertMany = vi.spyOn(mongoose.Model, "insertMany");
+
+		const res = await editor
+			.post("/editor/gallery/images/bulk", {
+				action: "create",
+				items: [image, image]
+			})
+			.expect(200);
+
+		const [first, second] = res.body.results;
+		expect(first).toMatchObject({ id, outcome: "ok" });
+		expect(second).toEqual(first);
+		expect(await images().countDocuments()).toBe(1);
+		expect(insertMany).toHaveBeenCalledTimes(1);
 	});
 
 	it("shows news posts by the news rules", async () => {

@@ -1,7 +1,8 @@
 // Bulk actions (POST /editor/<items>/bulk): one request, many items, one
-// response once every item is processed. Each item is checked and written on
-// its own, through the same functions as single writes, and gets its own
-// result; nothing is rolled back if a later item fails.
+// response once every item is processed. Each item is checked on its own and
+// gets its own result; then every valid item is written at once, through the
+// same editor-content functions as single writes (a single write is a batch
+// of one). Nothing is rolled back if one item fails.
 import * as z from "zod";
 import { MAX_BULK_ITEMS } from "../config/requests.ts";
 import { BadRequestError } from "../errors/bad-request-error.ts";
@@ -11,6 +12,7 @@ import type {
 	ContentTypeName,
 	CreateResult,
 	FieldChanges,
+	NewItem,
 	StoredItem,
 	WriteResult
 } from "../managers/editor-content.ts";
@@ -95,23 +97,53 @@ function itemResult(
 	}
 }
 
-// Runs `write` for an item, reporting a bad item as invalid rather than
-// failing the request.
-async function settle(
-	id: string,
-	write: () => Promise<BulkItemResult<unknown>>
-): Promise<BulkItemResult<unknown>> {
-	try {
-		return await write();
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return { id, outcome: "invalid", reason: problemsOf(error) };
-		}
-		if (error instanceof BadRequestError) {
-			return { id, outcome: "invalid", reason: error.message };
-		}
-		throw error;
+// A bad item's result, for a request schema's or a check's error; any other
+// error fails the request.
+function invalid(id: string, error: unknown): BulkItemResult<unknown> {
+	if (error instanceof z.ZodError) {
+		return { id, outcome: "invalid", reason: problemsOf(error) };
 	}
+	if (error instanceof BadRequestError) {
+		return { id, outcome: "invalid", reason: error.message };
+	}
+	throw error;
+}
+
+// An item's result known before writing, or what to write for it.
+type Step<T> =
+	{ readonly done: BulkItemResult<unknown> } | { readonly pending: T };
+
+// Every item's result, in request order. `prepare` checks each item on its
+// own (throwing makes it `invalid`); `write` then writes every pending item
+// at once, returning a result for each.
+async function inOrder<I extends { readonly id: string }, T, R>(
+	items: readonly I[],
+	prepare: (item: I) => Step<T>,
+	write: (pending: readonly T[]) => Promise<readonly R[]>,
+	toResult: (id: string, result: R) => BulkItemResult<unknown>
+): Promise<BulkItemResult<unknown>[]> {
+	const steps = items.map((item): Step<T> => {
+		try {
+			return prepare(item);
+		} catch (error) {
+			return { done: invalid(item.id, error) };
+		}
+	});
+	const written = await write(
+		steps.flatMap((step) => ("pending" in step ? [step.pending] : []))
+	);
+	let next = 0;
+	return steps.map((step, index) => {
+		if ("done" in step) {
+			return step.done;
+		}
+		const result = written[next++];
+		const id = items[index]?.id;
+		if (result === undefined || id === undefined) {
+			throw new Error("bulk write returned too few results");
+		}
+		return toResult(id, result);
+	});
 }
 
 // The changes an update action makes to one stored item.
@@ -156,6 +188,8 @@ function changesFor(
 	}
 }
 
+// A repeated createId returns the item it made without checking the item
+// again, as a single create does.
 async function createAll(
 	typeName: CollectionTypeName,
 	request: BulkRequest,
@@ -165,38 +199,35 @@ async function createAll(
 	const slugs = request.items.flatMap(({ collection }) =>
 		typeof collection === "string" ? [collection] : []
 	);
-	const missing = await editorContent.missingCollections(typeName, [
-		...new Set(slugs)
+	const [made, missing] = await Promise.all([
+		editorContent.findCreated(
+			typeName,
+			request.items.map(({ id }) => id),
+			now
+		),
+		editorContent.missingCollections(typeName, [...new Set(slugs)])
 	]);
 
-	const results: BulkItemResult<unknown>[] = [];
-	// In order, so the images' ObjectIds (their newest-first order) follow it.
-	for (const { id, ...fields } of request.items) {
-		results.push(
-			await settle(id, async () => {
-				const { createId, fields: parsed } = parseCreate(
-					typeName,
-					{ ...fields, createId: id },
-					now
-				);
-				if (missing.includes(String(parsed["collection"]))) {
-					throw new BadRequestError("collection: no such collection");
-				}
-				return itemResult(
-					typeName,
-					id,
-					await editorContent.createItem(
-						typeName,
-						createId,
-						parsed,
-						editor,
-						now
-					)
-				);
-			})
-		);
-	}
-	return results;
+	return inOrder(
+		request.items,
+		({ id, ...fields }): Step<NewItem> => {
+			const repeat = made.get(id);
+			if (repeat) {
+				return { done: itemResult(typeName, id, repeat) };
+			}
+			const created = parseCreate(
+				typeName,
+				{ ...fields, createId: id },
+				now
+			);
+			if (missing.includes(String(created.fields["collection"]))) {
+				throw new BadRequestError("collection: no such collection");
+			}
+			return { pending: created };
+		},
+		(pending) => editorContent.createItems(typeName, pending, editor, now),
+		(id, result) => itemResult(typeName, id, result)
+	);
 }
 
 async function updateAll(
@@ -205,37 +236,36 @@ async function updateAll(
 	editor: EditorRef,
 	now: Date
 ): Promise<BulkItemResult<unknown>[]> {
-	const results: BulkItemResult<unknown>[] = [];
-	for (const item of request.items) {
-		results.push(
-			await settle(item.id, async () => {
-				const { id, startingRevision } = itemRef.parse(item);
-				const result =
-					request.action === "delete"
-						? await editorContent.deleteItem(
-								typeName,
-								id,
-								startingRevision,
-								now
-							)
-						: await editorContent.updateItem(
-								typeName,
-								id,
-								startingRevision,
-								changesFor(
-									typeName,
-									request,
-									startingRevision,
-									now
-								),
-								editor,
-								now
-							);
-				return itemResult(typeName, id, result);
-			})
+	if (request.action === "delete") {
+		return inOrder(
+			request.items,
+			(item) => ({ pending: itemRef.parse(item) }),
+			(pending) => editorContent.deleteItems(typeName, pending, now),
+			(id, result) => itemResult(typeName, id, result)
 		);
 	}
-	return results;
+	return inOrder(
+		request.items,
+		(item) => {
+			const ref = itemRef.parse(item);
+			return {
+				pending: {
+					...ref,
+					changesFor: changesFor(
+						typeName,
+						request,
+						ref.startingRevision,
+						now
+					)
+				}
+			};
+		},
+		(pending) => editorContent.updateItems(typeName, pending, editor, now),
+		(id, result) =>
+			result.outcome === "rejected"
+				? invalid(id, result.error)
+				: itemResult(typeName, id, result)
+	);
 }
 
 export interface BulkOutcome {
