@@ -288,6 +288,7 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 					season: true,
 					imageUrl: true
 				}),
+				dimensionCount: z.number().int().min(0),
 				...draftFields
 			})
 		])

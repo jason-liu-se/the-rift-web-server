@@ -347,6 +347,8 @@ export type DraftSummary = (
 	| {
 			type: "maps";
 			fields: Pick<Partial<MapSeasonFields>, "season" | "imageUrl">;
+			/** How many dimensions it has so far, not the dimensions. */
+			dimensionCount: number;
 	  }
 ) &
 	Omit<Draft, "type" | "fields">;
