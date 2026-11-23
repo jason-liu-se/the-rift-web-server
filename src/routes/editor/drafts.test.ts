@@ -505,16 +505,17 @@ describe("POST /editor/drafts/:id/publish", () => {
 		expect(res.body).toEqual({ error: `ERROR: draft '${id}' not found` });
 	});
 
-	// Only the required fields, with every optional one left out.
+	// Only the required fields, with every optional one left out and every
+	// text that may be blank blank.
 	it.each([
 		["news", { title: "Title", content: "Body" }],
-		["gallery", { collection: "art", caption: "Caption", imageUrl: IMAGE }],
+		["gallery", { collection: "art", caption: "", imageUrl: IMAGE }],
 		[
 			"downloads",
 			{
 				collection: "art",
 				title: "Pack",
-				desc: "Description",
+				desc: "",
 				downloadUrl: "https://example.com/pack.zip",
 				imageUrl: IMAGE
 			}
@@ -529,7 +530,7 @@ describe("POST /editor/drafts/:id/publish", () => {
 						name: "Overworld",
 						imageUrl: IMAGE,
 						worldId: "world",
-						perspective: "top"
+						perspective: ""
 					}
 				]
 			}
