@@ -20,26 +20,46 @@ function withId({ _id, ...draft }: Draft): StoredDraft {
 // contract's DraftSummary).
 const SUMMARY_FIELDS = ["title", "caption", "imageUrl", "season"];
 
+/** A draft in a list; a map season's also counts its dimensions. */
+export type DraftSummary = StoredDraft & { readonly dimensionCount?: number };
+
 // The owner's drafts, most recently saved first, optionally of one type, with
 // only their SUMMARY_FIELDS (getDraft has the rest).
 export async function listDrafts(
 	owner: string,
 	type?: string
-): Promise<StoredDraft[]> {
-	const found = await draftModel
-		.find({ owner, ...UNPUBLISHED, ...(type !== undefined && { type }) })
-		.select({
-			type: 1,
-			revision: 1,
-			target: 1,
-			createdAt: 1,
-			updatedAt: 1,
-			...Object.fromEntries(
-				SUMMARY_FIELDS.map((field) => [`fields.${field}`, 1])
-			)
-		})
-		.sort({ updatedAt: -1 })
-		.lean();
+): Promise<DraftSummary[]> {
+	const found = await draftModel.aggregate<
+		Draft & { dimensionCount?: number }
+	>([
+		{
+			$match: {
+				owner,
+				...UNPUBLISHED,
+				...(type !== undefined && { type })
+			}
+		},
+		{ $sort: { updatedAt: -1 } },
+		{
+			$project: {
+				type: 1,
+				revision: 1,
+				target: 1,
+				createdAt: 1,
+				updatedAt: 1,
+				...Object.fromEntries(
+					SUMMARY_FIELDS.map((field) => [`fields.${field}`, 1])
+				),
+				dimensionCount: {
+					$cond: [
+						{ $eq: ["$type", "maps"] },
+						{ $size: { $ifNull: ["$fields.dimensions", []] } },
+						"$$REMOVE"
+					]
+				}
+			}
+		}
+	]);
 	return found.map((draft) => withId({ fields: {}, ...draft }));
 }
 

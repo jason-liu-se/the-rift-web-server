@@ -299,14 +299,14 @@ changes the content version once (even when it fails after writing some items).
 save sends it as `startingRevision`), so a save from a second device makes the
 first one's next save `409`; a repeated create (no `startingRevision`) is `200`
 with the draft as stored. The list sends only what names each draft and its
-image; `GET /:id` sends its fields. Publishing checks the fields fully, then
-creates the item (with the draft's ID as its `createId`) or updates the one an
-edit draft started from, at the revision it started from. The draft then becomes
-a marker naming the item, which a TTL index deletes after
-`PUBLISHED_DRAFT_TTL_MS`, so a repeated publish returns the same item. There's
-no transaction: if the server stops between the two writes, a new item's repeat
-still finds it by `createId`, but an edit's repeat gets `409` (the item's
-revision moved). Drafts stay `no-store`.
+image (and a map season's `dimensionCount`); `GET /:id` sends its fields.
+Publishing checks the fields fully, then creates the item (with the draft's ID
+as its `createId`) or updates the one an edit draft started from, at the
+revision it started from. The draft then becomes a marker naming the item, which
+a TTL index deletes after `PUBLISHED_DRAFT_TTL_MS`, so a repeated publish
+returns the same item. There's no transaction: if the server stops between the
+two writes, a new item's repeat still finds it by `createId`, but an edit's
+repeat gets `409` (the item's revision moved). Drafts stay `no-store`.
 
 ## Contract
 
