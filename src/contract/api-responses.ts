@@ -304,7 +304,8 @@ export interface BulkResponse<T> {
 //                                     is for a repeated create, which saves
 //                                     nothing); 409 ConflictResponse<Draft>
 //                                     when another device saved since, or
-//                                     when an edit draft of that item exists
+//                                     when an edit draft of that item exists;
+//                                     404 for a save of a draft that's gone
 //   DELETE /editor/drafts/:id         204
 //   POST   /editor/drafts/:id/publish DraftPublishRequest → the published
 //                                     Editor* item; repeating it returns the
