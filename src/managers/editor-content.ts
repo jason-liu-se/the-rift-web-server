@@ -3,6 +3,7 @@
 // are plain objects with `_id` as the hex string `id`. One descriptor per
 // content type (CONTENT_TYPES) holds what differs, so each query is written
 // once.
+import { Document, mongo } from "mongoose";
 import type { Model, PipelineStage, Types } from "mongoose";
 import type { NewsStatus } from "../contract/api-responses.ts";
 import type { Audited, EditorRef } from "../models/audit-fields.ts";
@@ -59,6 +60,8 @@ interface ContentType {
 	readonly summary: PipelineStage[];
 	/** For gallery and downloads: their collections' metadata. */
 	readonly collectionModel?: Model<ContentCollection>;
+	/** Its unique field other than `createId`, if any (a map's season). */
+	readonly uniqueField?: string;
 }
 
 const textSearch =
@@ -169,6 +172,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			dimensions: textSearch("dimensions.name")
 		},
 		sort: [{ $sort: { season: 1 } }],
+		uniqueField: "season",
 		summary: [
 			{
 				$set: {
@@ -333,8 +337,10 @@ export async function listCollections(
 
 // Writes. Every update and delete names the revision the editor started from
 // (a missing revision counts as 0): a stale one is a conflict, never a lost
-// update. Each returns a WriteResult rather than throwing, so a bulk action
-// can report every item's outcome; routes turn it into a status.
+// update. Each write takes many items and does the same few queries however
+// many there are (a single write is a batch of one), returning a result per
+// item, in order, rather than throwing, so a bulk action can report every
+// item's outcome; routes turn one into a status.
 
 export type WriteResult =
 	| { readonly outcome: "ok"; readonly item?: EditorItem }
@@ -348,8 +354,45 @@ export interface Duplicate {
 	readonly field: string;
 }
 
+/** An update whose `changesFor` threw (e.g. too many tags): nothing written. */
+export interface Rejected {
+	readonly outcome: "rejected";
+	readonly error: unknown;
+}
+
 /** A field set to null is removed (e.g. a news post's `imageUrl`). */
 export type FieldChanges = Readonly<Record<string, unknown>>;
+
+/** An item to update or delete, at the revision the editor started from. */
+export interface ItemRef {
+	readonly id: string;
+	readonly startingRevision: number;
+}
+
+export interface ItemUpdate extends ItemRef {
+	/**
+	 * The changes, from the stored item (news dates depend on it). Runs only
+	 * once the revision has matched; the write checks it again, so nothing
+	 * saved in between is overwritten.
+	 */
+	readonly changesFor: (current: StoredItem) => FieldChanges;
+}
+
+export interface NewItem {
+	readonly createId: string;
+	readonly fields: FieldChanges;
+}
+
+export type CreateResult =
+	| {
+			readonly outcome: "ok";
+			readonly item: EditorItem;
+			/** False when the createId had already made it (a repeat). */
+			readonly created: boolean;
+	  }
+	| Duplicate;
+
+const DUPLICATE_KEY = 11000;
 
 // The field a MongoDB duplicate key error is about, or undefined for any
 // other error.
@@ -358,7 +401,7 @@ function duplicateKeyField(error: unknown): string | undefined {
 		typeof error === "object" &&
 		error !== null &&
 		"code" in error &&
-		error.code === 11000 &&
+		error.code === DUPLICATE_KEY &&
 		"keyPattern" in error &&
 		typeof error.keyPattern === "object" &&
 		error.keyPattern !== null
@@ -366,6 +409,15 @@ function duplicateKeyField(error: unknown): string | undefined {
 		return Object.keys(error.keyPattern)[0];
 	}
 	return undefined;
+}
+
+// Bulk write errors don't name the unique index a duplicate key broke, so
+// it's the type's one unique field (createId is told apart by looking it up).
+function duplicateOf(type: ContentType): Duplicate {
+	if (!type.uniqueField) {
+		throw new Error(`duplicate key on a ${type.itemName} without one`);
+	}
+	return { outcome: "duplicate", field: type.uniqueField };
 }
 
 function revisionFilter(revision: number): object {
@@ -399,49 +451,303 @@ function withoutNulls(fields: FieldChanges): FieldChanges {
 	);
 }
 
-export type CreateResult =
-	| {
-			readonly outcome: "ok";
-			readonly item: EditorItem;
-			/** False when the createId had already made it (a repeat). */
-			readonly created: boolean;
-	  }
-	| Duplicate;
-
-// Runs a write, turning a duplicate key (other than a repeated createId,
-// which callers handle first) into a Duplicate outcome.
-async function unlessDuplicate<T>(
-	write: () => Promise<T>
-): Promise<T | Duplicate> {
-	try {
-		return await write();
-	} catch (error) {
-		const field = duplicateKeyField(error);
-		if (field && field !== "createId") {
-			return { outcome: "duplicate", field };
-		}
-		throw error;
+// The stored items among `ids`, by id, in one query.
+async function itemsById(
+	type: ContentType,
+	ids: readonly string[]
+): Promise<Map<string, StoredItem>> {
+	if (ids.length === 0) {
+		return new Map();
 	}
+	const items = await type.model.find({ _id: { $in: ids } }).lean();
+	return new Map(
+		items.map((item) => [item._id.toHexString(), item as StoredItem])
+	);
 }
 
-// Creates an item at revision 1, or returns the one its createId already
-// made.
-// The item a create with this createId already made, if any: a repeat
-// returns it rather than making another.
+// Why a revision-checked write matched nothing: deleted, or saved since.
+function staleOutcome(
+	type: ContentType,
+	current: StoredItem | undefined,
+	now: Date
+): WriteResult {
+	return current
+		? { outcome: "conflict", current: toEditorItem(type, current, now) }
+		: { outcome: "not-found" };
+}
+
+type WriteOp =
+	| {
+			readonly name: "updateOne";
+			readonly filter: object;
+			readonly update: object;
+	  }
+	| { readonly name: "deleteOne"; readonly filter: object };
+
+// Runs every op in one unordered bulk write, so one failing op doesn't stop
+// the others, returning each op's matched (update) or deleted count, or a
+// Duplicate. MongoDB 8.0's client bulk write reports each op's count
+// (`verboseResults`), so a stale revision is known exactly; the older
+// per-collection bulk write only reports totals.
+async function writeEach(
+	type: ContentType,
+	ops: readonly WriteOp[]
+): Promise<(number | Duplicate)[]> {
+	if (ops.length === 0) {
+		return [];
+	}
+	const { model } = type;
+	let result: mongo.ClientBulkWriteResult | undefined;
+	let writeErrors: ReadonlyMap<number, mongo.ClientBulkWriteError> =
+		new Map();
+	try {
+		result = await model.db.bulkWrite(
+			ops.map((op) => ({ ...op, model: model.modelName })),
+			{ ordered: false, verboseResults: true }
+		);
+	} catch (error) {
+		// Mongoose adds `mongoose` only when it left out ops (below).
+		if (
+			!(error instanceof mongo.MongoClientBulkWriteError) ||
+			error.writeConcernErrors.length > 0 ||
+			"mongoose" in error
+		) {
+			throw error;
+		}
+		result = error.partialResult;
+		writeErrors = error.writeErrors;
+	}
+	// Mongoose leaves out ops it can't cast and keys the counts by the ops it
+	// sent, which would shift every index after them (checked against Mongoose
+	// 9.12); the request schemas should have refused them first.
+	const [castError] =
+		(result as { mongoose?: { validationErrors: Error[] } } | undefined)
+			?.mongoose?.validationErrors ?? [];
+	if (castError) {
+		throw castError;
+	}
+
+	return ops.map((op, index) => {
+		const writeError = writeErrors.get(index);
+		if (writeError) {
+			if (writeError.code !== DUPLICATE_KEY) {
+				throw new Error(`bulk write failed: ${writeError.message}`);
+			}
+			return duplicateOf(type);
+		}
+		const count =
+			op.name === "updateOne"
+				? result?.updateResults?.get(index)?.matchedCount
+				: result?.deleteResults?.get(index)?.deletedCount;
+		if (count === undefined) {
+			throw new Error(`bulk write reported nothing for op ${index}`);
+		}
+		return count;
+	});
+}
+
+// The items creates with these createIds already made, by createId: a repeat
+// returns its item rather than making another.
 export async function findCreated(
 	typeName: ContentTypeName,
-	createId: string,
+	createIds: readonly string[],
 	now = new Date()
-): Promise<Extract<CreateResult, { outcome: "ok" }> | undefined> {
+): Promise<Map<string, Extract<CreateResult, { outcome: "ok" }>>> {
 	const type = CONTENT_TYPES[typeName];
-	const made = await type.model.findOne({ createId }).lean();
-	return made
-		? {
+	const made =
+		createIds.length > 0
+			? await type.model.find({ createId: { $in: createIds } }).lean()
+			: [];
+	return new Map(
+		made.map((item) => [
+			String(item.createId),
+			{
 				outcome: "ok",
-				item: toEditorItem(type, made as StoredItem, now),
+				item: toEditorItem(type, item as StoredItem, now),
 				created: false
 			}
-		: undefined;
+		])
+	);
+}
+
+// Creates each item at revision 1 in one unordered insert, or returns the
+// one its createId already made (a repeat, or a concurrent repeat that won
+// the race). Mongoose makes the ObjectIds in order, so items keep their order
+// in `_id` (the gallery's newest-first order).
+export async function createItems(
+	typeName: ContentTypeName,
+	items: readonly NewItem[],
+	editor: EditorRef,
+	now = new Date()
+): Promise<CreateResult[]> {
+	const type = CONTENT_TYPES[typeName];
+	if (items.length === 0) {
+		return [];
+	}
+	const docs = items.map(({ createId, fields }) => ({
+		visible: true,
+		...withoutNulls(fields),
+		createId,
+		revision: 1,
+		createdBy: editor,
+		lastUpdatedBy: editor
+	}));
+	let results: readonly unknown[];
+	try {
+		const inserted = await type.model.insertMany(docs, {
+			ordered: false,
+			rawResult: true
+		});
+		results = inserted.mongoose.results;
+	} catch (error) {
+		// Unordered, it still inserts every item it can, then throws with
+		// each item's result.
+		const decorated = (error as { mongoose?: { results?: unknown[] } })
+			.mongoose?.results;
+		if (!decorated) {
+			throw error;
+		}
+		results = decorated;
+	}
+
+	// The driver doesn't export its WriteError class.
+	const isDuplicate = (result: unknown) =>
+		typeof result === "object" &&
+		result !== null &&
+		"code" in result &&
+		result.code === DUPLICATE_KEY;
+	const made = await findCreated(
+		typeName,
+		items.flatMap(({ createId }, index) =>
+			isDuplicate(results[index]) ? [createId] : []
+		),
+		now
+	);
+	return items.map(({ createId }, index): CreateResult => {
+		const result = results[index];
+		if (result instanceof Document) {
+			return {
+				outcome: "ok",
+				item: toEditorItem(type, result.toObject() as StoredItem, now),
+				created: true
+			};
+		}
+		if (isDuplicate(result)) {
+			return made.get(createId) ?? duplicateOf(type);
+		}
+		// A schema validation error, which the request schemas should have
+		// caught first, or a failed write.
+		throw result instanceof Error ? result : new Error(String(result));
+	});
+}
+
+// Updates each item from the revision the editor started from: one read for
+// the stored items, one bulk write, one read for the results (so a save by
+// someone else just after shows in an item's result). The bulk write runs no
+// Mongoose update validators: the request schemas are the check.
+export async function updateItems(
+	typeName: ContentTypeName,
+	updates: readonly ItemUpdate[],
+	editor: EditorRef,
+	now = new Date()
+): Promise<(WriteResult | Rejected)[]> {
+	const type = CONTENT_TYPES[typeName];
+	const stored = await itemsById(
+		type,
+		updates.map(({ id }) => id)
+	);
+
+	interface Pending {
+		readonly id: string;
+		readonly op: WriteOp;
+	}
+	const planned = updates.map(
+		({
+			id,
+			startingRevision,
+			changesFor
+		}): WriteResult | Rejected | Pending => {
+			const current = stored.get(id);
+			if (!current || (current.revision ?? 0) !== startingRevision) {
+				return staleOutcome(type, current, now);
+			}
+			try {
+				const update = updateOperators(changesFor(current), editor);
+				return {
+					id,
+					op: {
+						name: "updateOne",
+						filter: {
+							_id: id,
+							...revisionFilter(startingRevision)
+						},
+						update
+					}
+				};
+			} catch (error) {
+				return { outcome: "rejected", error };
+			}
+		}
+	);
+
+	const pending = planned.filter((plan) => "op" in plan);
+	const outcomes = await writeEach(
+		type,
+		pending.map(({ op }) => op)
+	);
+	const written = await itemsById(
+		type,
+		pending.map(({ id }) => id)
+	);
+	let next = 0;
+	return planned.map((plan) => {
+		if (!("op" in plan)) {
+			return plan;
+		}
+		const outcome = outcomes[next++];
+		const after = written.get(plan.id);
+		if (typeof outcome === "object") {
+			return outcome;
+		}
+		return outcome === 1 && after
+			? { outcome: "ok", item: toEditorItem(type, after, now) }
+			: staleOutcome(type, after, now);
+	});
+}
+
+// Deletes each item at the revision the editor started from: one bulk write,
+// and one read to tell a stale item from a missing one.
+export async function deleteItems(
+	typeName: ContentTypeName,
+	refs: readonly ItemRef[],
+	now = new Date()
+): Promise<WriteResult[]> {
+	const type = CONTENT_TYPES[typeName];
+	const deleted = await writeEach(
+		type,
+		refs.map(({ id, startingRevision }) => ({
+			name: "deleteOne",
+			filter: { _id: id, ...revisionFilter(startingRevision) }
+		}))
+	);
+	const remaining = await itemsById(
+		type,
+		refs.flatMap(({ id }, index) => (deleted[index] === 1 ? [] : [id]))
+	);
+	return refs.map(({ id }, index) =>
+		deleted[index] === 1
+			? { outcome: "ok" }
+			: staleOutcome(type, remaining.get(id), now)
+	);
+}
+
+// One item's write, as a batch of one.
+function onlyResult<T>(results: readonly T[]): T {
+	const [result] = results;
+	if (result === undefined || results.length !== 1) {
+		throw new Error("expected one write result");
+	}
+	return result;
 }
 
 export async function createItem(
@@ -451,109 +757,58 @@ export async function createItem(
 	editor: EditorRef,
 	now = new Date()
 ): Promise<CreateResult> {
-	const type = CONTENT_TYPES[typeName];
-	const { model } = type;
-	const existing = await findCreated(typeName, createId, now);
-	if (existing) {
-		return existing;
-	}
-
-	try {
-		return await unlessDuplicate(async () => {
-			const created = await model.create({
-				visible: true,
-				...withoutNulls(fields),
-				createId,
-				revision: 1,
-				createdBy: editor,
-				lastUpdatedBy: editor
-			});
-			return {
-				outcome: "ok",
-				item: toEditorItem(type, created.toObject() as StoredItem, now),
-				created: true
-			} as const;
-		});
-	} catch (error) {
-		// A concurrent repeat of this create won the race.
-		const made =
-			duplicateKeyField(error) === "createId"
-				? await findCreated(typeName, createId, now)
-				: undefined;
-		if (made) {
-			return made;
-		}
-		throw error;
-	}
+	return onlyResult(
+		await createItems(typeName, [{ createId, fields }], editor, now)
+	);
 }
 
-// Updates an item from the revision the editor started from. `changesFor`
-// computes the changes from the stored item (news dates depend on it), so it
-// runs once the revision has matched; the write itself checks the revision
-// again, so nothing saved in between is overwritten.
+// Throws whatever `changesFor` threw.
 export async function updateItem(
 	typeName: ContentTypeName,
 	id: string,
-	revision: number,
+	startingRevision: number,
 	changesFor: (current: StoredItem) => FieldChanges,
 	editor: EditorRef,
 	now = new Date()
 ): Promise<WriteResult> {
-	const type = CONTENT_TYPES[typeName];
-	const { model } = type;
-	const current = await model.findById(id).lean();
-	if (!current) {
-		return { outcome: "not-found" };
+	const result = onlyResult(
+		await updateItems(
+			typeName,
+			[{ id, startingRevision, changesFor }],
+			editor,
+			now
+		)
+	);
+	if (result.outcome === "rejected") {
+		throw result.error;
 	}
-	if ((current.revision ?? 0) !== revision) {
-		return {
-			outcome: "conflict",
-			current: toEditorItem(type, current as StoredItem, now)
-		};
-	}
-
-	return unlessDuplicate(async () => {
-		const updated = await model
-			.findOneAndUpdate(
-				{ _id: id, ...revisionFilter(revision) },
-				updateOperators(changesFor(current as StoredItem), editor),
-				{ returnDocument: "after", runValidators: true }
-			)
-			.lean();
-		return updated
-			? ({
-					outcome: "ok",
-					item: toEditorItem(type, updated as StoredItem, now)
-				} as const)
-			: staleOutcome(typeName, id, now);
-	});
-}
-
-// Why a revision-checked write matched nothing: deleted, or saved since.
-async function staleOutcome(
-	typeName: ContentTypeName,
-	id: string,
-	now: Date
-): Promise<WriteResult> {
-	const item = await getItem(typeName, id, now);
-	return item
-		? { outcome: "conflict", current: item }
-		: { outcome: "not-found" };
+	return result;
 }
 
 export async function deleteItem(
 	typeName: ContentTypeName,
 	id: string,
-	revision: number,
+	startingRevision: number,
 	now = new Date()
 ): Promise<WriteResult> {
-	const { deletedCount } = await CONTENT_TYPES[typeName].model.deleteOne({
-		_id: id,
-		...revisionFilter(revision)
-	});
-	return deletedCount === 1
-		? { outcome: "ok" }
-		: staleOutcome(typeName, id, now);
+	return onlyResult(
+		await deleteItems(typeName, [{ id, startingRevision }], now)
+	);
+}
+
+// Runs a collection write, turning a duplicate key into a Duplicate outcome.
+async function unlessDuplicate<T>(
+	write: () => Promise<T>
+): Promise<T | Duplicate> {
+	try {
+		return await write();
+	} catch (error) {
+		const field = duplicateKeyField(error);
+		if (field) {
+			return { outcome: "duplicate", field };
+		}
+		throw error;
+	}
 }
 
 function collectionModelOf(
