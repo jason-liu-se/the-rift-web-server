@@ -107,6 +107,151 @@ describe("/editor/<items>/bulk", () => {
 		expect(await mongoManager.getContentVersion()).not.toBe(before);
 	});
 
+	it.each([
+		[
+			"update",
+			"patch",
+			(ids: string[]) => ({
+				action: "hide",
+				items: [
+					{ id: ids[0], startingRevision: 0 },
+					{
+						id: new Types.ObjectId().toHexString(),
+						startingRevision: 1
+					},
+					{ id: "not-an-id", startingRevision: 1 }
+				]
+			}),
+			["conflict", "not-found", "invalid"]
+		],
+		[
+			"delete",
+			"delete",
+			(ids: string[]) => ({
+				items: [
+					{ id: ids[0], startingRevision: 0 },
+					{
+						id: new Types.ObjectId().toHexString(),
+						startingRevision: 1
+					},
+					{ id: "not-an-id", startingRevision: 1 }
+				]
+			}),
+			["conflict", "not-found", "invalid"]
+		],
+		[
+			"create",
+			"post",
+			() => ({
+				items: [
+					{
+						createId: randomUUID(),
+						collection: "season5",
+						caption: "x",
+						imageUrl: "nope"
+					},
+					{
+						createId: randomUUID(),
+						collection: "missing",
+						caption: "y",
+						imageUrl: IMAGE
+					}
+				]
+			}),
+			["invalid", "invalid"]
+		]
+	] as const)(
+		"keeps the version when every item of a bulk %s fails",
+		async (_name, method, body, outcomes) => {
+			const ids = await seedImages(1);
+			const before = await mongoManager.getContentVersion();
+			const stored = await images().find().toArray();
+
+			const res = await editor[method](
+				"/editor/gallery/images/bulk",
+				body(ids)
+			).expect(200);
+
+			expect(
+				res.body.results.map(
+					({ outcome }: { outcome: string }) => outcome
+				)
+			).toEqual(outcomes);
+			expect(await images().find().toArray()).toEqual(stored);
+			expect(await mongoManager.getContentVersion()).toBe(before);
+		}
+	);
+
+	it("writes the good items between failing ones, reporting each in order", async () => {
+		const [a, b, c, d] = await seedImages(1, 1, 1, 1);
+		const missing = new Types.ObjectId().toHexString();
+		const before = await mongoManager.getContentVersion();
+
+		const res = await editor
+			.patch("/editor/gallery/images/bulk", {
+				action: "hide",
+				items: [
+					{ id: a, startingRevision: 1 },
+					{ id: b, startingRevision: 0 },
+					{ id: c, startingRevision: 1 },
+					{ id: missing, startingRevision: 1 },
+					{ id: d, startingRevision: 1 },
+					{ id: "not-an-id", startingRevision: 1 }
+				]
+			})
+			.expect(200);
+
+		expect(
+			res.body.results.map(({ id, outcome }: Record<string, string>) => [
+				id,
+				outcome
+			])
+		).toEqual([
+			[a, "ok"],
+			[b, "conflict"],
+			[c, "ok"],
+			[missing, "not-found"],
+			[d, "ok"],
+			["not-an-id", "invalid"]
+		]);
+		const hidden = await images().find({ visible: false }).toArray();
+		expect(hidden.map(({ _id }) => _id.toHexString()).sort()).toEqual(
+			[a, c, d].sort()
+		);
+		expect(await mongoManager.getContentVersion()).not.toBe(before);
+	});
+
+	it("creates the good images between failing ones, in order", async () => {
+		const ids = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+		const image = (
+			createId: string,
+			caption: string,
+			imageUrl = IMAGE
+		) => ({
+			createId,
+			collection: "season5",
+			caption,
+			imageUrl
+		});
+
+		const res = await editor
+			.post("/editor/gallery/images/bulk", {
+				items: [
+					image(ids[0] ?? "", "One"),
+					image(ids[1] ?? "", "bad", "nope"),
+					image(ids[2] ?? "", "Two"),
+					image(ids[3] ?? "", "bad", "nope")
+				]
+			})
+			.expect(200);
+
+		expect(
+			res.body.results.map(({ outcome }: { outcome: string }) => outcome)
+		).toEqual(["ok", "invalid", "ok", "invalid"]);
+		const stored = await images().find().sort({ _id: 1 }).toArray();
+		expect(stored.map(({ caption }) => caption)).toEqual(["One", "Two"]);
+	});
+
 	it("changes the version even when an item fails after others were written", async () => {
 		const [a] = await seedImages(1);
 		// Breaks the contract, so its result fails once it's written.
