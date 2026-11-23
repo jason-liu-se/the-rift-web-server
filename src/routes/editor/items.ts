@@ -21,7 +21,10 @@ import {
 	onlyOutcome,
 	updateEach
 } from "../../helpers/editor-bulk.ts";
-import { BULK_CREATE_REQUESTS } from "../../api/bulk-requests.ts";
+import {
+	BULK_CREATE_REQUESTS,
+	BULK_UPDATE_REQUESTS
+} from "../../api/bulk-requests.ts";
 import * as editorContent from "../../managers/editor-content.ts";
 import type { ContentTypeName } from "../../types/editor-content.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
@@ -97,10 +100,13 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 			bulk((req, res) => bulkCreate(typeName, req.body, editorOf(res)))
 		);
 	}
-	router.patch(
-		"/bulk",
-		bulk((req, res) => bulkUpdate(typeName, req.body, editorOf(res)))
-	);
+	if (BULK_UPDATE_REQUESTS[typeName]) {
+		router.patch(
+			"/bulk",
+			bulk((req, res) => bulkUpdate(typeName, req.body, editorOf(res)))
+		);
+	}
+	// All items are allowed to be bulk deleted
 	router.delete(
 		"/bulk",
 		bulk((req) => bulkDelete(typeName, req.body))
