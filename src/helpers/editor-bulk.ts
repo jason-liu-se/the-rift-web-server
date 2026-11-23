@@ -67,7 +67,7 @@ function problemsOf(error: z.ZodError): string {
 }
 
 // An item's result, sending its item through the type's response schema.
-function itemResult(
+function itemProcessingResult(
 	typeName: ContentTypeName,
 	id: string,
 	result: WriteResult | CreateResult
@@ -116,7 +116,7 @@ type Step<T> =
 // Every item's result, in request order. `prepare` checks each item on its
 // own (throwing makes it `invalid`); `write` then writes every pending item
 // at once, returning a result for each.
-async function inOrder<I extends { readonly id: string }, T, R>(
+async function processInOrder<I extends { readonly id: string }, T, R>(
 	items: readonly I[],
 	prepare: (item: I) => Step<T>,
 	write: (pending: readonly T[]) => Promise<readonly R[]>,
@@ -132,12 +132,12 @@ async function inOrder<I extends { readonly id: string }, T, R>(
 	const written = await write(
 		steps.flatMap((step) => ("pending" in step ? [step.pending] : []))
 	);
-	let next = 0;
+	let pendingIndex = 0;
 	return steps.map((step, index) => {
 		if ("done" in step) {
 			return step.done;
 		}
-		const result = written[next++];
+		const result = written[pendingIndex++];
 		const id = items[index]?.id;
 		if (result === undefined || id === undefined) {
 			throw new Error("bulk write returned too few results");
@@ -147,7 +147,7 @@ async function inOrder<I extends { readonly id: string }, T, R>(
 }
 
 // The changes an update action makes to one stored item.
-function changesFor(
+function changesFromAction(
 	typeName: ContentTypeName,
 	request: BulkRequest,
 	startingRevision: number,
@@ -170,17 +170,17 @@ function changesFor(
 				const stored = Array.isArray(current["tags"])
 					? current["tags"].map(String)
 					: [];
-				const next = normaliseTags(
+				const updatedTags = normaliseTags(
 					action === "add-tags"
 						? [...stored, ...tags]
 						: stored.filter((tag) => !tags.includes(tag))
 				);
-				if (next.length > MAX_TAGS_PER_IMAGE) {
+				if (updatedTags.length > MAX_TAGS_PER_IMAGE) {
 					throw new BadRequestError(
 						`tags: at most ${MAX_TAGS_PER_IMAGE} tags`
 					);
 				}
-				return { tags: next };
+				return { tags: updatedTags };
 			};
 		}
 		default:
@@ -199,7 +199,7 @@ async function createAll(
 	const slugs = request.items.flatMap(({ collection }) =>
 		typeof collection === "string" ? [collection] : []
 	);
-	const [made, missing] = await Promise.all([
+	const [createdDocs, missingCollections] = await Promise.all([
 		editorContent.findCreated(
 			typeName,
 			request.items.map(({ id }) => id),
@@ -208,25 +208,29 @@ async function createAll(
 		editorContent.missingCollections(typeName, [...new Set(slugs)])
 	]);
 
-	return inOrder(
+	return processInOrder(
 		request.items,
 		({ id, ...fields }): Step<NewItem> => {
-			const repeat = made.get(id);
+			const repeat = createdDocs.get(id);
 			if (repeat) {
-				return { done: itemResult(typeName, id, repeat) };
+				return { done: itemProcessingResult(typeName, id, repeat) };
 			}
 			const created = parseCreate(
 				typeName,
 				{ ...fields, createId: id },
 				now
 			);
-			if (missing.includes(String(created.fields["collection"]))) {
+			if (
+				missingCollections.includes(
+					String(created.fields["collection"])
+				)
+			) {
 				throw new BadRequestError("collection: no such collection");
 			}
 			return { pending: created };
 		},
 		(pending) => editorContent.createItems(typeName, pending, editor, now),
-		(id, result) => itemResult(typeName, id, result)
+		(id, result) => itemProcessingResult(typeName, id, result)
 	);
 }
 
@@ -237,21 +241,21 @@ async function updateAll(
 	now: Date
 ): Promise<BulkItemResult<unknown>[]> {
 	if (request.action === "delete") {
-		return inOrder(
+		return processInOrder(
 			request.items,
 			(item) => ({ pending: itemRef.parse(item) }),
 			(pending) => editorContent.deleteItems(typeName, pending, now),
-			(id, result) => itemResult(typeName, id, result)
+			(id, result) => itemProcessingResult(typeName, id, result)
 		);
 	}
-	return inOrder(
+	return processInOrder(
 		request.items,
 		(item) => {
 			const ref = itemRef.parse(item);
 			return {
 				pending: {
 					...ref,
-					changesFor: changesFor(
+					changesFor: changesFromAction(
 						typeName,
 						request,
 						ref.startingRevision,
@@ -264,7 +268,7 @@ async function updateAll(
 		(id, result) =>
 			result.outcome === "rejected"
 				? invalid(id, result.error)
-				: itemResult(typeName, id, result)
+				: itemProcessingResult(typeName, id, result)
 	);
 }
 
