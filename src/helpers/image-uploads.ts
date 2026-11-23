@@ -1,5 +1,5 @@
 // Uploads the editor's image files to imgbb (POST /editor/images), a few at a
-// time, each named for what it's for. A file that isn't an image, or that
+// time, each named for its album. A file that isn't an image, or that
 // imgbb fails on, gets an error result instead of failing the others.
 import { IMGBB_CONCURRENT_UPLOADS } from "../config/uploads.ts";
 import type { ImageUploadResult } from "../contract/api-responses.ts";
@@ -14,12 +14,11 @@ export interface UploadFile {
 	readonly buffer: Buffer;
 }
 
-// What the upload is for picks the name prefix: `g-<slug>-`, `n-`, `d-`, or
-// `m-`.
+// The album picks the name prefix: `g-<slug>-`, `n-`, `d-`, or `m-`.
 function namePrefix(fields: ImageUploadFields): string {
-	return fields.use === "gallery"
+	return fields.album === "gallery"
 		? `g-${fields.collection}-`
-		: `${fields.use[0]}-`;
+		: `${fields.album[0]}-`;
 }
 
 // The file's own name, made safe for imgbb: lowercase letters, digits, and
