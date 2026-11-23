@@ -57,6 +57,18 @@ describe("GET /maps/seasons", () => {
 		expect(res.body).toEqual([withId(season5)]);
 	});
 
+	it("returns a season without an image", async () => {
+		const season5 = season(5);
+		const seasons = collection("maps", "seasons");
+		await seasons.insertOne({ ...season5 });
+		await seasons.updateOne({}, { $unset: { imageUrl: "" } });
+
+		const res = await request(app).get("/maps/seasons").expect(200);
+
+		// toEqual: an undefined property counts as missing
+		expect(res.body).toEqual([{ ...withId(season5), imageUrl: undefined }]);
+	});
+
 	it("returns an empty list when there are no seasons", async () => {
 		const res = await request(app).get("/maps/seasons").expect(200);
 

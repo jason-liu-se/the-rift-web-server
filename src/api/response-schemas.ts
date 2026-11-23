@@ -90,7 +90,7 @@ const mapSeason = z.toZod<MapSeason>()(
 	z.object({
 		id: z.string(),
 		season: z.number().int(),
-		imageUrl: z.string(),
+		imageUrl: z.string().optional(),
 		dimensions: z.array(
 			z.object({
 				name: z.string(),

@@ -183,7 +183,8 @@ export interface DownloadItemFields {
 
 export interface MapSeasonFields {
 	season: number;
-	imageUrl: string;
+	/** null removes it (updates). */
+	imageUrl?: string | null;
 	dimensions: MapDimension[];
 }
 
