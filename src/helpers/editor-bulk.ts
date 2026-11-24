@@ -26,7 +26,10 @@ import {
 } from "../api/bulk-requests.ts";
 import { parseCreate, parseUpdate } from "../api/editor-requests.ts";
 import { idParams, normaliseTags } from "../api/query-schemas.ts";
-import { EDITOR_ITEM_SCHEMAS, parseResponse } from "../api/response-schemas.ts";
+import {
+	type EditorItemBody,
+	parseEditorItem
+} from "../api/response-schemas.ts";
 import { startingRevision } from "../api/write-schemas.ts";
 
 /** A create's item: its createId and the rest of its body, unchecked. */
@@ -199,22 +202,21 @@ function itemProcessingResult(
 	typeName: ContentTypeName,
 	id: string,
 	outcome: ItemOutcome
-): BulkItemResult<unknown> {
-	const schema = EDITOR_ITEM_SCHEMAS[typeName];
+): BulkItemResult<EditorItemBody> {
 	switch (outcome.outcome) {
 		case "ok":
 			return {
 				id,
 				outcome: "ok",
 				...(outcome.item && {
-					item: parseResponse(schema, outcome.item)
+					item: parseEditorItem(typeName, outcome.item)
 				})
 			};
 		case "conflict":
 			return {
 				id,
 				outcome: "conflict",
-				current: parseResponse(schema, outcome.current)
+				current: parseEditorItem(typeName, outcome.current)
 			};
 		case "not-found":
 			return { id, outcome: "not-found" };
@@ -274,7 +276,7 @@ function changesFromAction(
 }
 
 export interface BulkOutcome {
-	readonly results: BulkItemResult<unknown>[];
+	readonly results: BulkItemResult<EditorItemBody>[];
 	/** Whether any item was written, so the content version must change. */
 	readonly wrote: boolean;
 }
