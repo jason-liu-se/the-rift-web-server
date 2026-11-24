@@ -193,16 +193,9 @@ export const mapSeasonFields = variants(
 	checkMapSeason
 );
 
-export type NewsPostInput = z.infer<typeof newsShape>;
-export type GalleryImageInput = z.infer<typeof galleryShape>;
-export type DownloadItemInput = z.infer<typeof downloadShape>;
-export type MapSeasonInput = z.infer<typeof mapSeasonShape>;
-
 // The revision an update or delete started from (a stored item missing one is
 // at 0).
 export const startingRevision = z.number().int().min(0);
-
-export const visibility = z.object({ visible: z.boolean().optional() });
 
 export const createId = z.uuid("must be a UUID");
 
@@ -214,7 +207,7 @@ export const newsDate = z.union([
 	z.iso.datetime({ offset: true, error: 'must be "now" or an ISO date-time' })
 ]);
 
-export const collectionTitle = requiredText(MAX_COLLECTION_TITLE_LENGTH);
+const collectionTitle = requiredText(MAX_COLLECTION_TITLE_LENGTH);
 
 export const collectionCreateRequest = z.toZod<CollectionCreateRequest>()(
 	z.object({

@@ -1,7 +1,5 @@
-// Database access for the routers. Reads return plain objects (`.lean()`), not
-// Mongoose documents, with MongoDB's `_id` as a hex string `id` (lean results
-// skip Mongoose's `id` virtual). Query errors propagate to the caller; the app's error
-// handler turns them into 500 responses.
+// Database access for the public routes. Reads are lean, with `_id` as the hex
+// string `id` (lean results skip Mongoose's `id` virtual).
 import mongoose, { type Types } from "mongoose";
 import { accessGrantModel } from "../models/access-grant-schema.ts";
 import { draftModel } from "../models/draft-schema.ts";
@@ -267,11 +265,9 @@ export async function getContentVersion(): Promise<number> {
 	return version;
 }
 
-// Changes the content version, so public reads get new cache entries, and
-// returns it. Call it only once a write has committed: bumped first, a read in
-// between could cache the old content under the new version for a day. The current time, or one more than the current
-// version if that's not later (writes in the same millisecond, a clock that
-// went back, or a hand-set future value), so it always changes.
+// Call only once a write has committed: bumped first, a read in between could
+// cache old content under the new version. Always changes, even within one
+// millisecond or after the clock goes back.
 export async function updateContentVersion(): Promise<number> {
 	const { version } = await contentVersionModel
 		.findOneAndUpdate(

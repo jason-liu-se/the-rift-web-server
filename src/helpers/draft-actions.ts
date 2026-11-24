@@ -52,9 +52,8 @@ function checkSize(fields: object): void {
 	}
 }
 
-// Creates the draft, or saves it from the revision the client last saw. A
-// repeated create (no startingRevision, its response lost) saves nothing and returns
-// the draft as it is, for the website to carry on from or reconcile.
+// A repeated create (no startingRevision, its response lost) saves nothing
+// and returns the draft as stored.
 export async function saveDraft(
 	owner: string,
 	id: string,
