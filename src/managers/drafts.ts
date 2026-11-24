@@ -6,6 +6,7 @@ import {
 	type DraftTarget,
 	draftModel
 } from "../models/draft-schema.ts";
+import { isDuplicateKeyError } from "../helpers/editor-queries.ts";
 
 const UNPUBLISHED = { publishedAs: { $exists: false } };
 
@@ -100,15 +101,6 @@ export type DraftWriteResult =
 	/** The owner already has an edit draft of that item, or the ID is taken. */
 	| { readonly outcome: "duplicate" };
 
-function isDuplicateKey(error: unknown): boolean {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		error.code === 11000
-	);
-}
-
 export async function createDraft(draft: {
 	readonly id: string;
 	readonly owner: string;
@@ -125,7 +117,7 @@ export async function createDraft(draft: {
 		});
 		return { outcome: "ok", draft: withId(created.toObject()) };
 	} catch (error) {
-		if (isDuplicateKey(error)) {
+		if (isDuplicateKeyError(error)) {
 			return { outcome: "duplicate" };
 		}
 		throw error;

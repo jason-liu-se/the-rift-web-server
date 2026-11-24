@@ -2,7 +2,7 @@
 // reading their results: pure functions of a content type's descriptor, with
 // no database access.
 import type { NewsStatus } from "../contract/api-responses.ts";
-import type { EditorRef } from "../models/audit-fields.ts";
+import { type EditorRef, VISIBLE } from "../models/audit-fields.ts";
 import type {
 	ContentType,
 	Duplicate,
@@ -18,10 +18,6 @@ import type {
 export const textSearch =
 	(field: string): SearchField =>
 	(pattern) => ({ [field]: pattern });
-
-// Missing `visible` (documents from before the editor tools) counts as
-// visible.
-const VISIBLE = { visible: { $ne: false } };
 
 const HIDDEN = { visible: false };
 
@@ -119,14 +115,21 @@ export function toEditorItem(
 
 export const DUPLICATE_KEY = 11000;
 
+// Duck-typed: the driver doesn't export its WriteError class.
+export function isDuplicateKeyError(error: unknown): error is object {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		error.code === DUPLICATE_KEY
+	);
+}
+
 // The field a MongoDB duplicate key error is about, or undefined for any
 // other error.
 export function duplicateKeyField(error: unknown): string | undefined {
 	if (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		error.code === DUPLICATE_KEY &&
+		isDuplicateKeyError(error) &&
 		"keyPattern" in error &&
 		typeof error.keyPattern === "object" &&
 		error.keyPattern !== null

@@ -18,12 +18,14 @@ import {
 } from "../models/gallery-schema.ts";
 import { mapSeasonModel } from "../models/map-season-schema.ts";
 import { newsPostModel } from "../models/news-post-schema.ts";
+import { DOWNLOAD_ITEM_ORDER } from "./mongo-manager.ts";
 import {
 	DUPLICATE_KEY,
 	LIVE_OR_HIDDEN,
 	NEWS_STATUSES,
 	duplicateKeyField,
 	duplicateOf,
+	isDuplicateKeyError,
 	listFilter,
 	revisionFilter,
 	staleOutcome,
@@ -103,17 +105,7 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 			title: textSearch("title"),
 			desc: textSearch("desc")
 		},
-		// By sortOrder, then the items without one by title (a plain sort puts
-		// missing values first).
-		sort: [
-			{
-				$addFields: {
-					unordered: { $not: [{ $isNumber: "$sortOrder" }] }
-				}
-			},
-			{ $sort: { unordered: 1, sortOrder: 1, title: 1, _id: 1 } },
-			{ $unset: "unordered" }
-		],
+		sort: DOWNLOAD_ITEM_ORDER,
 		summary: [{ $unset: "desc" }],
 		collectionModel: downloadCollectionModel
 	},
@@ -181,17 +173,11 @@ export async function getItem(
 export async function listCollections(
 	typeName: CollectionTypeName
 ): Promise<EditorCollectionSummary[]> {
-	const type = CONTENT_TYPES[typeName];
-	const collectionModel = type.collectionModel;
-	if (!collectionModel) {
-		throw new Error(`${typeName} has no collections`);
-	}
-
 	const [collections, counts] = await Promise.all([
-		collectionModel.find().sort({ slug: 1 }).lean(),
-		type.model.aggregate<{ _id: string; count: number }>([
-			{ $group: { _id: "$collection", count: { $sum: 1 } } }
-		])
+		collectionModelOf(typeName).find().sort({ slug: 1 }).lean(),
+		CONTENT_TYPES[typeName].model.aggregate<{ _id: string; count: number }>(
+			[{ $group: { _id: "$collection", count: { $sum: 1 } } }]
+		)
 	]);
 	const countBySlug = new Map(counts.map(({ _id, count }) => [_id, count]));
 
@@ -393,15 +379,9 @@ export async function createItems(
 		results = decorated;
 	}
 
-	// The driver doesn't export its WriteError class.
-	const isDuplicate = (result: unknown) =>
-		typeof result === "object" &&
-		result !== null &&
-		"code" in result &&
-		result.code === DUPLICATE_KEY;
 	const duplicates = await explainDuplicates(
 		typeName,
-		items.filter((_item, index) => isDuplicate(results[index])),
+		items.filter((_item, index) => isDuplicateKeyError(results[index])),
 		now
 	);
 	return items.map(({ createId }, index): CreateResult => {
@@ -413,7 +393,8 @@ export async function createItems(
 				created: true
 			};
 		}
-		const duplicate = isDuplicate(result) && duplicates.get(createId);
+		const duplicate =
+			isDuplicateKeyError(result) && duplicates.get(createId);
 		if (duplicate) {
 			return duplicate;
 		}

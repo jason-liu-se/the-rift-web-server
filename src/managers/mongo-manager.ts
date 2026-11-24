@@ -1,7 +1,8 @@
 // Database access for the public routes. Reads are lean, with `_id` as the hex
 // string `id` (lean results skip Mongoose's `id` virtual).
-import mongoose, { type Types } from "mongoose";
+import mongoose, { type PipelineStage, type Types } from "mongoose";
 import { accessGrantModel } from "../models/access-grant-schema.ts";
+import { VISIBLE } from "../models/audit-fields.ts";
 import { draftModel } from "../models/draft-schema.ts";
 import {
 	CONTENT_VERSION_ID,
@@ -76,10 +77,6 @@ export async function createIndexes(): Promise<void> {
 	await Promise.all(MODELS.map((model) => model.createIndexes()));
 }
 
-// Missing `visible` (documents from before the editor tools) counts as
-// visible.
-const VISIBLE = { visible: { $ne: false } };
-
 // News posts anyone may read: visible, and dated now or earlier (a later date
 // is scheduled).
 function publicNewsFilter() {
@@ -95,14 +92,18 @@ function publicImagesFilter(slug: string, tags: readonly string[]) {
 	};
 }
 
-// Download items in order: by sortOrder, then the items without one by title.
-// A plain sort puts missing values first, hence the computed field.
+// By sortOrder, then the items without one by title. A plain sort puts
+// missing values first, hence the computed field.
+export const DOWNLOAD_ITEM_ORDER: PipelineStage[] = [
+	{ $addFields: { unordered: { $not: [{ $isNumber: "$sortOrder" }] } } },
+	{ $sort: { unordered: 1, sortOrder: 1, title: 1, _id: 1 } },
+	{ $unset: "unordered" }
+];
+
 function sortedDownloadItems(match: object) {
 	return downloadItemModel.aggregate<DownloadItem & { _id: Types.ObjectId }>([
 		{ $match: match },
-		{ $addFields: { unordered: { $not: [{ $isNumber: "$sortOrder" }] } } },
-		{ $sort: { unordered: 1, sortOrder: 1, title: 1, _id: 1 } },
-		{ $unset: "unordered" }
+		...DOWNLOAD_ITEM_ORDER
 	]);
 }
 

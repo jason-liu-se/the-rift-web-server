@@ -38,6 +38,9 @@ const editorRefSchema = new mongoose.Schema<EditorRef>(
 	{ _id: false, id: false }
 );
 
+// Matches visible documents, including those without `visible`.
+export const VISIBLE = { visible: { $ne: false } };
+
 // Spread into each content schema, which also sets AUDITED_SCHEMA_OPTIONS.
 export const auditedFields = {
 	visible: { type: Boolean },
