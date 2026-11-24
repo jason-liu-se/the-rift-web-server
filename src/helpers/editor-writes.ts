@@ -5,6 +5,7 @@ import * as z from "zod";
 import { BadRequestError } from "../errors/bad-request-error.ts";
 import * as collectionsManager from "../managers/editor-collections.ts";
 import * as editorContent from "../managers/editor-content.ts";
+import * as mongoManager from "../managers/mongo-manager.ts";
 import type {
 	ContentTypeName,
 	Invalid,
@@ -39,6 +40,51 @@ function invalid(error: unknown): Invalid {
 	throw error;
 }
 
+const NO_SUCH_COLLECTION = invalid(
+	new BadRequestError("collection: no such collection")
+);
+
+/**
+ * Deletes again each written item whose collection was deleted after the
+ * check, giving it `replacement` instead. Checking after the write closes the
+ * race with deleteCollection: a check before its last delete is followed by
+ * that delete, and one after it finds the collection gone.
+ */
+async function dropItemsOfDeletedCollections(
+	typeName: ContentTypeName,
+	outcomes: readonly ItemOutcome[],
+	replacement: ItemOutcome
+): Promise<ItemOutcome[]> {
+	const collectionOf = (outcome: ItemOutcome) =>
+		outcome.outcome === "ok" &&
+		typeof outcome.item?.["collection"] === "string"
+			? outcome.item["collection"]
+			: undefined;
+	const named = outcomes.flatMap((outcome) => collectionOf(outcome) ?? []);
+	const missing = await collectionsManager.missingCollections(typeName, [
+		...new Set(named)
+	]);
+	if (missing.length === 0) {
+		return [...outcomes];
+	}
+	const isDropped = (outcome: ItemOutcome) =>
+		missing.includes(collectionOf(outcome) ?? "");
+	await collectionsManager.deleteItemsInCollections(
+		typeName,
+		outcomes.flatMap((outcome) =>
+			isDropped(outcome) && outcome.outcome === "ok" && outcome.item
+				? [outcome.item.id]
+				: []
+		),
+		missing
+	);
+	// A moved item left its public collection.
+	await mongoManager.updateContentVersion();
+	return outcomes.map((outcome) =>
+		isDropped(outcome) ? replacement : outcome
+	);
+}
+
 // An item's outcome known before writing, or what to write for it.
 type Step<T> = { readonly done: ItemOutcome } | { readonly pending: T };
 
@@ -70,11 +116,7 @@ async function processInOrder<I, T>(
 		const collection = "pending" in step && collectionOf(step.pending);
 		return typeof collection === "string" &&
 			missingCollections.includes(collection)
-			? {
-					done: invalid(
-						new BadRequestError("collection: no such collection")
-					)
-				}
+			? { done: NO_SUCH_COLLECTION }
 			: step;
 	});
 
@@ -117,7 +159,12 @@ export async function createEach(
 				: { pending: parseCreate(typeName, item, now) };
 		},
 		({ fields }) => fields["collection"],
-		(pending) => editorContent.createItems(typeName, pending, editor, now)
+		async (pending) =>
+			dropItemsOfDeletedCollections(
+				typeName,
+				await editorContent.createItems(typeName, pending, editor, now),
+				NO_SUCH_COLLECTION
+			)
 	);
 }
 
@@ -137,10 +184,21 @@ export async function updateEach<I>(
 		(item) => ({ pending: prepare(item) }),
 		({ collection }) => collection,
 		async (pending) =>
-			(
-				await editorContent.updateItems(typeName, pending, editor, now)
-			).map((result) =>
-				result.outcome === "rejected" ? invalid(result.error) : result
+			dropItemsOfDeletedCollections(
+				typeName,
+				(
+					await editorContent.updateItems(
+						typeName,
+						pending,
+						editor,
+						now
+					)
+				).map((result) =>
+					result.outcome === "rejected"
+						? invalid(result.error)
+						: result
+				),
+				{ outcome: "not-found" }
 			)
 	);
 }

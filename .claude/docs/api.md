@@ -292,8 +292,12 @@ item's result: a bad item is `invalid`, never a failed request, so the website
 reports all failures together. A batch is a few queries however many items it
 has: updates read the items, run one unordered bulk write, and read the results;
 deletes run the bulk write, then read the items it missed; creates run one
-unordered `insertMany`; collections named by the items are checked in one query.
-The bulk write is MongoDB 8.0's client bulk write (`connection.bulkWrite` with
+unordered `insertMany`; collections named by the items are checked in one query
+before the write and one after. An item written into a collection deleted in
+between is deleted again (a create is `invalid`, a move `not-found`), and
+deleting a collection deletes its items both before and after removing it, so no
+item outlives its collection for a new one of that slug to take over. The bulk
+write is MongoDB 8.0's client bulk write (`connection.bulkWrite` with
 `verboseResults`), the only one that reports each op's matched or deleted count,
 so a stale revision or a missing item is known exactly. Only what's wrong with
 the whole request (an action the type doesn't have, the target collection, over
