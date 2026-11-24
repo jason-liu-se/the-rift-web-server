@@ -195,7 +195,11 @@ async function writeItem(
 	editor: EditorRef,
 	now: Date
 ) {
-	const body = { ...stored.fields, visible, date };
+	const body = {
+		...stored.fields,
+		...(visible !== undefined && { visible }),
+		date
+	};
 	const { target } = stored;
 	if (!target || asNew) {
 		return onlyOutcome(
