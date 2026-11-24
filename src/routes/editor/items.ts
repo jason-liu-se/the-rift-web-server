@@ -10,6 +10,7 @@ import {
 	editorOf,
 	itemNotFound,
 	listQueryFor,
+	throwUnlessWritten,
 	writtenItem
 } from "../../helpers/editor-actions.ts";
 import {
@@ -158,7 +159,7 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 		const { id } = idParams.parse(req.params);
 		const { startingRevision } = startingRevisionQuery.parse(req.query);
 
-		writtenItem(
+		throwUnlessWritten(
 			typeName,
 			id,
 			onlyOutcome(await deleteEach(typeName, [{ id, startingRevision }]))
