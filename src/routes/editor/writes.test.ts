@@ -819,11 +819,14 @@ describe("collections", () => {
 	});
 
 	it("refuses a save that races the delete, then deletes", async () => {
-		await collections().insertOne({
-			slug: "worlds",
-			title: "W",
-			revision: 2
-		});
+		await Promise.all([
+			collections().insertOne({
+				slug: "worlds",
+				title: "W",
+				revision: 2
+			}),
+			collection("downloads", "items").insertOne({ collection: "worlds" })
+		]);
 		let raceStatus: number | undefined;
 		const deleteMany = mongoose.Model.deleteMany;
 		vi.spyOn(mongoose.Model, "deleteMany").mockImplementationOnce(
@@ -847,6 +850,7 @@ describe("collections", () => {
 
 		expect(raceStatus).toBe(409);
 		expect(await collections().countDocuments()).toBe(0);
+		expect(await collection("downloads", "items").countDocuments()).toBe(0);
 	});
 
 	it("answers 404 for a missing collection", async () => {

@@ -1,5 +1,3 @@
-// Database access for the editor's gallery and download collections. A
-// collection's items are found through CONTENT_TYPES (editor-content.ts).
 import type { Model } from "mongoose";
 import type { EditorRef } from "../models/audit-fields.ts";
 import type { ContentCollection } from "../models/content-collection-schema.ts";
@@ -36,7 +34,6 @@ export async function listCollections(
 	}));
 }
 
-// Runs a collection write, turning a duplicate key into a Duplicate outcome.
 async function unlessDuplicate<T>(
 	write: () => Promise<T>
 ): Promise<T | Duplicate> {
@@ -142,9 +139,8 @@ export async function updateCollection(
 		: staleCollection(typeName, slug);
 }
 
-// Bumping the revision first makes a racing save a 409. The items go before
-// the collection, so if the server stops midway the collection is still there
-// to delete again, not its items left for a new collection of that slug.
+// The revision goes up first, so a save racing the delete gets 409. Items go
+// before the collection, so a delete that stops midway can be repeated.
 export async function deleteCollection(
 	typeName: CollectionTypeName,
 	slug: string,
