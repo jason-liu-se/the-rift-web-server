@@ -99,6 +99,8 @@ findings. You are **strictly read-only**.
   `src/config/`.
 - Renamed or removed symbols still referenced elsewhere (grep for them).
 - Dead code, unused imports, `console.log`, commented-out blocks, stray TODOs.
+- Comments that restate the code, or run longer than the code needs (`CLAUDE.md`
+  "Few comments").
 - New dependencies in `package.json` without the justification `CLAUDE.md`
   requires.
 - `README.md` (endpoint table, environment variables), `CLAUDE.md`,
