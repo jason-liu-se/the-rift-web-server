@@ -84,8 +84,11 @@ edited.
   that variants compose. Single responsibility, low coupling, pure functions,
   side effects (database, network, logging) at the edges.
 - **Clarity.** Descriptive names (`.claude/rules/naming.md`), small functions,
-  guard clauses, named constants. Simple over clever; comment a non-obvious
-  version that's worth keeping.
+  guard clauses, named constants. Simple over clever.
+- **Few comments.** Readers skim past walls of comments and miss the ones that
+  matter. Comment only what the code can't say: why, a non-obvious constraint or
+  trade-off, a version workaround. Never restate what the code does; rename
+  instead. One or two lines, not a paragraph.
 - **Write less code.** Humans review every line. Use what Express, Mongoose, and
   Zod provide, and skip speculative code (unused options, "just in case"
   branches, single-caller abstractions).
