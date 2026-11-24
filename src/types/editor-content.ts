@@ -42,7 +42,7 @@ export interface ContentType {
 	readonly statuses: StatusRules;
 	readonly searchFields: Readonly<Record<string, SearchField>>;
 	/** The public order. */
-	readonly sort: PipelineStage[];
+	readonly sort: readonly PipelineStage[];
 	/** What makes an item a list's summary (only `getItem` sends it whole). */
 	readonly summary: PipelineStage[];
 	/** For gallery and downloads: their collections' metadata. */

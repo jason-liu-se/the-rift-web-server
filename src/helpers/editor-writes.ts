@@ -42,10 +42,8 @@ function invalid(error: unknown): Invalid {
 // An item's outcome known before writing, or what to write for it.
 type Step<T> = { readonly done: ItemOutcome } | { readonly pending: T };
 
-// Every item's outcome, in request order. `prepare` checks each item on its
-// own (throwing makes it `invalid`), as does one query for the collections
-// the pending items name (`collectionOf`); `write` then writes every pending
-// item at once, returning an outcome for each.
+// An item whose `prepare` throws, or whose collection is missing, is invalid;
+// `write` gets every other item at once.
 async function processInOrder<I, T>(
 	typeName: ContentTypeName,
 	items: readonly I[],
@@ -96,9 +94,8 @@ async function processInOrder<I, T>(
 	});
 }
 
-// Creates every item. A repeated createId returns the item it made without
-// checking the item again: the first may have been valid only then (a news
-// date since passed, a collection since deleted).
+// A repeated createId returns its item unchecked: it may have been valid only
+// then (a news date since passed, a collection since deleted).
 export async function createEach(
 	typeName: ContentTypeName,
 	items: readonly NewItemBody[],
