@@ -563,7 +563,73 @@ describe("gallery images", () => {
 
 		expect(res.body.collection).toBe("season6");
 	});
+
+	it("doesn't create an image whose collection is deleted meanwhile", async () => {
+		raceWriteWithCollectionDelete(mongoose.Model, "insertMany", "season5");
+
+		const res = await editor
+			.post("/editor/gallery/images", {
+				createId: randomUUID(),
+				collection: "season5",
+				caption: "x",
+				imageUrl: IMAGE
+			})
+			.expect(400);
+
+		expect(res.body.error).toBe("ERROR: collection: no such collection");
+		expect(await collection("gallery", "images").countDocuments()).toBe(0);
+	});
+
+	it("deletes an image moved to a collection deleted meanwhile", async () => {
+		await collection("gallery", "collections").insertOne({
+			slug: "season6",
+			title: "Season 6"
+		});
+		const { insertedId } = await collection("gallery", "images").insertOne({
+			collection: "season5",
+			caption: "c",
+			imageUrl: IMAGE
+		});
+		const before = await mongoManager.getContentVersion();
+		raceWriteWithCollectionDelete(
+			mongoose.Connection.prototype,
+			"bulkWrite",
+			"season6"
+		);
+
+		await editor
+			.patch(`/editor/gallery/images/${insertedId.toHexString()}`, {
+				startingRevision: 0,
+				collection: "season6"
+			})
+			.expect(404);
+
+		expect(await collection("gallery", "images").countDocuments()).toBe(0);
+		expect(await mongoManager.getContentVersion()).not.toBe(before);
+	});
 });
+
+// Deletes the gallery collection `slug` just before the next call to `method`
+// writes, after the route has checked the collection exists.
+function raceWriteWithCollectionDelete(
+	target: object,
+	method: string,
+	slug: string
+): void {
+	const original = (target as Record<string, (...a: unknown[]) => unknown>)[
+		method
+	];
+	vi.spyOn(
+		target as Record<string, () => unknown>,
+		method
+	).mockImplementationOnce(async function (
+		this: unknown,
+		...args: unknown[]
+	) {
+		await collection("gallery", "collections").deleteOne({ slug });
+		return original?.apply(this, args);
+	} as never);
+}
 
 describe("map seasons", () => {
 	function newSeason(season: number) {
@@ -850,6 +916,28 @@ describe("collections", () => {
 
 		expect(raceStatus).toBe(409);
 		expect(await collections().countDocuments()).toBe(0);
+		expect(await collection("downloads", "items").countDocuments()).toBe(0);
+	});
+
+	it("deletes an item created while the collection is deleted", async () => {
+		await collections().insertOne({ slug: "worlds", title: "W" });
+		const deleteOne = mongoose.Model.deleteOne;
+		vi.spyOn(mongoose.Model, "deleteOne").mockImplementationOnce(
+			async function (this: unknown, ...args: unknown[]) {
+				await collection("downloads", "items").insertOne({
+					collection: "worlds"
+				});
+				return (deleteOne as (...a: unknown[]) => unknown).apply(
+					this,
+					args
+				);
+			} as never
+		);
+
+		await editor
+			.delete("/editor/downloads/collections/worlds?startingRevision=0")
+			.expect(204);
+
 		expect(await collection("downloads", "items").countDocuments()).toBe(0);
 	});
 

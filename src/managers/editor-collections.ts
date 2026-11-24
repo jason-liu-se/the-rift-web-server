@@ -73,6 +73,18 @@ export async function missingCollections(
 	return slugs.filter((slug) => !found.includes(slug));
 }
 
+/** Deletes the items among `ids` that are still in one of `slugs`. */
+export async function deleteItemsInCollections(
+	typeName: ContentTypeName,
+	ids: readonly string[],
+	slugs: readonly string[]
+): Promise<void> {
+	await CONTENT_TYPES[typeName].model.deleteMany({
+		_id: { $in: ids },
+		collection: { $in: slugs }
+	});
+}
+
 async function collectionSummary(
 	typeName: CollectionTypeName,
 	collection: ContentCollection
@@ -140,7 +152,8 @@ export async function updateCollection(
 }
 
 // The revision goes up first, so a save racing the delete gets 409. Items go
-// before the collection, so a delete that stops midway can be repeated.
+// before the collection, so a delete that stops midway can be repeated, and
+// again after it, for any written in between (see editor-writes).
 export async function deleteCollection(
 	typeName: CollectionTypeName,
 	slug: string,
@@ -154,7 +167,9 @@ export async function deleteCollection(
 	if (matchedCount === 0) {
 		return staleCollection(typeName, slug);
 	}
-	await CONTENT_TYPES[typeName].model.deleteMany({ collection: slug });
+	const { model } = CONTENT_TYPES[typeName];
+	await model.deleteMany({ collection: slug });
 	await collection.deleteOne({ slug });
+	await model.deleteMany({ collection: slug });
 	return { outcome: "ok" };
 }
