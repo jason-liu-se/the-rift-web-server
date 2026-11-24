@@ -20,8 +20,6 @@ import type {
 	ItemOutcome
 } from "../types/editor-content.ts";
 
-// A type's list query: its statuses and search fields, and `collection` only
-// for the types with collections.
 export function listQueryFor(typeName: ContentTypeName) {
 	const { searchFields, collectionModel } = CONTENT_TYPES[typeName];
 	const schema = editorListQuery(

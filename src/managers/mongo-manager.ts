@@ -94,7 +94,7 @@ function publicImagesFilter(slug: string, tags: readonly string[]) {
 
 // By sortOrder, then the items without one by title. A plain sort puts
 // missing values first, hence the computed field.
-export const DOWNLOAD_ITEM_ORDER: PipelineStage[] = [
+export const DOWNLOAD_ITEM_ORDER: readonly PipelineStage[] = [
 	{ $addFields: { unordered: { $not: [{ $isNumber: "$sortOrder" }] } } },
 	{ $sort: { unordered: 1, sortOrder: 1, title: 1, _id: 1 } },
 	{ $unset: "unordered" }
