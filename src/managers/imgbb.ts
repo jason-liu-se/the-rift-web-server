@@ -4,7 +4,7 @@
 // key, and thrown as ImgbbError for the caller to report generically.
 import * as z from "zod";
 import { IMGBB_TIMEOUT_MS } from "../config/timeouts.ts";
-import { isAllowedImageUrl } from "../config/images.ts";
+import { isAllowedImageUrl } from "../api/images.ts";
 
 const UPLOAD_URL = "https://api.imgbb.com/1/upload";
 
