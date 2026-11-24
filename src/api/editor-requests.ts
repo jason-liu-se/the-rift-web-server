@@ -1,7 +1,5 @@
-// Parses the editor's list queries, and its create and update bodies for any
-// content type into what's stored: the type's fields (src/api/write-schemas.ts) plus the
-// options every write takes, with news dates resolved by
-// src/helpers/news-dates.ts. Shared by single and bulk writes.
+// Parses the editor's list queries, and create and update bodies into what's
+// stored. Shared by single and bulk writes.
 import * as z from "zod";
 import { CONTENT_TYPES, statusesOf } from "../managers/editor-content.ts";
 import type {

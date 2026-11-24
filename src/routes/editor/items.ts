@@ -69,9 +69,7 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 		res.json(parseResponse(itemSchema, item));
 	});
 
-	// The bulk actions: one response for every item, once all are processed
-	// (each item was sent through its response schema there). Before `/:id`.
-	// POST only for the types that have a bulk create.
+	// One response for every item, once all are processed.
 	const bulk =
 		(run: (req: Request, res: Response) => Promise<BulkOutcome>) =>
 		async (req: Request, res: Response) => {

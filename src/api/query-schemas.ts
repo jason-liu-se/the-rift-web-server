@@ -49,7 +49,7 @@ export function queryFor<Query>() {
 
 // A gallery or download collection's slug: kebab-case, as in the website's
 // URLs.
-export const COLLECTION_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const COLLECTION_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 export const collectionSlug = z
 	.string({ error: "a collection slug is required" })
