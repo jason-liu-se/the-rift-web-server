@@ -7,7 +7,7 @@ import {
 	throwUnlessCollectionWritten,
 	writtenCollection
 } from "../../helpers/editor-actions.ts";
-import * as editorContent from "../../managers/editor-content.ts";
+import * as collectionsManager from "../../managers/editor-collections.ts";
 import type { CollectionTypeName } from "../../types/editor-content.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
 import { revalidateEveryTime } from "../../middleware/cache-control.ts";
@@ -30,7 +30,7 @@ export function editorCollectionsRouter(typeName: CollectionTypeName): Router {
 		res.json(
 			parseResponse(
 				editorCollections,
-				await editorContent.listCollections(typeName)
+				await collectionsManager.listCollections(typeName)
 			)
 		);
 	});
@@ -41,7 +41,7 @@ export function editorCollectionsRouter(typeName: CollectionTypeName): Router {
 		const collection = writtenCollection(
 			typeName,
 			fields.slug,
-			await editorContent.createCollection(
+			await collectionsManager.createCollection(
 				typeName,
 				fields,
 				editorOf(res)
@@ -60,7 +60,7 @@ export function editorCollectionsRouter(typeName: CollectionTypeName): Router {
 		const collection = writtenCollection(
 			typeName,
 			slug,
-			await editorContent.updateCollection(
+			await collectionsManager.updateCollection(
 				typeName,
 				slug,
 				startingRevision,
@@ -79,7 +79,7 @@ export function editorCollectionsRouter(typeName: CollectionTypeName): Router {
 		throwUnlessCollectionWritten(
 			typeName,
 			slug,
-			await editorContent.deleteCollection(
+			await collectionsManager.deleteCollection(
 				typeName,
 				slug,
 				startingRevision
