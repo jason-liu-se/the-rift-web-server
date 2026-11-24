@@ -24,7 +24,7 @@ import {
 	parseResponse
 } from "../api/response-schemas.ts";
 import { itemNotFound, writtenItem } from "./editor-actions.ts";
-import { createEach, onlyOutcome, updateEach } from "./editor-bulk.ts";
+import { createEach, onlyOutcome, updateEach } from "./editor-writes.ts";
 import type { ContentTypeName } from "../types/editor-content.ts";
 import * as drafts from "../managers/drafts.ts";
 import * as editorContent from "../managers/editor-content.ts";
