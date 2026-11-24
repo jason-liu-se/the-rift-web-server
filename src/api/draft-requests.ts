@@ -53,7 +53,7 @@ export const draftSaveRequest = z.discriminatedUnion("type", [
 export type DraftSaveRequest = z.infer<typeof draftSaveRequest>;
 
 export const draftPublishRequest = z.object({
-	visible: z.boolean(),
+	visible: z.boolean().optional(),
 	date: newsDate.optional(),
 	asNew: z.boolean().optional()
 });
