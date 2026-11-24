@@ -14,7 +14,7 @@ import {
 	startingRevision
 } from "./write-schemas.ts";
 
-export const contentType = z.enum(CONTENT_TYPE_NAMES);
+const contentType = z.enum(CONTENT_TYPE_NAMES);
 
 export const draftParams = z.object({ id: z.uuid("invalid id") });
 

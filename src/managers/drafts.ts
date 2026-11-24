@@ -7,6 +7,7 @@ import {
 	draftModel
 } from "../models/draft-schema.ts";
 import { isDuplicateKeyError } from "../helpers/editor-queries.ts";
+import type { ContentTypeName } from "../types/editor-content.ts";
 
 const UNPUBLISHED = { publishedAs: { $exists: false } };
 
@@ -28,7 +29,7 @@ export type DraftSummary = StoredDraft & { readonly dimensionCount?: number };
 // only their SUMMARY_FIELDS (getDraft has the rest).
 export async function listDrafts(
 	owner: string,
-	type?: string
+	type?: ContentTypeName
 ): Promise<DraftSummary[]> {
 	const found = await draftModel.aggregate<
 		Draft & { dimensionCount?: number }
@@ -86,7 +87,7 @@ export async function countDrafts(owner: string): Promise<number> {
 // The owner's edit draft of an item, if they have one.
 export async function getTargetDraft(
 	owner: string,
-	type: string,
+	type: ContentTypeName,
 	targetId: string
 ): Promise<StoredDraft | undefined> {
 	const found = await draftModel
@@ -104,7 +105,7 @@ export type DraftWriteResult =
 export async function createDraft(draft: {
 	readonly id: string;
 	readonly owner: string;
-	readonly type: string;
+	readonly type: ContentTypeName;
 	readonly fields: Record<string, unknown>;
 	readonly target?: DraftTarget;
 }): Promise<DraftWriteResult> {

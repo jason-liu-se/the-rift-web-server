@@ -4,9 +4,11 @@ import type { Response } from "express";
 import { ConflictError } from "../errors/conflict-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import type { EditorRef } from "../models/audit-fields.ts";
+import type { EditorCollection } from "../contract/api-responses.ts";
 import {
-	EDITOR_ITEM_SCHEMAS,
+	type EditorItemBody,
 	editorCollection,
+	parseEditorItem,
 	parseResponse
 } from "../api/response-schemas.ts";
 import { editorListQuery } from "../api/query-schemas.ts";
@@ -47,16 +49,15 @@ export function writtenItem(
 	typeName: ContentTypeName,
 	id: string,
 	result: ItemOutcome
-): unknown {
-	const schema = EDITOR_ITEM_SCHEMAS[typeName];
+): EditorItemBody | undefined {
 	const { itemName } = CONTENT_TYPES[typeName];
 	switch (result.outcome) {
 		case "ok":
-			return result.item && parseResponse(schema, result.item);
+			return result.item && parseEditorItem(typeName, result.item);
 		case "conflict":
 			throw new ConflictError(
 				`${itemName} '${id}' changed since you read it`,
-				parseResponse(schema, result.current)
+				parseEditorItem(typeName, result.current)
 			);
 		case "not-found":
 			throw itemNotFound(typeName, id);
@@ -75,7 +76,7 @@ export function writtenCollection(
 	typeName: CollectionTypeName,
 	slug: string,
 	result: CollectionWriteResult
-): unknown {
+): EditorCollection | undefined {
 	switch (result.outcome) {
 		case "ok":
 			return (

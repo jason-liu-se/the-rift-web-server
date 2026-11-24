@@ -33,9 +33,9 @@ import { revalidateEveryTime } from "../../middleware/cache-control.ts";
 import { parseUpdate } from "../../api/editor-requests.ts";
 import { idParams } from "../../api/query-schemas.ts";
 import {
-	EDITOR_ITEM_SCHEMAS,
 	EDITOR_SUMMARY_SCHEMAS,
 	editorPage,
+	parseEditorItem,
 	parseResponse
 } from "../../api/response-schemas.ts";
 import {
@@ -45,7 +45,6 @@ import {
 
 export function editorItemsRouter(typeName: ContentTypeName): Router {
 	const router = express.Router();
-	const itemSchema = EDITOR_ITEM_SCHEMAS[typeName];
 	const pageSchema = editorPage(EDITOR_SUMMARY_SCHEMAS[typeName]);
 	const listQuery = listQueryFor(typeName);
 	router.use(revalidateEveryTime);
@@ -67,7 +66,7 @@ export function editorItemsRouter(typeName: ContentTypeName): Router {
 		if (!item) {
 			throw itemNotFound(typeName, id);
 		}
-		res.json(parseResponse(itemSchema, item));
+		res.json(parseEditorItem(typeName, item));
 	});
 
 	// One response for every item, once all are processed.

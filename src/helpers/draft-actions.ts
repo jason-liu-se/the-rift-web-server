@@ -10,15 +10,16 @@ import {
 import { BadRequestError } from "../errors/bad-request-error.ts";
 import { ConflictError } from "../errors/conflict-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
+import type { Draft } from "../contract/api-responses.ts";
 import type { EditorRef } from "../models/audit-fields.ts";
-import {
-	type DraftPublishRequest,
-	type DraftSaveRequest,
-	contentType
+import type {
+	DraftPublishRequest,
+	DraftSaveRequest
 } from "../api/draft-requests.ts";
 import { FIELD_SCHEMAS, parseUpdate } from "../api/editor-requests.ts";
 import {
-	EDITOR_ITEM_SCHEMAS,
+	type EditorItemBody,
+	parseEditorItem,
 	draft as draftResponse,
 	parseResponse
 } from "../api/response-schemas.ts";
@@ -58,7 +59,7 @@ export async function saveDraft(
 	owner: string,
 	id: string,
 	body: DraftSaveRequest
-): Promise<{ created: boolean; draft: unknown }> {
+): Promise<{ created: boolean; draft: Draft }> {
 	checkSize(body.fields);
 
 	const stored = await drafts.getDraft(owner, id);
@@ -107,7 +108,7 @@ async function createDraft(
 	owner: string,
 	id: string,
 	body: DraftSaveRequest
-): Promise<unknown> {
+): Promise<Draft> {
 	if (await drafts.draftIdTaken(id)) {
 		throw draftNotFound(id);
 	}
@@ -153,23 +154,19 @@ export async function publishDraft(
 	editor: EditorRef,
 	id: string,
 	options: DraftPublishRequest
-): Promise<{ item: unknown; wrote: boolean }> {
+): Promise<{ item: EditorItemBody | undefined; wrote: boolean }> {
 	const stored = await drafts.getDraft(editor.id, id);
 	if (!stored) {
 		throw draftNotFound(id);
 	}
-	const parsedType = contentType.safeParse(stored.type);
-	if (!parsedType.success) {
-		throw new Error(`draft '${id}' has an unknown type`);
-	}
-	const type = parsedType.data;
+	const { type } = stored;
 	if (stored.publishedAs) {
 		const item = await editorContent.getItem(type, stored.publishedAs);
 		if (!item) {
 			throw draftNotFound(id);
 		}
 		return {
-			item: parseResponse(EDITOR_ITEM_SCHEMAS[type], item),
+			item: parseEditorItem(type, item),
 			wrote: false
 		};
 	}

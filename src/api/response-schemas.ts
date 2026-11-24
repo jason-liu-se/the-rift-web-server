@@ -186,14 +186,24 @@ export const editorMapSeasonSummary = z.toZod<EditorMapSeasonSummary>()(
 		.extend({ dimensionCount: z.number().int().min(0) })
 );
 
-// Each content type's editor item, by its name in CONTENT_TYPES.
-export const EDITOR_ITEM_SCHEMAS: Readonly<Record<ContentTypeName, z.ZodType>> =
-	{
-		news: editorNewsPost,
-		gallery: editorGalleryImage,
-		downloads: editorDownloadItem,
-		maps: editorMapSeason
-	};
+const EDITOR_ITEM_SCHEMAS = {
+	news: editorNewsPost,
+	gallery: editorGalleryImage,
+	downloads: editorDownloadItem,
+	maps: editorMapSeason
+} as const satisfies Record<ContentTypeName, z.ZodType>;
+
+/** Any type's editor item, as sent. */
+export type EditorItemBody = z.output<
+	(typeof EDITOR_ITEM_SCHEMAS)[ContentTypeName]
+>;
+
+export function parseEditorItem(
+	typeName: ContentTypeName,
+	item: unknown
+): EditorItemBody {
+	return parseResponse<EditorItemBody>(EDITOR_ITEM_SCHEMAS[typeName], item);
+}
 
 // What each type's list sends of an item.
 export const EDITOR_SUMMARY_SCHEMAS: Readonly<
