@@ -1,7 +1,7 @@
 // The bulk actions (/editor/<items>/bulk), written through editor-writes.
 import * as z from "zod";
 import { BadRequestError } from "../errors/bad-request-error.ts";
-import * as editorContent from "../managers/editor-content.ts";
+import * as collectionsManager from "../managers/editor-collections.ts";
 import type {
 	ContentTypeName,
 	FieldChanges,
@@ -174,8 +174,11 @@ export async function bulkUpdate(
 	const request = BULK_UPDATE_REQUESTS[typeName].parse(body);
 	if (
 		request.action === "move" &&
-		(await editorContent.missingCollections(typeName, [request.collection]))
-			.length > 0
+		(
+			await collectionsManager.missingCollections(typeName, [
+				request.collection
+			])
+		).length > 0
 	) {
 		throw new BadRequestError("collection: no such collection");
 	}

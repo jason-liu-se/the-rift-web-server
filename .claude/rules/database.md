@@ -13,6 +13,7 @@ content version, and access grants; `src/managers/editor-content.ts` the editor
 tools' queries, written once for every content type from its `CONTENT_TYPES`
 descriptor (its types in `src/types/editor-content.ts`, and the pure functions
 that build its queries in `src/helpers/editor-queries.ts`);
+`src/managers/editor-collections.ts` gallery and download collections;
 `src/managers/drafts.ts` drafts, every query scoped to the owner. All return
 plain results. Routers never import models.
 
@@ -31,17 +32,17 @@ per file in `src/models/`:
 | `content`   | `meta`                  | `src/models/content-version-schema.ts` |
 | `editor`    | `drafts`                | `src/models/draft-schema.ts`           |
 
-Editors write content through `/editor/*` (`editor-content.ts`); access grants
-are added to MongoDB directly. Every committed content write then calls
-`updateContentVersion` (`getContentVersion` creates the version if missing).
-Updates and deletes are revision-checked in the query itself (`revisionFilter`),
-so a stale write changes nothing. Writes take many items and return a
-`WriteResult` per item (`ok`, `conflict`, `not-found`, `duplicate`) instead of
-throwing, so bulk actions can report each item (see `.claude/docs/api.md`
-"Editor writes"). Login sessions and their refresh token hashes live in Redis
-instead (`src/managers/redis-manager.ts`, keys `session:<session ID>`); see
-`.claude/docs/api.md` "Sessions". Discord IDs are stored as strings (numbers
-lose precision).
+Editors write content through `/editor/*` (`editor-content.ts`,
+`editor-collections.ts`); access grants are added to MongoDB directly. Every
+committed content write then calls `updateContentVersion` (`getContentVersion`
+creates the version if missing). Updates and deletes are revision-checked in the
+query itself (`revisionFilter`), so a stale write changes nothing. Writes take
+many items and return a `WriteResult` per item (`ok`, `conflict`, `not-found`,
+`duplicate`) instead of throwing, so bulk actions can report each item (see
+`.claude/docs/api.md` "Editor writes"). Login sessions and their refresh token
+hashes live in Redis instead (`src/managers/redis-manager.ts`, keys
+`session:<session ID>`); see `.claude/docs/api.md` "Sessions". Discord IDs are
+stored as strings (numbers lose precision).
 
 - Collection names are used as given: pluralization and auto-creation are off.
   Models compiled on import (before `connect` turns pluralization off) pass

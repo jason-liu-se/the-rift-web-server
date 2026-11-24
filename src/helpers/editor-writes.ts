@@ -3,6 +3,7 @@
 // item is written at once. Nothing is rolled back if one item fails.
 import * as z from "zod";
 import { BadRequestError } from "../errors/bad-request-error.ts";
+import * as collectionsManager from "../managers/editor-collections.ts";
 import * as editorContent from "../managers/editor-content.ts";
 import type {
 	ContentTypeName,
@@ -63,7 +64,7 @@ async function processInOrder<I, T>(
 		const collection = "pending" in step && collectionOf(step.pending);
 		return typeof collection === "string" ? [collection] : [];
 	});
-	const missingCollections = await editorContent.missingCollections(
+	const missingCollections = await collectionsManager.missingCollections(
 		typeName,
 		[...new Set(named)]
 	);
