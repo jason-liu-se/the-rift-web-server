@@ -219,6 +219,18 @@ describe("PUT /editor/drafts/:id", () => {
 		expect(res.body.error).toContain(message);
 	});
 
+	it("keeps a change to only an item's visibility", async () => {
+		const target = { id: await seedPost(), startingRevision: 3 };
+
+		const { draft } = await createDraft({
+			type: "news",
+			fields: { visible: false },
+			target
+		});
+
+		expect(draft.fields).toEqual({ visible: false });
+	});
+
 	it("refuses changing a draft's type", async () => {
 		const { id } = await createDraft();
 
@@ -489,10 +501,46 @@ describe("POST /editor/drafts/:id/publish", () => {
 			.expect(404);
 	});
 
-	it("needs visible", async () => {
+	it("publishes the draft's visibility when publish doesn't send one", async () => {
+		const target = { id: await seedPost(), startingRevision: 3 };
+		const [edit, created] = await Promise.all([
+			createDraft({
+				type: "news",
+				fields: { title: "Live", content: "Old", visible: false },
+				target
+			}),
+			createDraft(newsDraft({ content: "Body", visible: false }))
+		]);
+
+		const [editRes, createdRes] = await Promise.all([
+			editor.post(`/editor/drafts/${edit.id}/publish`, {}).expect(200),
+			editor.post(`/editor/drafts/${created.id}/publish`, {}).expect(200)
+		]);
+
+		expect(editRes.body).toMatchObject({ id: target.id, visible: false });
+		expect(createdRes.body).toMatchObject({ visible: false });
+	});
+
+	it("publishes with publish's visible over the draft's", async () => {
+		const { id } = await createDraft(
+			newsDraft({ content: "Body", visible: false })
+		);
+
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, { visible: true })
+			.expect(200);
+
+		expect(res.body).toMatchObject({ visible: true, status: "live" });
+	});
+
+	it("publishes a draft without visible as visible", async () => {
 		const { id } = await createDraft(newsDraft({ content: "Body" }));
 
-		await editor.post(`/editor/drafts/${id}/publish`, {}).expect(400);
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, {})
+			.expect(200);
+
+		expect(res.body).toMatchObject({ visible: true });
 	});
 
 	it("answers 404 for a draft that doesn't exist", async () => {

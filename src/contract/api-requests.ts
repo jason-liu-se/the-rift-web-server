@@ -297,12 +297,18 @@ export interface DraftListQuery {
 	type?: EditorContentType;
 }
 
+/** Kept with a draft's fields, so a change to only these is saved too. */
+export interface DraftOptions {
+	/** Whether to publish the item visible; publish's `visible` overrides it. */
+	visible?: boolean;
+}
+
 /** What a draft holds, by content type. */
 export type DraftContent =
-	| { type: "news"; fields: Partial<NewsPostFields> }
-	| { type: "gallery"; fields: Partial<GalleryImageFields> }
-	| { type: "downloads"; fields: Partial<DownloadItemFields> }
-	| { type: "maps"; fields: Partial<MapSeasonFields> };
+	| { type: "news"; fields: Partial<NewsPostFields> & DraftOptions }
+	| { type: "gallery"; fields: Partial<GalleryImageFields> & DraftOptions }
+	| { type: "downloads"; fields: Partial<DownloadItemFields> & DraftOptions }
+	| { type: "maps"; fields: Partial<MapSeasonFields> & DraftOptions };
 
 /** The published item an edit draft started from. */
 export interface DraftTarget {
@@ -322,7 +328,8 @@ export type DraftSaveRequest = DraftContent & {
 };
 
 export interface DraftPublishRequest {
-	visible: boolean;
+	/** Overrides the draft's `visible`; with neither, the item is visible. */
+	visible?: boolean;
 	/** News only. Absent: now for a new post, unchanged for an edit. */
 	date?: NewsDate;
 	/** Publish an edit draft whose item was deleted as a new item. */
