@@ -1,7 +1,7 @@
 // The bulk action bodies (src/contract/api-requests.ts), by method and
 // content type. Only what's wrong with the request as a whole (the action,
 // the item count) is checked here, as a 400; each item is checked on its own
-// later (src/helpers/editor-bulk.ts), so one bad item doesn't refuse the
+// later (src/helpers/editor-writes.ts), so one bad item doesn't refuse the
 // others. Every item names itself, so its result can.
 import * as z from "zod";
 import { MAX_BULK_ITEMS } from "../config/requests.ts";

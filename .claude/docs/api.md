@@ -284,7 +284,7 @@ upload).
 Bulk actions (`/editor/<items>/bulk`: `POST` creates, gallery only; `PATCH`
 updates; `DELETE` deletes) check each item on its own, then write every valid
 one at once, without a transaction. Single writes run the same functions
-(`src/helpers/editor-bulk.ts`) with one item, and turn its outcome into a
+(`src/helpers/editor-writes.ts`) with one item, and turn its outcome into a
 status. Each type's `PATCH` takes `show` and `hide` (`DEFAULT_UPDATES`) plus its
 own actions, one schema per type in `src/api/bulk-requests.ts`, each checked
 against the type's `*BulkUpdateRequest`. A bulk action answers once with every

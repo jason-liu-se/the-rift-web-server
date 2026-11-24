@@ -17,12 +17,14 @@ import {
 	type BulkOutcome,
 	bulkCreate,
 	bulkDelete,
-	bulkUpdate,
+	bulkUpdate
+} from "../../helpers/editor-bulk.ts";
+import {
 	createEach,
 	deleteEach,
 	onlyOutcome,
 	updateEach
-} from "../../helpers/editor-bulk.ts";
+} from "../../helpers/editor-writes.ts";
 import {
 	BULK_CREATE_REQUESTS,
 	BULK_UPDATE_REQUESTS
