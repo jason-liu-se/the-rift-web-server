@@ -7,3 +7,7 @@ export const IMAGE_URL_PREFIXES: readonly string[] = [
 	"https://i.imgur.com/",
 	"https://imgur.com/"
 ];
+
+export function isAllowedImageUrl(url: string): boolean {
+	return IMAGE_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
+}

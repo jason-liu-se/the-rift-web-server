@@ -9,6 +9,7 @@ import { BadRequestError } from "../../errors/bad-request-error.ts";
 import {
 	editorOf,
 	itemNotFound,
+	listQueryFor,
 	writtenItem
 } from "../../helpers/editor-actions.ts";
 import {
@@ -29,7 +30,7 @@ import * as editorContent from "../../managers/editor-content.ts";
 import type { ContentTypeName } from "../../types/editor-content.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
 import { revalidateEveryTime } from "../../middleware/cache-control.ts";
-import { listQueryFor, parseUpdate } from "../../api/editor-requests.ts";
+import { parseUpdate } from "../../api/editor-requests.ts";
 import { idParams } from "../../api/query-schemas.ts";
 import {
 	EDITOR_ITEM_SCHEMAS,

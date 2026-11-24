@@ -3,7 +3,7 @@
 // variants); publishing checks them fully (src/helpers/draft-actions.ts).
 import * as z from "zod";
 import type { DraftListQuery } from "../contract/api-requests.ts";
-import { CONTENT_TYPE_NAMES } from "../managers/editor-content.ts";
+import { CONTENT_TYPE_NAMES } from "../types/editor-content.ts";
 import { idParams, queryFor } from "./query-schemas.ts";
 import {
 	downloadItemFields,

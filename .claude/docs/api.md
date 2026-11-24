@@ -199,7 +199,7 @@ first read.
 
 A scheduled news post goes live on its date without a write, so `v` alone would
 keep it hidden for up to a day. Areas registered in
-`src/config/detail-versions.ts` (only `news`) also have a detail version,
+`src/helpers/detail-versions.ts` (only `news`) also have a detail version,
 `GET /content/version/:area` (never cached, `404` for an unknown area), which
 callers send as `?dv=` with `v` on that area's routes. `cacheByContentVersion`
 caches them only when both are current; otherwise they're current content with

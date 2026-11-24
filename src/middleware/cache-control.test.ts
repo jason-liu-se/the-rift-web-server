@@ -9,7 +9,7 @@ import {
 } from "vitest";
 import request from "supertest";
 import { PUBLIC_ROUTES } from "../api/public-routes.ts";
-import { DETAIL_VERSION_AREAS } from "../config/detail-versions.ts";
+import { DETAIL_VERSION_AREAS } from "../helpers/detail-versions.ts";
 import * as mongoManager from "../managers/mongo-manager.ts";
 import { app } from "../../test/app.ts";
 import {
