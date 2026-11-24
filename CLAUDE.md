@@ -86,9 +86,13 @@ edited.
 - **Clarity.** Descriptive names (`.claude/rules/naming.md`), small functions,
   guard clauses, named constants. Simple over clever.
 - **Few comments.** Readers skim past walls of comments and miss the ones that
-  matter. Comment only what the code can't say: why, a non-obvious constraint or
-  trade-off, a version workaround. Never restate what the code does; rename
-  instead. One or two lines, not a paragraph.
+  matter, so each must add what the names and types don't.
+    - Inline comments say only why: a non-obvious constraint or trade-off, a
+      version workaround. Never restate a line (rename instead), and keep them
+      to a line or two.
+    - A function, type, or exported value may have a JSDoc block (`/** … */`)
+      saying what it does, its assumptions, and what its parameters and return
+      value mean, as long as it isn't longer than it needs to be.
 - **Write less code.** Humans review every line. Use what Express, Mongoose, and
   Zod provide, and skip speculative code (unused options, "just in case"
   branches, single-caller abstractions).
