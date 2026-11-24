@@ -1,6 +1,5 @@
-// What the editor routes do around the writes: who's writing, and turning
-// a write's outcome into the response body or the error the handler answers
-// with.
+// What the editor routes do around the managers: their list query, who's
+// writing, and turning a write's outcome into a response or an error.
 import type { Response } from "express";
 import { ConflictError } from "../errors/conflict-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
@@ -10,13 +9,25 @@ import {
 	editorCollection,
 	parseResponse
 } from "../api/response-schemas.ts";
-import { CONTENT_TYPES } from "../managers/editor-content.ts";
+import { editorListQuery } from "../api/query-schemas.ts";
+import { CONTENT_TYPES, statusesOf } from "../managers/editor-content.ts";
 import type {
 	CollectionTypeName,
 	CollectionWriteResult,
 	ContentTypeName,
 	ItemOutcome
 } from "../types/editor-content.ts";
+
+// A type's list query: its statuses and search fields, and `collection` only
+// for the types with collections.
+export function listQueryFor(typeName: ContentTypeName) {
+	const { searchFields, collectionModel } = CONTENT_TYPES[typeName];
+	const schema = editorListQuery(
+		statusesOf(typeName),
+		Object.keys(searchFields)
+	);
+	return collectionModel ? schema : schema.omit({ collection: true });
+}
 
 // Who's writing, as stored on the item.
 export function editorOf(res: Response): EditorRef {

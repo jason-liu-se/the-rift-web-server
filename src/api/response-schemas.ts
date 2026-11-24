@@ -38,6 +38,7 @@ import type {
 	PaginatedResponse,
 	SessionUser
 } from "../contract/api-responses.ts";
+import type { ContentTypeName } from "../types/editor-content.ts";
 
 const isoDate = z.date().transform((date) => date.toISOString());
 
@@ -186,18 +187,17 @@ export const editorMapSeasonSummary = z.toZod<EditorMapSeasonSummary>()(
 );
 
 // Each content type's editor item, by its name in CONTENT_TYPES.
-export const EDITOR_ITEM_SCHEMAS: Readonly<
-	Record<"news" | "gallery" | "downloads" | "maps", z.ZodType>
-> = {
-	news: editorNewsPost,
-	gallery: editorGalleryImage,
-	downloads: editorDownloadItem,
-	maps: editorMapSeason
-};
+export const EDITOR_ITEM_SCHEMAS: Readonly<Record<ContentTypeName, z.ZodType>> =
+	{
+		news: editorNewsPost,
+		gallery: editorGalleryImage,
+		downloads: editorDownloadItem,
+		maps: editorMapSeason
+	};
 
 // What each type's list sends of an item.
 export const EDITOR_SUMMARY_SCHEMAS: Readonly<
-	Record<"news" | "gallery" | "downloads" | "maps", z.ZodType>
+	Record<ContentTypeName, z.ZodType>
 > = {
 	news: editorNewsPostSummary,
 	gallery: editorGalleryImage,

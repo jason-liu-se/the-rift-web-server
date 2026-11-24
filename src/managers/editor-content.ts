@@ -54,13 +54,6 @@ import type {
 	WriteResult
 } from "../types/editor-content.ts";
 
-export const CONTENT_TYPE_NAMES = [
-	"news",
-	"gallery",
-	"downloads",
-	"maps"
-] as const satisfies readonly ContentTypeName[];
-
 // The statuses a type's list can filter by.
 export function statusesOf(typeName: ContentTypeName): NewsStatus[] {
 	return Object.keys(

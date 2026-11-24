@@ -1,5 +1,5 @@
 import express from "express";
-import { detailVersionArea } from "../../config/detail-versions.ts";
+import { detailVersionArea } from "../../helpers/detail-versions.ts";
 import { NotFoundError } from "../../errors/not-found-error.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
 import { detailVersionParams } from "../../api/query-schemas.ts";

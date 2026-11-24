@@ -3,7 +3,7 @@
 // render: a regex would miss reference-style images and raw HTML. Only checks;
 // the stored text is what the editor wrote.
 import { Lexer, Marked, type Token } from "marked";
-import { IMAGE_URL_PREFIXES } from "../config/images.ts";
+import { isAllowedImageUrl } from "../config/images.ts";
 
 const marked = new Marked();
 
@@ -13,10 +13,6 @@ const marked = new Marked();
 // through, nor start with two slashes (either way), which browsers read as
 // another host.
 const SAFE_LINK = /^(https?:\/\/|mailto:)|^(?![/\\]{2})[^:&]*$/i;
-
-export function isAllowedImageUrl(url: string): boolean {
-	return IMAGE_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
-}
 
 // Why a token can't be saved, or undefined when it can.
 function tokenProblem(token: Token): string | undefined {

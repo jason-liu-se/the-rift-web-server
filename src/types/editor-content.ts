@@ -6,7 +6,14 @@ import type { NewsStatus } from "../contract/api-responses.ts";
 import type { Audited } from "../models/audit-fields.ts";
 import type { ContentCollection } from "../models/content-collection-schema.ts";
 
-export type ContentTypeName = "news" | "gallery" | "downloads" | "maps";
+export const CONTENT_TYPE_NAMES = [
+	"news",
+	"gallery",
+	"downloads",
+	"maps"
+] as const;
+
+export type ContentTypeName = (typeof CONTENT_TYPE_NAMES)[number];
 
 export type CollectionTypeName = "gallery" | "downloads";
 

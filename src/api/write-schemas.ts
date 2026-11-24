@@ -34,11 +34,8 @@ import type {
 	MapSeasonFields,
 	NewsPostFields
 } from "../contract/api-requests.ts";
-import {
-	inlineMarkdownProblem,
-	isAllowedImageUrl,
-	markdownProblem
-} from "./markdown.ts";
+import { isAllowedImageUrl } from "../config/images.ts";
+import { inlineMarkdownProblem, markdownProblem } from "./markdown.ts";
 import { collectionSlug, normaliseTags, queryFor } from "./query-schemas.ts";
 
 function text(max: number) {

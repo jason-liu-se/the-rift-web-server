@@ -1,6 +1,6 @@
 import type { Request, RequestHandler, Response } from "express";
 import { VERSIONED_CACHE } from "../config/caching.ts";
-import { detailVersionAreaOf } from "../config/detail-versions.ts";
+import { detailVersionAreaOf } from "../helpers/detail-versions.ts";
 import * as mongoManager from "../managers/mongo-manager.ts";
 import {
 	contentVersionQuery,
@@ -34,7 +34,7 @@ export const noCachingByDefault: RequestHandler = (_req, res, next) => {
 // routes under the same prefix would be cached too. The version is read before
 // the route reads its content, so a response is never older than the version
 // it's cached under. handleError calls forbidCaching, so only successes are
-// cached. A route in a detail-version area (src/config/detail-versions.ts)
+// cached. A route in a detail-version area (src/helpers/detail-versions.ts)
 // also needs that area's current version as `dv`; other routes ignore `dv`.
 export const cacheByContentVersion: RequestHandler = async (req, res, next) => {
 	if (await sendsCurrentVersions(req)) {
