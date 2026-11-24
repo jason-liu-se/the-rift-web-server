@@ -29,6 +29,7 @@ import type {
 	CollectionUpdateRequest,
 	DeleteQuery,
 	DownloadItemFields,
+	DraftOptions,
 	GalleryImageFields,
 	ImageUploadForm,
 	MapSeasonFields,
@@ -152,12 +153,13 @@ const checkMapSeason: ContentCheck<MapSeasonFields> = (fields, ctx) => {
 	});
 };
 
-// What a draft keeps beside its fields (the contract's DraftOptions).
-const DRAFT_OPTIONS = { visible: z.boolean().optional() };
+const draftOptions = z.object({
+	visible: z.boolean().optional()
+}) satisfies z.ZodType<DraftOptions>;
 
 /**
  * The three variants of one content type's fields. `partial` is
- * `shape.partial()` and `draft` is `partial.extend(DRAFT_OPTIONS)`, made where
+ * `shape.partial()` and `draft` is `partial.extend(draftOptions.shape)`, made where
  * the shape's type is known: Zod can't infer them for a generic object.
  */
 function variants<
@@ -182,25 +184,25 @@ function variants<
 export const newsPostFields = variants(
 	newsShape,
 	newsShape.partial(),
-	newsShape.partial().extend(DRAFT_OPTIONS),
+	newsShape.partial().extend(draftOptions.shape),
 	checkNews
 );
 export const galleryImageFields = variants(
 	galleryShape,
 	galleryShape.partial(),
-	galleryShape.partial().extend(DRAFT_OPTIONS),
+	galleryShape.partial().extend(draftOptions.shape),
 	checkImageUrl
 );
 export const downloadItemFields = variants(
 	downloadShape,
 	downloadShape.partial(),
-	downloadShape.partial().extend(DRAFT_OPTIONS),
+	downloadShape.partial().extend(draftOptions.shape),
 	checkImageUrl
 );
 export const mapSeasonFields = variants(
 	mapSeasonShape,
 	mapSeasonShape.partial(),
-	mapSeasonShape.partial().extend(DRAFT_OPTIONS),
+	mapSeasonShape.partial().extend(draftOptions.shape),
 	checkMapSeason
 );
 
