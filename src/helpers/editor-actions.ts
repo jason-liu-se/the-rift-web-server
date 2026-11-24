@@ -44,16 +44,17 @@ export function itemNotFound(typeName: ContentTypeName, id: string) {
 	return new NotFoundError(`${CONTENT_TYPES[typeName].itemName} '${id}'`);
 }
 
-// The item a successful write returns, or the error for any other outcome.
-export function writtenItem(
+type Written<Outcome> = Extract<Outcome, { outcome: "ok" }>;
+
+export function throwUnlessWritten(
 	typeName: ContentTypeName,
 	id: string,
 	result: ItemOutcome
-): EditorItemBody | undefined {
+): asserts result is Written<ItemOutcome> {
 	const { itemName } = CONTENT_TYPES[typeName];
 	switch (result.outcome) {
 		case "ok":
-			return result.item && parseEditorItem(typeName, result.item);
+			return;
 		case "conflict":
 			throw new ConflictError(
 				`${itemName} '${id}' changed since you read it`,
@@ -70,19 +71,23 @@ export function writtenItem(
 	}
 }
 
-// The collection a successful write returns, or the error for any other
-// outcome.
-export function writtenCollection(
+export function writtenItem(
+	typeName: ContentTypeName,
+	id: string,
+	result: ItemOutcome
+): EditorItemBody | undefined {
+	throwUnlessWritten(typeName, id, result);
+	return result.item && parseEditorItem(typeName, result.item);
+}
+
+export function throwUnlessCollectionWritten(
 	typeName: CollectionTypeName,
 	slug: string,
 	result: CollectionWriteResult
-): EditorCollection | undefined {
+): asserts result is Written<CollectionWriteResult> {
 	switch (result.outcome) {
 		case "ok":
-			return (
-				result.collection &&
-				parseResponse(editorCollection, result.collection)
-			);
+			return;
 		case "conflict":
 			throw new ConflictError(
 				`${typeName} collection '${slug}' changed since you read it`,
@@ -95,4 +100,15 @@ export function writtenCollection(
 				`a ${typeName} collection with that slug already exists`
 			);
 	}
+}
+
+export function writtenCollection(
+	typeName: CollectionTypeName,
+	slug: string,
+	result: CollectionWriteResult
+): EditorCollection | undefined {
+	throwUnlessCollectionWritten(typeName, slug, result);
+	return (
+		result.collection && parseResponse(editorCollection, result.collection)
+	);
 }
