@@ -35,7 +35,7 @@ import type {
 	MapSeasonFields,
 	NewsPostFields
 } from "../contract/api-requests.ts";
-import { isAllowedImageUrl } from "../config/images.ts";
+import { isAllowedImageUrl } from "../api/images.ts";
 import { inlineMarkdownProblem, markdownProblem } from "./markdown.ts";
 import { collectionSlug, normaliseTags, queryFor } from "./query-schemas.ts";
 

@@ -3,7 +3,7 @@
 // render: a regex would miss reference-style images and raw HTML. Only checks;
 // the stored text is what the editor wrote.
 import { Lexer, Marked, type Token } from "marked";
-import { isAllowedImageUrl } from "../config/images.ts";
+import { isAllowedImageUrl } from "./images.ts";
 
 const marked = new Marked();
 
