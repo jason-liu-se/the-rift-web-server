@@ -10,7 +10,7 @@ import {
 } from "vitest";
 import request from "supertest";
 import { randomUUID } from "node:crypto";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import * as mongoManager from "../../managers/mongo-manager.ts";
 import { app, testConfig } from "../../../test/app.ts";
 import {
@@ -816,6 +816,37 @@ describe("collections", () => {
 			itemCount: 1
 		});
 		expect(await collection("downloads", "items").countDocuments()).toBe(1);
+	});
+
+	it("refuses a save that races the delete, then deletes", async () => {
+		await collections().insertOne({
+			slug: "worlds",
+			title: "W",
+			revision: 2
+		});
+		let raceStatus: number | undefined;
+		const deleteMany = mongoose.Model.deleteMany;
+		vi.spyOn(mongoose.Model, "deleteMany").mockImplementationOnce(
+			async function (this: unknown, ...args: unknown[]) {
+				raceStatus = (
+					await editor.patch("/editor/downloads/collections/worlds", {
+						startingRevision: 2,
+						title: "Renamed"
+					})
+				).status;
+				return (deleteMany as (...a: unknown[]) => unknown).apply(
+					this,
+					args
+				);
+			} as never
+		);
+
+		await editor
+			.delete("/editor/downloads/collections/worlds?startingRevision=2")
+			.expect(204);
+
+		expect(raceStatus).toBe(409);
+		expect(await collections().countDocuments()).toBe(0);
 	});
 
 	it("answers 404 for a missing collection", async () => {

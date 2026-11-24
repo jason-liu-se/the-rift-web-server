@@ -629,24 +629,23 @@ export async function updateCollection(
 		: staleCollection(typeName, slug);
 }
 
-// Deletes a collection and every item in it. The collection goes first
-// (revision-checked), so a stale delete removes nothing.
+// Bumping the revision first makes a racing save a 409. The items go before
+// the collection, so if the server stops midway the collection is still there
+// to delete again, not its items left for a new collection of that slug.
 export async function deleteCollection(
 	typeName: CollectionTypeName,
 	slug: string,
 	revision: number
 ): Promise<CollectionWriteResult> {
-	// The items go first, so if the server stops between the two deletes the
-	// collection is still there to delete again, rather than its items left
-	// behind for a new collection of the same slug to take over.
 	const collection = collectionModelOf(typeName);
-	const filter = { slug, ...revisionFilter(revision) };
-	if ((await collection.exists(filter)) === null) {
+	const { matchedCount } = await collection.updateOne(
+		{ slug, ...revisionFilter(revision) },
+		{ $inc: { revision: 1 } }
+	);
+	if (matchedCount === 0) {
 		return staleCollection(typeName, slug);
 	}
 	await CONTENT_TYPES[typeName].model.deleteMany({ collection: slug });
-	const { deletedCount } = await collection.deleteOne(filter);
-	return deletedCount === 1
-		? { outcome: "ok" }
-		: staleCollection(typeName, slug);
+	await collection.deleteOne({ slug });
+	return { outcome: "ok" };
 }
