@@ -249,16 +249,17 @@ async function writeCollection(
 ): Promise<Published> {
 	const { target } = stored;
 	// Every field is required, as for a create.
-	const { slug, ...changes } = collectionCreateRequest.parse({
+	const { slug, createId, ...changes } = collectionCreateRequest.parse({
 		...stored.fields,
 		...(visible !== undefined && { visible }),
-		...(target && { slug: target.id })
+		...(target && { slug: target.id }),
+		createId: stored.id
 	});
 	const result =
 		!target || asNew
 			? await collectionsManager.createCollection(
 					typeName,
-					{ slug, ...changes, createId: stored.id },
+					{ slug, createId, ...changes },
 					editor
 				)
 			: await collectionsManager.updateCollection(

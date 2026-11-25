@@ -252,10 +252,14 @@ describe("mapSeasonFields", () => {
 });
 
 describe("collectionCreateRequest", () => {
-	it("needs a kebab-case slug and a title", () => {
+	it("needs a kebab-case slug, a title, and a createId", () => {
 		expect(
 			problems(collectionCreateRequest, { slug: "Season 9", title: "" })
-		).toEqual(["slug: invalid collection name", "title: is required"]);
+		).toEqual([
+			"slug: invalid collection name",
+			"title: is required",
+			expect.stringMatching(/^createId: /)
+		]);
 	});
 });
 

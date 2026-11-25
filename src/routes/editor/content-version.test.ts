@@ -196,7 +196,11 @@ const WRITES: Record<string, Write> = {
 					`post ${prefix}`,
 					(e: Editor) =>
 						e
-							.post(prefix, { slug: "worlds", title: "W" })
+							.post(prefix, {
+								slug: "worlds",
+								title: "W",
+								createId: randomUUID()
+							})
 							.expect(201)
 				],
 				[

@@ -268,20 +268,19 @@ website's version, so the server checks the tokens the website renders. News
 dates and `editedAt` follow `src/helpers/news-dates.ts` once the stored post is
 read.
 
-Creates send a client UUID (`createId`, unique and sparse on every model;
-optional for a collection): a repeat returns the item already made (`200`, not
-`201`), without checking the body again, and still changes the content version.
-If the insert meets the createId but its item is deleted before it can be read
-(a delete racing the repeat), it's `404` (`not-found` in a bulk create). Insert
-errors name the index only in their message, so `explainDuplicates`
-(`editor-content.ts`) tells that apart from a taken season by looking the season
-up (`createCollection`, a taken slug). Updates (`PATCH`, body
-`startingRevision`) and deletes (`?startingRevision=`) send the revision they
-started from; a stale one is `409` with the item as it is now. Every committed
-write calls `updateContentVersion`; `src/routes/editor/content-version.test.ts`
-fails if an editor write route isn't listed there with a write that changes it,
-or as one that changes nothing public (a draft's save or delete, an image
-upload).
+Creates send a client UUID (`createId`, unique and sparse on every model): a
+repeat returns the item already made (`200`, not `201`), without checking the
+body again, and still changes the content version. If the insert meets the
+createId but its item is deleted before it can be read (a delete racing the
+repeat), it's `404` (`not-found` in a bulk create). Insert errors name the index
+only in their message, so `explainDuplicates` (`editor-content.ts`) tells that
+apart from a taken season by looking the season up (`createCollection`, a taken
+slug). Updates (`PATCH`, body `startingRevision`) and deletes
+(`?startingRevision=`) send the revision they started from; a stale one is `409`
+with the item as it is now. Every committed write calls `updateContentVersion`;
+`src/routes/editor/content-version.test.ts` fails if an editor write route isn't
+listed there with a write that changes it, or as one that changes nothing public
+(a draft's save or delete, an image upload).
 
 Bulk actions (`/editor/<items>/bulk`: `POST` creates, gallery only; `PATCH`
 updates; `DELETE` deletes) check each item on its own, then write every valid

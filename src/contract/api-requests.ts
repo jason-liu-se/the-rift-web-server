@@ -265,12 +265,13 @@ export interface CollectionFields {
 }
 
 /**
- * A collection's create. `createId` works as an item create's: repeating the
- * create returns the collection already made (200), or 404 if it was deleted.
+ * A collection's create. `createId` works as an item create's (a draft's ID
+ * doubles as it): repeating the create returns the collection already made
+ * (200), or 404 if it was deleted while the repeat ran.
  */
 export interface CollectionCreateRequest
 	extends CollectionFields, VisibilityFields {
-	createId?: string;
+	createId: string;
 }
 
 export interface CollectionUpdateRequest extends VisibilityFields {

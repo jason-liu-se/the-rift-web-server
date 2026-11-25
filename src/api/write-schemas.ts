@@ -262,7 +262,7 @@ export const collectionCreateRequest = z.toZod<CollectionCreateRequest>()(
 		.object({
 			...collectionShape.shape,
 			visible: z.boolean().optional(),
-			createId: createId.optional()
+			createId
 		})
 		.superRefine(checkDimensionImageUrls)
 );

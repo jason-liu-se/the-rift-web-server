@@ -817,6 +817,7 @@ describe("collections", () => {
 	it("creates a collection at revision 1", async () => {
 		const res = await editor
 			.post("/editor/downloads/collections", {
+				createId: randomUUID(),
 				slug: "worlds",
 				title: "Worlds"
 			})
@@ -842,6 +843,7 @@ describe("collections", () => {
 
 		const res = await editor
 			.post("/editor/downloads/collections", {
+				createId: randomUUID(),
 				slug: "worlds",
 				title: "Worlds",
 				dimensions
@@ -908,6 +910,7 @@ describe("collections", () => {
 			const [created, updated] = await Promise.all([
 				editor
 					.post("/editor/downloads/collections", {
+						createId: randomUUID(),
 						slug: "new",
 						title: "New",
 						dimensions
@@ -932,12 +935,29 @@ describe("collections", () => {
 
 		const res = await editor
 			.post("/editor/downloads/collections", {
+				createId: randomUUID(),
 				slug: "worlds",
 				title: "Other"
 			})
 			.expect(409);
 
 		expect(res.body.error).toMatch(/slug already exists/);
+	});
+
+	it.each([
+		["without a createId", {}],
+		["with a createId that isn't a UUID", { createId: "abc" }]
+	])("refuses a collection %s", async (_, extra) => {
+		const res = await editor
+			.post("/editor/downloads/collections", {
+				slug: "worlds",
+				title: "Worlds",
+				...extra
+			})
+			.expect(400);
+
+		expect(res.body.error).toContain("createId");
+		expect(await collections().countDocuments()).toBe(0);
 	});
 
 	it("returns the collection a repeated createId made, unchanged", async () => {

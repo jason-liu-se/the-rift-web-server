@@ -128,13 +128,12 @@ export async function createCollection(
 	typeName: CollectionTypeName,
 	fields: Pick<ContentCollection, "slug" | "title" | "dimensions"> & {
 		visible?: boolean;
-		createId?: string;
+		createId: string;
 	},
 	editor: EditorRef
 ): Promise<CollectionWriteResult> {
 	const { createId } = fields;
-	const repeat =
-		createId && (await findCreatedCollection(typeName, createId));
+	const repeat = await findCreatedCollection(typeName, createId);
 	if (repeat) {
 		return repeat;
 	}
@@ -155,7 +154,7 @@ export async function createCollection(
 	// Insert errors name only one of the indexes the create broke, so a
 	// repeat is told apart by looking up its createId, then its slug: if
 	// neither is held, its first attempt's collection was deleted meanwhile.
-	if (createId && result.outcome === "duplicate") {
+	if (result.outcome === "duplicate") {
 		const repeatSinceInsert = await findCreatedCollection(
 			typeName,
 			createId
