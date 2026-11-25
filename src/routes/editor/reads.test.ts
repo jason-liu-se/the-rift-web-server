@@ -433,6 +433,20 @@ describe("GET /editor/maps/seasons", () => {
 			{ season: 7, dimensionCount: 0 }
 		]);
 	});
+
+	it("reads a season stored without dimensions", async () => {
+		const { insertedId } = await collection("maps", "seasons").insertOne({
+			season: 7,
+			imageUrl: "i"
+		});
+
+		const res = await get(
+			`/editor/maps/seasons/${insertedId.toHexString()}`
+		).expect(200);
+
+		expect(res.body).toMatchObject({ season: 7, status: "live" });
+		expect(res.body).not.toHaveProperty("dimensions");
+	});
 });
 
 describe("GET /editor/gallery/collections", () => {

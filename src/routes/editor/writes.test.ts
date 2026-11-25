@@ -660,6 +660,34 @@ describe("map seasons", () => {
 		});
 	});
 
+	it("creates a season without dimensions", async () => {
+		// JSON leaves out the undefined dimensions.
+		const res = await editor
+			.post("/editor/maps/seasons", {
+				...newSeason(8),
+				dimensions: undefined
+			})
+			.expect(201);
+
+		expect(res.body).toMatchObject({ season: 8, dimensions: [] });
+	});
+
+	it("updates a season stored without dimensions", async () => {
+		const { insertedId } = await collection("maps", "seasons").insertOne({
+			season: 7
+		});
+
+		const res = await editor
+			.patch(`/editor/maps/seasons/${insertedId.toHexString()}`, {
+				startingRevision: 0,
+				imageUrl: IMAGE
+			})
+			.expect(200);
+
+		expect(res.body).toMatchObject({ season: 7, imageUrl: IMAGE });
+		expect(res.body).not.toHaveProperty("dimensions");
+	});
+
 	it("creates a season without an image, and removes one with null", async () => {
 		// JSON leaves out the undefined imageUrl.
 		const created = await editor

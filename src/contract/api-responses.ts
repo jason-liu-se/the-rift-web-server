@@ -119,7 +119,8 @@ export interface MapSeason {
 	/** Season number */
 	season: number;
 	imageUrl?: string;
-	dimensions: MapDimension[];
+	/** Absent: none. */
+	dimensions?: MapDimension[];
 }
 
 /** Changes on every edit to the site's content. */

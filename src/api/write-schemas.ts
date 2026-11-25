@@ -109,7 +109,7 @@ const downloadShape = z.object({
 const mapSeasonShape = z.object({
 	season: z.number().int().min(0),
 	imageUrl: url.nullable().optional(),
-	dimensions: dimensionList(mapDimension)
+	dimensions: dimensionList(mapDimension).optional()
 }) satisfies z.ZodType<MapSeasonFields>;
 
 // Reports a problem with one field (by path), unless the field is absent. An

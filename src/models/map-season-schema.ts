@@ -15,7 +15,7 @@ export interface MapDimension extends Dimension {
 export interface MapSeason extends Audited {
 	readonly season: number;
 	readonly imageUrl?: string;
-	readonly dimensions: MapDimension[];
+	readonly dimensions?: MapDimension[];
 }
 
 const mapDimensionSchema = new mongoose.Schema<MapDimension>(
@@ -32,7 +32,7 @@ const mapSeasonSchema = new mongoose.Schema<MapSeason>(
 		// Unique: a clash is a 409.
 		season: { type: Number, required: true, unique: true },
 		imageUrl: { type: String },
-		dimensions: { type: [mapDimensionSchema], required: true },
+		dimensions: { type: [mapDimensionSchema] },
 		...auditedFields
 	},
 	AUDITED_SCHEMA_OPTIONS
