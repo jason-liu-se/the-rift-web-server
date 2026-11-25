@@ -316,14 +316,14 @@ save sends it as `startingRevision`), so a save from a second device makes the
 first one's next save `409`, and a save of a draft that's gone (deleted, or
 published and its marker expired) `404`, never making it again; a repeated
 create (no `startingRevision`) is `200` with the draft as stored. The list sends
-only what names each draft and its image (and a gallery draft's `tags`, a map
-season's `dimensionCount`); `GET /:id` sends its fields. A draft's `fields` also
-keep `visible`, so a change to only an item's visibility is a draft too;
-publish's `visible` overrides it, and with neither the item is visible.
-Publishing checks the fields fully, then creates the item (with the draft's ID
-as its `createId`) or updates the one an edit draft started from, at the
-revision it started from. The draft then becomes a marker naming the item, which
-a TTL index deletes after `PUBLISHED_DRAFT_TTL_MS`, so a repeated publish
+only what names each draft, its image, and its `collection` (and a gallery
+draft's `tags`, a map season's `dimensionCount`); `GET /:id` sends its fields. A
+draft's `fields` also keep `visible`, so a change to only an item's visibility
+is a draft too; publish's `visible` overrides it, and with neither the item is
+visible. Publishing checks the fields fully, then creates the item (with the
+draft's ID as its `createId`) or updates the one an edit draft started from, at
+the revision it started from. The draft then becomes a marker naming the item,
+which a TTL index deletes after `PUBLISHED_DRAFT_TTL_MS`, so a repeated publish
 returns the same item. There's no transaction: if the server stops between the
 two writes, a new item's repeat still finds it by `createId`, but an edit's
 repeat gets `409` (the item's revision moved). Drafts stay `no-store`.

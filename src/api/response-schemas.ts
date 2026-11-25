@@ -306,6 +306,7 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 			z.object({
 				type: z.literal("gallery"),
 				fields: galleryImageFields.draft.pick({
+					collection: true,
 					caption: true,
 					imageUrl: true,
 					tags: true
@@ -315,6 +316,7 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 			z.object({
 				type: z.literal("downloads"),
 				fields: downloadItemFields.draft.pick({
+					collection: true,
 					title: true,
 					imageUrl: true
 				}),
