@@ -317,6 +317,30 @@ describe("GET /editor/drafts", () => {
 		]);
 	});
 
+	it("lists the collection a gallery or download draft is in", async () => {
+		const gallery = await createDraft({
+			type: "gallery",
+			fields: { collection: "season5", caption: "c" }
+		});
+		const download = await createDraft({
+			type: "downloads",
+			fields: { collection: "packs", title: "t", desc: "Long" }
+		});
+
+		const res = await editor.get("/editor/drafts").expect(200);
+
+		expect(res.body).toEqual([
+			expect.objectContaining({
+				id: download.id,
+				fields: { collection: "packs", title: "t" }
+			}),
+			expect.objectContaining({
+				id: gallery.id,
+				fields: { collection: "season5", caption: "c" }
+			})
+		]);
+	});
+
 	it("counts a map season draft's dimensions instead of listing them", async () => {
 		const dimension = {
 			name: "Overworld",

@@ -361,12 +361,15 @@ export type DraftSummary = (
 			type: "gallery";
 			fields: Pick<
 				Partial<GalleryImageFields>,
-				"caption" | "imageUrl" | "tags"
+				"collection" | "caption" | "imageUrl" | "tags"
 			>;
 	  }
 	| {
 			type: "downloads";
-			fields: Pick<Partial<DownloadItemFields>, "title" | "imageUrl">;
+			fields: Pick<
+				Partial<DownloadItemFields>,
+				"collection" | "title" | "imageUrl"
+			>;
 	  }
 	| {
 			type: "maps";
