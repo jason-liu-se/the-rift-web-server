@@ -492,6 +492,172 @@ describe("editor list statuses", () => {
 	});
 });
 
+describe("editor list sorting", () => {
+	it.each([
+		[
+			"sort=title",
+			["Hidden post", "Live post", "Old post", "Scheduled post"]
+		],
+		[
+			"sort=title&order=desc",
+			["Scheduled post", "Old post", "Live post", "Hidden post"]
+		],
+		// Old posts lack the audit fields: missing sorts first.
+		[
+			"sort=createdBy",
+			["Old post", "Hidden post", "Live post", "Scheduled post"]
+		],
+		[
+			"sort=date",
+			["Old post", "Hidden post", "Live post", "Scheduled post"]
+		],
+		// Old and live are visible (old by default), so they tie, then by date.
+		[
+			"sort=visible,date&order=asc,desc",
+			["Hidden post", "Scheduled post", "Live post", "Old post"]
+		]
+	])("sorts news (%s)", async (query, expected) => {
+		await seedNews();
+
+		const res = await get(`/editor/news?${query}`).expect(200);
+
+		expect(titles(res.body)).toEqual(expected);
+	});
+
+	it.each([
+		// Missing revisions sort as 0 (old and scheduled), then by id.
+		[
+			"sort=revision&order=desc",
+			["Live post", "Hidden post", "Scheduled post", "Old post"]
+		],
+		[
+			"sort=lastUpdatedBy,title",
+			["Hidden post", "Old post", "Scheduled post", "Live post"]
+		],
+		["status=live&sort=title&order=desc", ["Old post", "Live post"]],
+		["q=post&in=title&sort=title&startIndex=3", ["Scheduled post"]]
+	])("sorts news with other parameters (%s)", async (query, expected) => {
+		await seedNews();
+
+		const res = await get(`/editor/news?${query}`).expect(200);
+
+		expect(titles(res.body)).toEqual(expected);
+		for (const item of res.body.items) {
+			expect(item).not.toHaveProperty("sortKeys");
+		}
+	});
+
+	it("sorts the gallery by collection, then caption", async () => {
+		await collection("gallery", "images").insertMany([
+			{ collection: "season6", caption: "a", imageUrl: "1.png" },
+			{ collection: "season5", caption: "b", imageUrl: "2.png" },
+			{ collection: "season6", caption: "c", imageUrl: "3.png" }
+		]);
+
+		const res = await get(
+			"/editor/gallery/images?sort=collection,caption&order=desc,asc"
+		).expect(200);
+
+		expect(
+			res.body.items.map(({ caption }: { caption: string }) => caption)
+		).toEqual(["a", "c", "b"]);
+	});
+
+	it("sorts before paginating", async () => {
+		await seedNews();
+
+		const res = await get(
+			"/editor/news?sort=title&startIndex=1&limit=2"
+		).expect(200);
+
+		expect(titles(res.body)).toEqual(["Live post", "Old post"]);
+		expect(res.body.total).toBe(4);
+	});
+
+	it("ignores case in text, and breaks ties by id", async () => {
+		const ids = [new Types.ObjectId(), new Types.ObjectId()];
+		await collection("downloads", "items").insertMany(
+			[
+				{ _id: ids[1], title: "beta" },
+				{ _id: ids[0], title: "Beta" },
+				{ title: "alpha" },
+				{ title: "Gamma" }
+			].map((item) => ({
+				...item,
+				collection: "worlds",
+				desc: "",
+				downloadUrl: "u",
+				imageUrl: "i"
+			}))
+		);
+
+		const res = await get("/editor/downloads/items?sort=title").expect(200);
+
+		expect(
+			res.body.items.map(
+				({ id, title }: { id: string; title: string }) =>
+					title.toLowerCase() === "beta" ? id : title
+			)
+		).toEqual([
+			"alpha",
+			ids[0]?.toHexString(),
+			ids[1]?.toHexString(),
+			"Gamma"
+		]);
+	});
+
+	it("sorts by a computed summary field", async () => {
+		const dimension = {
+			name: "a",
+			imageUrl: "i",
+			worldId: "w",
+			perspective: "p"
+		};
+		await collection("maps", "seasons").insertMany([
+			{ season: 6, imageUrl: "i", dimensions: [dimension, dimension] },
+			{ season: 7, imageUrl: "i" },
+			{ season: 8, imageUrl: "i", dimensions: [dimension] }
+		]);
+
+		const res = await get(
+			"/editor/maps/seasons?sort=dimensionCount&order=desc"
+		).expect(200);
+
+		expect(
+			res.body.items.map(({ season }: { season: number }) => season)
+		).toEqual([6, 8, 7]);
+	});
+
+	it.each([
+		["/editor/news", "sort=status", /sort/],
+		["/editor/news", "sort=content", /sort/],
+		["/editor/news", "sort=caption", /sort/],
+		["/editor/maps/seasons", "sort=dimensions", /sort/],
+		[
+			"/editor/news",
+			"sort=title,title",
+			"sort must not name a field twice"
+		],
+		["/editor/news", "sort=title&order=up", /order/],
+		[
+			"/editor/news",
+			"sort=title&order=asc,desc",
+			"order must not have more entries than sort"
+		],
+		[
+			"/editor/news",
+			"order=desc",
+			"order must not have more entries than sort"
+		],
+		["/editor/gallery/images", "order=desc", /order/],
+		["/editor/downloads/items", "order=desc", /order/]
+	])("%s rejects %s", async (url, query, message) => {
+		const res = await get(`${url}?${query}`).expect(400);
+
+		expect(res.body.error).toMatch(message);
+	});
+});
+
 describe("editor list pages", () => {
 	it("sends at most MAX_EDITOR_PAGE_SIZE items by default", async () => {
 		await collection("news", "posts").insertMany(

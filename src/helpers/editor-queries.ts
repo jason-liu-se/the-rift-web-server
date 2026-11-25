@@ -122,6 +122,52 @@ export function listFilter(
 	return filters.length > 0 ? { $and: filters } : {};
 }
 
+// Sort keys other than the field as stored: `id` is `_id`, editors sort by
+// username, and the audit fields old items lack sort as their defaults.
+const SORT_KEYS: ReadonlyMap<string, unknown> = new Map<string, unknown>([
+	["id", "$_id"],
+	["createdBy", "$createdBy.username"],
+	["lastUpdatedBy", "$lastUpdatedBy.username"],
+	["visible", { $ifNull: ["$visible", true] }],
+	["revision", { $ifNull: ["$revision", 0] }]
+]);
+
+// Text ignoring the case of ASCII letters ($toLower's only); anything else as
+// stored (an array by its lowest or highest element).
+function sortKey(field: string): object {
+	const value = SORT_KEYS.get(field) ?? `$${field}`;
+	return {
+		$cond: {
+			if: { $eq: [{ $type: value }, "string"] },
+			then: { $toLower: value },
+			else: value
+		}
+	};
+}
+
+// The stages sorting a list by `sort`'s fields (checked against the type's
+// by its list query), ties by `_id`. Unindexed, as the keys are computed.
+export function sortByFields({
+	sort,
+	order
+}: Pick<EditorListQuery, "sort" | "order">): PipelineStage[] {
+	const directions = sort.map((field, i) => [
+		`sortKeys.${field}`,
+		order[i] === "desc" ? -1 : 1
+	]);
+	return [
+		{
+			$set: {
+				sortKeys: Object.fromEntries(
+					sort.map((field) => [field, sortKey(field)])
+				)
+			}
+		},
+		{ $sort: { ...Object.fromEntries(directions), _id: 1 } },
+		{ $unset: "sortKeys" }
+	];
+}
+
 export function toEditorItem(
 	type: ContentType,
 	item: StoredItem,

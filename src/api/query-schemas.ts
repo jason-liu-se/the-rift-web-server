@@ -11,6 +11,7 @@ import {
 } from "../config/content-limits.ts";
 import { MAX_EDITOR_PAGE_SIZE } from "../config/requests.ts";
 import type { NewsStatus } from "../contract/api-responses.ts";
+import type { SortOrder } from "../types/editor-content.ts";
 import type {
 	DetailVersionQuery,
 	EditorListQuery,
@@ -112,6 +113,8 @@ function nameList<const Name extends string>(allowed: readonly Name[]) {
 		.pipe(z.array(z.enum(allowed)));
 }
 
+const SORT_ORDERS = ["asc", "desc"] as const satisfies readonly SortOrder[];
+
 // A Discord user in an editor list's filter: their ID or username (at most 32
 // characters, Discord's limit).
 const editorUser = z.string().min(1).max(32);
@@ -125,12 +128,19 @@ const searchText = z
 	)
 	.optional();
 
-// An editor list's filters and search, for one content type: its statuses
-// and its searchable fields.
-function editorListShape(
-	statuses: readonly NewsStatus[],
-	searchFields: readonly string[]
-) {
+/** What an editor list can filter, search, and sort by, per content type. */
+export interface EditorListFields {
+	readonly statuses: readonly NewsStatus[];
+	readonly searchFields: readonly string[];
+	readonly sortFields: readonly string[];
+}
+
+// An editor list's filters, search, and order, for one content type.
+function editorListShape({
+	statuses,
+	searchFields,
+	sortFields
+}: EditorListFields) {
 	return {
 		...paginationShape,
 		// Capped, as editors see every item, hidden ones too.
@@ -145,27 +155,38 @@ function editorListShape(
 		status: z.enum(statuses).optional(),
 		collection: collectionSlug.optional(),
 		q: searchText,
-		in: nameList(searchFields)
+		in: nameList(searchFields),
+		sort: nameList(sortFields).refine(
+			(fields) => new Set(fields).size === fields.length,
+			"sort must not name a field twice"
+		),
+		order: nameList(SORT_ORDERS)
 	};
 }
 
-export function editorListQuery(
-	statuses: readonly NewsStatus[],
-	searchFields: readonly string[]
-) {
-	return queryFor<EditorListQuery<NewsStatus>>()(
-		editorListShape(statuses, searchFields)
-	);
+export function editorListQuery(fields: EditorListFields) {
+	return queryFor<EditorListQuery<NewsStatus>>()(editorListShape(fields));
 }
 
 // The gallery's editor list, which also filters by tags like the public one.
-export function galleryImageListQuery(
-	statuses: readonly NewsStatus[],
-	searchFields: readonly string[]
-) {
+export function galleryImageListQuery(fields: EditorListFields) {
 	return queryFor<GalleryImageListQuery>()({
-		...editorListShape(statuses, searchFields),
+		...editorListShape(fields),
 		...galleryTagsQuery.shape
+	});
+}
+
+// An editor list's `order` pairs with its `sort` by position, so it can't be
+// longer. Checked last, once a type's schema is complete (it may omit fields).
+export function withOrderForEachSort<
+	Schema extends z.ZodType<{
+		readonly sort: readonly string[];
+		readonly order: readonly SortOrder[];
+	}>
+>(schema: Schema) {
+	return schema.refine(({ sort, order }) => order.length <= sort.length, {
+		error: "order must not have more entries than sort",
+		path: ["order"]
 	});
 }
 

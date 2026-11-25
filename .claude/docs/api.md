@@ -372,6 +372,12 @@ To change a request or response:
   shows, leaving out long fields (news content, a download's description, map
   dimensions, which become a `dimensionCount`, a draft's fields); opening an
   item fetches all of it (`/:id`).
+- **Sorting.** Editor lists take `sort` (fields, most significant first) and
+  `order` (`asc`/`desc` for each). The fields are the list's summary fields
+  (`EDITOR_SUMMARY_SCHEMAS`) but `status`, so a new field is sortable without
+  listing it; `sortByFields` (`src/helpers/editor-queries.ts`) maps the few that
+  don't sort as stored. Without `sort`, lists keep the public order, which an
+  index can serve; sorted fields are computed, so they never use one.
 - **Pagination.** Collections that can grow take `startIndex`/`limit`
   (`paginationQuery`) and return `{ items, total }`, plus a `/count` endpoint.
 - **Compatibility.** Keep responses backward compatible. Check
