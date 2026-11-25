@@ -334,9 +334,15 @@ export interface DraftOptions {
 	visible?: boolean;
 }
 
+/** A news draft also keeps its `date`. */
+export interface NewsDraftOptions extends DraftOptions {
+	/** When to publish the post; publish's `date` overrides it. */
+	date?: NewsDate;
+}
+
 /** What a draft holds, by content type. */
 export type DraftContent =
-	| { type: "news"; fields: Partial<NewsPostFields> & DraftOptions }
+	| { type: "news"; fields: Partial<NewsPostFields> & NewsDraftOptions }
 	| { type: "gallery"; fields: Partial<GalleryImageFields> & DraftOptions }
 	| { type: "downloads"; fields: Partial<DownloadItemFields> & DraftOptions }
 	| { type: "maps"; fields: Partial<MapSeasonFields> & DraftOptions };
@@ -361,7 +367,10 @@ export type DraftSaveRequest = DraftContent & {
 export interface DraftPublishRequest {
 	/** Overrides the draft's `visible`; with neither, the item is visible. */
 	visible?: boolean;
-	/** News only. Absent: now for a new post, unchanged for an edit. */
+	/**
+	 * News only. Overrides the draft's `date`; with neither, now for a new
+	 * post, unchanged for an edit.
+	 */
 	date?: NewsDate;
 	/** Publish an edit draft whose item was deleted as a new item. */
 	asNew?: boolean;

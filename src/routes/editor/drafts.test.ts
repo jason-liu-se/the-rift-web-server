@@ -231,6 +231,30 @@ describe("PUT /editor/drafts/:id", () => {
 		expect(draft.fields).toEqual({ visible: false });
 	});
 
+	it("keeps a change to only a post's date", async () => {
+		const target = { id: await seedPost(), startingRevision: 3 };
+		const date = new Date(Date.now() + 86_400_000).toISOString();
+
+		const { draft } = await createDraft({
+			type: "news",
+			fields: { date },
+			target
+		});
+
+		expect(draft.fields).toEqual({ date });
+	});
+
+	it("refuses a news draft's date that isn't a date", async () => {
+		const res = await editor
+			.put(`/editor/drafts/${randomUUID()}`, {
+				type: "news",
+				fields: { date: "tomorrow" }
+			})
+			.expect(400);
+
+		expect(res.body.error).toContain('must be "now" or an ISO date-time');
+	});
+
 	it("refuses changing a draft's type", async () => {
 		const { id } = await createDraft();
 
@@ -571,6 +595,44 @@ describe("POST /editor/drafts/:id/publish", () => {
 			.expect(200);
 
 		expect(res.body).toMatchObject({ visible: true, status: "live" });
+	});
+
+	it("publishes the draft's date when publish doesn't send one", async () => {
+		const target = { id: await seedPost(), startingRevision: 3 };
+		const date = new Date(Date.now() + 86_400_000).toISOString();
+		const [edit, created] = await Promise.all([
+			createDraft({
+				type: "news",
+				fields: { title: "Live", content: "Old", date },
+				target
+			}),
+			createDraft(newsDraft({ content: "Body", date }))
+		]);
+
+		const [editRes, createdRes] = await Promise.all([
+			editor.post(`/editor/drafts/${edit.id}/publish`, {}).expect(200),
+			editor.post(`/editor/drafts/${created.id}/publish`, {}).expect(200)
+		]);
+
+		expect(editRes.body).toMatchObject({
+			id: target.id,
+			date,
+			status: "scheduled"
+		});
+		expect(createdRes.body).toMatchObject({ date, status: "scheduled" });
+	});
+
+	it("publishes with publish's date over the draft's", async () => {
+		const later = new Date(Date.now() + 86_400_000).toISOString();
+		const { id } = await createDraft(
+			newsDraft({ content: "Body", date: later })
+		);
+
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, { date: "now" })
+			.expect(200);
+
+		expect(res.body).toMatchObject({ status: "live" });
 	});
 
 	it("publishes a draft without visible as visible", async () => {

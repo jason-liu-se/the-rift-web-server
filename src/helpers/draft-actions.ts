@@ -198,7 +198,7 @@ async function writeItem(
 	const body = {
 		...stored.fields,
 		...(visible !== undefined && { visible }),
-		date
+		...(date !== undefined && { date })
 	};
 	const { target } = stored;
 	if (!target || asNew) {

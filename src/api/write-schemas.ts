@@ -33,6 +33,7 @@ import type {
 	GalleryImageFields,
 	ImageUploadForm,
 	MapSeasonFields,
+	NewsDraftOptions,
 	NewsPostFields
 } from "../contract/api-requests.ts";
 import type { Dimension } from "../contract/api-responses.ts";
@@ -168,13 +169,25 @@ const checkMapSeason: ContentCheck<MapSeasonFields> = (fields, ctx) => {
 	checkDimensionImageUrls(fields, ctx);
 };
 
+// News `date`: "now" or an ISO date-time. Whether a date is allowed (future,
+// or on an update the post's current one) depends on the stored post, so
+// resolveNewsDate (src/helpers/news-dates.ts) checks that once it's read.
+export const newsDate = z.union([
+	z.literal("now"),
+	z.iso.datetime({ offset: true, error: 'must be "now" or an ISO date-time' })
+]);
+
 const draftOptions = z.object({
 	visible: z.boolean().optional()
 }) satisfies z.ZodType<DraftOptions>;
 
+const newsDraftOptions = draftOptions.extend({
+	date: newsDate.optional()
+}) satisfies z.ZodType<NewsDraftOptions>;
+
 /**
  * The three variants of one content type's fields. `partial` is
- * `shape.partial()` and `draft` is `partial.extend(draftOptions.shape)`, made where
+ * `shape.partial()` and `draft` is `partial` with the draft options, made where
  * the shape's type is known: Zod can't infer them for a generic object.
  */
 function variants<
@@ -199,7 +212,7 @@ function variants<
 export const newsPostFields = variants(
 	newsShape,
 	newsShape.partial(),
-	newsShape.partial().extend(draftOptions.shape),
+	newsShape.partial().extend(newsDraftOptions.shape),
 	checkNews
 );
 export const galleryImageFields = variants(
@@ -226,14 +239,6 @@ export const mapSeasonFields = variants(
 export const startingRevision = z.number().int().min(0);
 
 export const createId = z.uuid("must be a UUID");
-
-// News `date`: "now" or an ISO date-time. Whether a date is allowed (future,
-// or on an update the post's current one) depends on the stored post, so
-// resolveNewsDate (src/helpers/news-dates.ts) checks that once it's read.
-export const newsDate = z.union([
-	z.literal("now"),
-	z.iso.datetime({ offset: true, error: 'must be "now" or an ISO date-time' })
-]);
 
 const collectionTitle = requiredText(MAX_COLLECTION_TITLE_LENGTH);
 
