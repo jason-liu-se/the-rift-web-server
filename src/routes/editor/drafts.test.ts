@@ -584,21 +584,7 @@ describe("POST /editor/drafts/:id/publish", () => {
 				imageUrl: IMAGE
 			}
 		],
-		[
-			"maps",
-			{
-				season: 1,
-				imageUrl: IMAGE,
-				dimensions: [
-					{
-						name: "Overworld",
-						imageUrl: IMAGE,
-						worldId: "world",
-						perspective: ""
-					}
-				]
-			}
-		]
+		["maps", { season: 1 }]
 	])(
 		"publishes a %s draft with only its required fields",
 		async (type, fields) => {

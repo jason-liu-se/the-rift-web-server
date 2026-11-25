@@ -211,7 +211,8 @@ export interface MapSeasonFields {
 	season: number;
 	/** null removes it (updates). */
 	imageUrl?: string | null;
-	dimensions: MapDimension[];
+	/** Absent: none. */
+	dimensions?: MapDimension[];
 }
 
 /** Publishing options every create and update may set. */

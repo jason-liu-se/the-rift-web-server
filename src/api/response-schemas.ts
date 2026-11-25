@@ -66,7 +66,7 @@ const galleryImage = z.toZod<GalleryImage>()(
 
 const dimension = z.object({ name: z.string(), imageUrl: z.string() });
 
-// Optional: collections stored before dimensions have none.
+// Optional: collections and seasons stored before dimensions have none.
 const collectionDimensions = z.array(dimension).optional();
 
 export const galleryCollections = z.toZod<GalleryCollection[]>()(
@@ -113,12 +113,14 @@ const mapSeason = z.toZod<MapSeason>()(
 		id: z.string(),
 		season: z.number().int(),
 		imageUrl: z.string().optional(),
-		dimensions: z.array(
-			dimension.extend({
-				worldId: z.string(),
-				perspective: z.string()
-			})
-		)
+		dimensions: z
+			.array(
+				dimension.extend({
+					worldId: z.string(),
+					perspective: z.string()
+				})
+			)
+			.optional()
 	})
 );
 
