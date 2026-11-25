@@ -139,10 +139,11 @@ export async function listItems(
 	// The public order sorts right after $match, where an index can serve it;
 	// sorted fields sort after the summary, so computed ones (a map's
 	// dimensionCount) sort too.
+	const { sort = [], order = [] } = query;
 	const ordered =
-		query.sort.length === 0
+		sort.length === 0
 			? [...type.sort, ...page, ...type.summary]
-			: [...type.summary, ...sortByFields(query), ...page];
+			: [...type.summary, ...sortByFields(sort, order), ...page];
 	const [items, total] = await Promise.all([
 		type.model.aggregate<StoredItem>([{ $match: filter }, ...ordered]),
 		type.model.countDocuments(filter)

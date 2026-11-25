@@ -75,9 +75,9 @@ export interface EditorListQuery {
 	/** Gallery only: images with every tag. */
 	readonly tags?: readonly string[];
 	/** The fields to sort by, most significant first (none: the public order). */
-	readonly sort: readonly string[];
+	readonly sort?: readonly string[];
 	/** Each `sort` field's order, by position (missing: ascending). */
-	readonly order: readonly SortOrder[];
+	readonly order?: readonly SortOrder[];
 }
 
 export interface EditorCollectionSummary extends ContentCollection {

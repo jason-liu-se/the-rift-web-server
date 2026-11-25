@@ -493,6 +493,52 @@ describe("editor list statuses", () => {
 });
 
 describe("editor list sorting", () => {
+	const PUBLIC_ORDER = [
+		"Scheduled post",
+		"Live post",
+		"Hidden post",
+		"Old post"
+	];
+
+	it.each([
+		["no sort or order", ""],
+		["an empty sort and order", "sort=&order="]
+	])("keeps the public order with %s", async (_case, query) => {
+		await seedNews();
+
+		const res = await get(`/editor/news?${query}`).expect(200);
+
+		expect(titles(res.body)).toEqual(PUBLIC_ORDER);
+	});
+
+	it("sorts every field ascending without order", async () => {
+		await seedNews();
+
+		const res = await get("/editor/news?sort=visible,title").expect(200);
+
+		expect(titles(res.body)).toEqual([
+			"Hidden post",
+			"Live post",
+			"Old post",
+			"Scheduled post"
+		]);
+	});
+
+	it("sorts the fields order leaves out ascending", async () => {
+		await seedNews();
+
+		const res = await get(
+			"/editor/news?sort=visible,title&order=desc"
+		).expect(200);
+
+		expect(titles(res.body)).toEqual([
+			"Live post",
+			"Old post",
+			"Scheduled post",
+			"Hidden post"
+		]);
+	});
+
 	it.each([
 		[
 			"sort=title",
