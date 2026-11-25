@@ -333,9 +333,14 @@ export interface GalleryImageBulkCreateRequest {
 
 export type EditorContentType = "news" | "gallery" | "downloads" | "maps";
 
-/** What a draft can be of: an item, or a gallery or download collection. */
-export type DraftType =
-	EditorContentType | "gallery-collections" | "downloads-collections";
+/** A content type with collections (`/editor/<type>/collections`). */
+export type EditorCollectionType = "gallery" | "downloads";
+
+/** A draft of a collection, e.g. `gallery-collections`. */
+export type CollectionDraftType = `${EditorCollectionType}-collections`;
+
+/** What a draft can be of: an item, or a collection. */
+export type DraftType = EditorContentType | CollectionDraftType;
 
 /** The drafts list, of every type unless `type` names one. */
 export interface DraftListQuery {
@@ -361,7 +366,7 @@ export type DraftContent =
 	| { type: "downloads"; fields: Partial<DownloadItemFields> & DraftOptions }
 	| { type: "maps"; fields: Partial<MapSeasonFields> & DraftOptions }
 	| {
-			type: "gallery-collections" | "downloads-collections";
+			type: CollectionDraftType;
 			/** An edit draft's `slug` is ignored: it's its target's. */
 			fields: Partial<CollectionFields> & DraftOptions;
 	  };

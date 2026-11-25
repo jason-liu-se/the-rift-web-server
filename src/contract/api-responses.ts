@@ -45,6 +45,7 @@
 
 import type {
 	DownloadItemFields,
+	CollectionDraftType,
 	CollectionFields,
 	DraftContent,
 	DraftTarget,
@@ -380,7 +381,7 @@ export type DraftSummary = (
 			dimensionCount: number;
 	  }
 	| {
-			type: "gallery-collections" | "downloads-collections";
+			type: CollectionDraftType;
 			fields: Pick<Partial<CollectionFields>, "slug" | "title">;
 			/** How many dimensions it has so far, not the dimensions. */
 			dimensionCount: number;

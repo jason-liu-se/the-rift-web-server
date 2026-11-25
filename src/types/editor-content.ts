@@ -2,6 +2,10 @@
 // (src/managers/editor-content.ts) and its query helpers
 // (src/helpers/editor-queries.ts) take and return.
 import type { Model, PipelineStage, Types } from "mongoose";
+import type {
+	CollectionDraftType,
+	EditorCollectionType
+} from "../contract/api-requests.ts";
 import type { NewsStatus } from "../contract/api-responses.ts";
 import type { Audited } from "../models/audit-fields.ts";
 import type { ContentCollection } from "../models/content-collection-schema.ts";
@@ -15,15 +19,14 @@ export const CONTENT_TYPE_NAMES = [
 
 export type ContentTypeName = (typeof CONTENT_TYPE_NAMES)[number];
 
-export type CollectionTypeName = "gallery" | "downloads";
+export type CollectionTypeName = EditorCollectionType;
+
+export type CollectionDraftTypeName = CollectionDraftType;
 
 export const COLLECTION_DRAFT_TYPE_NAMES = [
 	"gallery-collections",
 	"downloads-collections"
-] as const;
-
-export type CollectionDraftTypeName =
-	(typeof COLLECTION_DRAFT_TYPE_NAMES)[number];
+] as const satisfies readonly CollectionDraftTypeName[];
 
 /** What a draft can be of: an item, or a gallery or download collection. */
 export const DRAFT_TYPE_NAMES = [
