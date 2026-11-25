@@ -76,11 +76,11 @@ its `check` job a required status check on `main`.
 | `GET /content/version/:area`     |                               | `{ version }` for `news`, never cached   |
 | `GET /news`                      | `startIndex`, `limit`         | `{ items, total }`, newest first         |
 | `GET /news/count`                |                               | `{ total }`                              |
-| `GET /gallery`                   |                               | `[{ slug, title }]`, sorted by slug      |
+| `GET /gallery`                   |                               | `[{ slug, title, dimensions }]`, by slug |
 | `GET /gallery/:collection`       | `startIndex`, `limit`, `tags` | `{ items, total }`, newest first         |
 | `GET /gallery/:collection/count` | `tags`                        | `{ total }`                              |
 | `GET /gallery/:collection/tags`  |                               | The images' tags, sorted                 |
-| `GET /downloads`                 |                               | `[{ name, title, items }]` per group     |
+| `GET /downloads`                 |                               | `[{ name, title, dimensions, items }]`   |
 | `GET /downloads/:collection`     |                               | The group's items, by `sortOrder`        |
 | `GET /maps/seasons`              |                               | Every season's map, oldest first         |
 | `GET /health`                    |                               | `200`                                    |

@@ -3,6 +3,8 @@
 import mongoose, { type PipelineStage, type Types } from "mongoose";
 import { accessGrantModel } from "../models/access-grant-schema.ts";
 import { VISIBLE } from "../models/audit-fields.ts";
+import type { ContentCollection } from "../models/content-collection-schema.ts";
+import type { Dimension } from "../models/dimension-schema.ts";
 import { draftModel } from "../models/draft-schema.ts";
 import {
 	CONTENT_VERSION_ID,
@@ -42,6 +44,7 @@ export type WithId<T> = T & { readonly id: string };
 export interface DownloadCollection {
 	readonly name: string;
 	readonly title: string;
+	readonly dimensions?: Dimension[];
 	readonly items: WithId<DownloadItem>[];
 }
 
@@ -107,10 +110,10 @@ function sortedDownloadItems(match: object) {
 	]);
 }
 
-export interface CollectionSummary {
-	readonly slug: string;
-	readonly title: string;
-}
+export type CollectionSummary = Pick<
+	ContentCollection,
+	"slug" | "title" | "dimensions"
+>;
 
 // Hidden and missing collections both answer false, so routes give the same
 // 404 for both.
@@ -134,7 +137,7 @@ export async function getPublicGalleryCollections(): Promise<
 	CollectionSummary[]
 > {
 	return galleryCollectionModel
-		.find(VISIBLE, { _id: 0, slug: 1, title: 1 })
+		.find(VISIBLE, { _id: 0, slug: 1, title: 1, dimensions: 1 })
 		.sort({ slug: 1 })
 		.lean();
 }
@@ -219,7 +222,7 @@ export async function getPublicDownloadCollections(): Promise<
 > {
 	const [collections, items] = await Promise.all([
 		downloadCollectionModel
-			.find(VISIBLE, { _id: 0, slug: 1, title: 1 })
+			.find(VISIBLE, { _id: 0, slug: 1, title: 1, dimensions: 1 })
 			.sort({ slug: 1 })
 			.lean(),
 		sortedDownloadItems(VISIBLE)
@@ -227,9 +230,10 @@ export async function getPublicDownloadCollections(): Promise<
 	// Items of hidden collections have no entry, so they're left out.
 	const itemsBySlug = Map.groupBy(items, (item) => item.collection);
 
-	return collections.map(({ slug, title }) => ({
+	return collections.map(({ slug, title, dimensions }) => ({
 		name: slug,
 		title,
+		dimensions,
 		items: (itemsBySlug.get(slug) ?? []).map(withId)
 	}));
 }

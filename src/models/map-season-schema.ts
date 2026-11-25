@@ -4,11 +4,10 @@ import {
 	type Audited,
 	auditedFields
 } from "./audit-fields.ts";
+import { type Dimension, dimensionFields } from "./dimension-schema.ts";
 import { blankableText } from "./text-field.ts";
 
-export interface MapDimension {
-	readonly name: string;
-	readonly imageUrl: string;
+export interface MapDimension extends Dimension {
 	readonly worldId: string;
 	readonly perspective: string;
 }
@@ -21,8 +20,7 @@ export interface MapSeason extends Audited {
 
 const mapDimensionSchema = new mongoose.Schema<MapDimension>(
 	{
-		name: { type: String, required: true },
-		imageUrl: { type: String, required: true },
+		...dimensionFields,
 		worldId: { type: String, required: true },
 		perspective: blankableText<MapDimension>("perspective")
 	},

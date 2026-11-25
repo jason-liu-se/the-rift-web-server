@@ -4,18 +4,21 @@ import {
 	type Audited,
 	auditedFields
 } from "./audit-fields.ts";
+import { type Dimension, dimensionSchema } from "./dimension-schema.ts";
 
 // A gallery or download collection's metadata. Its items name it by `slug`,
 // which is fixed once created (it's in the website's URLs).
 export interface ContentCollection extends Audited {
 	readonly slug: string;
 	readonly title: string;
+	readonly dimensions?: Dimension[];
 }
 
 export const contentCollectionSchema = new mongoose.Schema<ContentCollection>(
 	{
 		slug: { type: String, required: true, unique: true },
 		title: { type: String, required: true },
+		dimensions: { type: [dimensionSchema] },
 		...auditedFields
 	},
 	AUDITED_SCHEMA_OPTIONS

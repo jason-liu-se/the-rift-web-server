@@ -443,7 +443,8 @@ describe("GET /editor/gallery/collections", () => {
 					slug: "season6",
 					title: "Season 6",
 					visible: false,
-					revision: 3
+					revision: 3,
+					dimensions: [{ name: "end", imageUrl: "end.png" }]
 				},
 				{ slug: "season5", title: "Season 5" }
 			]),
@@ -471,6 +472,7 @@ describe("GET /editor/gallery/collections", () => {
 			{
 				slug: "season6",
 				title: "Season 6",
+				dimensions: [{ name: "end", imageUrl: "end.png" }],
 				visible: false,
 				revision: 3,
 				itemCount: 0

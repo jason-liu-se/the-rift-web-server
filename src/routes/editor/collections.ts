@@ -1,6 +1,6 @@
 // A type's collections in the editor tools (/editor/gallery/collections,
 // /editor/downloads/collections; every one needs a login): list, create,
-// update (title, visibility), and delete with every item in it.
+// update (title, dimensions, visibility), and delete with every item in it.
 import express, { type Router } from "express";
 import {
 	editorOf,
