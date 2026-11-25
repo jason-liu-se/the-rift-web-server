@@ -5,8 +5,8 @@ import {
 } from "../types/editor-content.ts";
 
 // An editor's unpublished work, private to its owner: a new item or
-// collection, or an edit of a published one (`target`). Saved loosely as the editor types; checked
-// fully on publish. Publishing turns it into a marker (`publishedAs`, no
+// collection, or an edit of a published one (`target`). Saved loosely as the
+// editor types; checked fully on publish. Publishing turns it into a marker (`publishedAs`, no
 // fields) that expires, so a repeated publish returns the same item.
 export interface DraftTarget {
 	readonly id: string;

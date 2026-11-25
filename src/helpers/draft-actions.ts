@@ -50,7 +50,9 @@ export function draftNotFound(id: string): NotFoundError {
 /** What publishing a draft answers: its item, or its collection. */
 type PublishedBody = EditorItemBody | EditorCollection;
 
-// The item (by ID) or collection (by slug) a draft names, as stored.
+// The item (by ID) or collection (by slug) a draft names, as stored. A slug
+// is a collection's identity (it's in the website's URLs), so a repeated
+// publish returns whichever collection holds it now.
 async function getPublished(type: DraftTypeName, id: string): Promise<unknown> {
 	return isCollectionDraftType(type)
 		? collectionsManager.getCollection(COLLECTION_DRAFT_TYPES[type], id)

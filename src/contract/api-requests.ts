@@ -384,7 +384,10 @@ export type DraftSaveRequest = DraftContent & {
 };
 
 export interface DraftPublishRequest {
-	/** Overrides the draft's `visible`; with neither, the item is visible. */
+	/**
+	 * Overrides the draft's `visible`; with neither, a new item is visible and
+	 * an edit keeps its item's visibility.
+	 */
 	visible?: boolean;
 	/**
 	 * News only. Overrides the draft's `date`; with neither, now for a new

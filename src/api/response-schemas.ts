@@ -9,12 +9,12 @@
 import * as z from "zod";
 import {
 	collectionDraftFields,
+	collectionDraftType,
 	downloadItemFields,
 	galleryImageFields,
 	mapSeasonFields,
 	newsPostFields
 } from "./write-schemas.ts";
-import { collectionDraftType } from "./draft-requests.ts";
 import type {
 	ContentVersion,
 	CountResponse,

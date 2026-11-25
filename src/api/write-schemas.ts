@@ -38,6 +38,7 @@ import type {
 	NewsPostFields
 } from "../contract/api-requests.ts";
 import type { Dimension } from "../contract/api-responses.ts";
+import { COLLECTION_DRAFT_TYPE_NAMES } from "../types/editor-content.ts";
 import { isAllowedImageUrl } from "../api/images.ts";
 import { inlineMarkdownProblem, markdownProblem } from "./markdown.ts";
 import { collectionSlug, normaliseTags, queryFor } from "./query-schemas.ts";
@@ -248,6 +249,8 @@ const collectionShape = z.object({
 	title: collectionTitle,
 	dimensions: dimensionList(dimension).optional()
 }) satisfies z.ZodType<CollectionFields>;
+
+export const collectionDraftType = z.enum(COLLECTION_DRAFT_TYPE_NAMES);
 
 /** A collection draft's fields: types and caps only, like the items'. */
 export const collectionDraftFields = collectionShape

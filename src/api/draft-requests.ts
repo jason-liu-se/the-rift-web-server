@@ -3,13 +3,11 @@
 // variants); publishing checks them fully (src/helpers/draft-actions.ts).
 import * as z from "zod";
 import type { DraftListQuery } from "../contract/api-requests.ts";
-import {
-	COLLECTION_DRAFT_TYPE_NAMES,
-	DRAFT_TYPE_NAMES
-} from "../types/editor-content.ts";
+import { DRAFT_TYPE_NAMES } from "../types/editor-content.ts";
 import { collectionSlug, idParams, queryFor } from "./query-schemas.ts";
 import {
 	collectionDraftFields,
+	collectionDraftType,
 	downloadItemFields,
 	galleryImageFields,
 	mapSeasonFields,
@@ -19,8 +17,6 @@ import {
 } from "./write-schemas.ts";
 
 const draftType = z.enum(DRAFT_TYPE_NAMES);
-
-export const collectionDraftType = z.enum(COLLECTION_DRAFT_TYPE_NAMES);
 
 export const draftParams = z.object({ id: z.uuid("invalid id") });
 

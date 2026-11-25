@@ -803,6 +803,51 @@ describe("collection drafts", () => {
 		]);
 	});
 
+	it.each([
+		["an invalid slug", "Not A Slug"],
+		["an operator", { $ne: null }]
+	])("refuses an edit draft's target with %s", async (_, slug) => {
+		await seedGallery();
+
+		await editor
+			.put(`/editor/drafts/${randomUUID()}`, {
+				...collectionDraft(),
+				target: { id: slug, startingRevision: 2 }
+			})
+			.expect(400);
+	});
+
+	it("publishes an edit draft's visibility, or publish's over it, keeping it with neither", async () => {
+		const target = await seedGallery();
+		const { id: hidden } = await createDraft({
+			...collectionDraft({ visible: false }),
+			target
+		});
+
+		const hiddenRes = await editor
+			.post(`/editor/drafts/${hidden}/publish`, {})
+			.expect(200);
+		const { id: shown } = await createDraft({
+			...collectionDraft({ visible: false }),
+			target: { id: "art", startingRevision: 3 }
+		});
+		const shownRes = await editor
+			.post(`/editor/drafts/${shown}/publish`, { visible: true })
+			.expect(200);
+		const { id: kept } = await createDraft({
+			...collectionDraft({ title: "Kept" }),
+			target: { id: "art", startingRevision: 4 }
+		});
+		await galleries().updateOne({}, { $set: { visible: false } });
+		const keptRes = await editor
+			.post(`/editor/drafts/${kept}/publish`, {})
+			.expect(200);
+
+		expect(hiddenRes.body).toMatchObject({ visible: false, revision: 3 });
+		expect(shownRes.body).toMatchObject({ visible: true, revision: 4 });
+		expect(keptRes.body).toMatchObject({ title: "Kept", visible: false });
+	});
+
 	it("answers 404 for an edit draft of a missing collection", async () => {
 		const res = await editor
 			.put(`/editor/drafts/${randomUUID()}`, {
