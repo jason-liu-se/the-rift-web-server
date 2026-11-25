@@ -1,6 +1,7 @@
 // Building editor-content's queries (src/managers/editor-content.ts) and
 // reading their results: pure functions of a content type's descriptor, with
 // no database access.
+import type { PipelineStage } from "mongoose";
 import type { NewsStatus } from "../contract/api-responses.ts";
 import { type EditorRef, VISIBLE } from "../models/audit-fields.ts";
 import type {
@@ -60,6 +61,24 @@ function escapeRegExp(text: string): string {
 	return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// A case-insensitive search for `query` anywhere in a string; an empty one
+// matches every string.
+export function searchPattern(query: string): RegExp {
+	return new RegExp(escapeRegExp(query), "i");
+}
+
+// The distinct tags in the array `field` matching `pattern`, sorted, as
+// `{ _id: tag }`. The first $match finds the documents, the second their tags.
+export function tagsMatching(field: string, pattern: RegExp): PipelineStage[] {
+	return [
+		{ $match: { [field]: pattern } },
+		{ $unwind: `$${field}` },
+		{ $match: { [field]: pattern } },
+		{ $group: { _id: `$${field}` } },
+		{ $sort: { _id: 1 } }
+	];
+}
+
 export function listFilter(
 	type: ContentType,
 	query: EditorListQuery,
@@ -83,9 +102,12 @@ export function listFilter(
 	if (query.collection !== undefined) {
 		filters.push({ collection: query.collection });
 	}
+	if (query.tags && query.tags.length > 0) {
+		filters.push({ tags: { $all: query.tags } });
+	}
 	const { q } = query;
 	if (q) {
-		const pattern = new RegExp(escapeRegExp(q), "i");
+		const pattern = searchPattern(q);
 		const fields =
 			query.searchIn.length > 0
 				? query.searchIn

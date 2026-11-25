@@ -6,7 +6,11 @@ import {
 	type DraftTarget,
 	draftModel
 } from "../models/draft-schema.ts";
-import { isDuplicateKeyError } from "../helpers/editor-queries.ts";
+import {
+	isDuplicateKeyError,
+	searchPattern,
+	tagsMatching
+} from "../helpers/editor-queries.ts";
 import type { ContentTypeName } from "../types/editor-content.ts";
 
 const UNPUBLISHED = { publishedAs: { $exists: false } };
@@ -20,7 +24,7 @@ function withId({ _id, ...draft }: Draft): StoredDraft {
 
 // The fields that name a draft in a list, and its main image (see the
 // contract's DraftSummary).
-const SUMMARY_FIELDS = ["title", "caption", "imageUrl", "season"];
+const SUMMARY_FIELDS = ["title", "caption", "imageUrl", "tags", "season"];
 
 /** A draft in a list; a map season's also counts its dimensions. */
 export type DraftSummary = StoredDraft & { readonly dimensionCount?: number };
@@ -63,6 +67,19 @@ export async function listDrafts(
 		}
 	]);
 	return found.map((draft) => withId({ fields: {}, ...draft }));
+}
+
+// The tags on the owner's gallery drafts containing `query` (case-insensitive;
+// empty is every tag), sorted.
+export async function getDraftTags(
+	owner: string,
+	query: string
+): Promise<string[]> {
+	const tags = await draftModel.aggregate<{ _id: string }>([
+		{ $match: { owner, type: "gallery", ...UNPUBLISHED } },
+		...tagsMatching("fields.tags", searchPattern(query))
+	]);
+	return tags.map(({ _id }) => _id);
 }
 
 // The owner's draft with this ID, published or not.

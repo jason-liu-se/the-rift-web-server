@@ -168,7 +168,8 @@ drops `CDN-Cache-Control`), so neither is a `404` or `500` from a public read.
 describe one caller's budget. `src/middleware/cache-control.test.ts` fails if a
 public read doesn't mount it, and checks every one handles `v` (below).
 
-The editor's reads (`/editor/*` but drafts) mount `revalidateEveryTime` instead:
+The editor's reads (`/editor/*` but drafts and `/editor/gallery/tags`, which
+holds the caller's draft tags) mount `revalidateEveryTime` instead:
 `Cache-Control: private, no-cache`, so a browser keeps a copy but revalidates it
 by the ETag Express sets every time (`304` when unchanged), and nothing shared
 keeps it.
@@ -315,17 +316,17 @@ save sends it as `startingRevision`), so a save from a second device makes the
 first one's next save `409`, and a save of a draft that's gone (deleted, or
 published and its marker expired) `404`, never making it again; a repeated
 create (no `startingRevision`) is `200` with the draft as stored. The list sends
-only what names each draft and its image (and a map season's `dimensionCount`);
-`GET /:id` sends its fields. A draft's `fields` also keep `visible`, so a change
-to only an item's visibility is a draft too; publish's `visible` overrides it,
-and with neither the item is visible. Publishing checks the fields fully, then
-creates the item (with the draft's ID as its `createId`) or updates the one an
-edit draft started from, at the revision it started from. The draft then becomes
-a marker naming the item, which a TTL index deletes after
-`PUBLISHED_DRAFT_TTL_MS`, so a repeated publish returns the same item. There's
-no transaction: if the server stops between the two writes, a new item's repeat
-still finds it by `createId`, but an edit's repeat gets `409` (the item's
-revision moved). Drafts stay `no-store`.
+only what names each draft and its image (and a gallery draft's `tags`, a map
+season's `dimensionCount`); `GET /:id` sends its fields. A draft's `fields` also
+keep `visible`, so a change to only an item's visibility is a draft too;
+publish's `visible` overrides it, and with neither the item is visible.
+Publishing checks the fields fully, then creates the item (with the draft's ID
+as its `createId`) or updates the one an edit draft started from, at the
+revision it started from. The draft then becomes a marker naming the item, which
+a TTL index deletes after `PUBLISHED_DRAFT_TTL_MS`, so a repeated publish
+returns the same item. There's no transaction: if the server stops between the
+two writes, a new item's repeat still finds it by `createId`, but an edit's
+repeat gets `409` (the item's revision moved). Drafts stay `no-store`.
 
 ## Contract
 

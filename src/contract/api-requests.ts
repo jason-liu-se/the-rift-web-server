@@ -35,6 +35,7 @@
 // on:
 //
 //   GET    /editor/<items>          EditorListQuery<NewsStatus> for news,
+//                                   GalleryImageListQuery for the gallery,
 //                                   EditorListQuery for the others
 //   GET    /editor/<items>/:id      —
 //   POST   /editor/<items>          NewsPostCreateRequest, ...
@@ -51,6 +52,10 @@
 //   POST   /editor/<collections>        CollectionCreateRequest
 //   PATCH  /editor/<collections>/:slug  CollectionUpdateRequest
 //   DELETE /editor/<collections>/:slug  DeleteQuery
+//
+// And the gallery's tags, for its tag filter and suggestions:
+//
+//   GET    /editor/gallery/tags         EditorTagsQuery
 //
 // And for drafts (see the Drafts note in api-responses.ts):
 //
@@ -137,6 +142,14 @@ export interface EditorListQuery<
 	 * by name).
 	 */
 	in?: string;
+}
+
+/** The gallery editor list's filters, plus its images with every tag. */
+export type GalleryImageListQuery = EditorListQuery & GalleryTagsQuery;
+
+/** The tags containing `q` (case-insensitive, at most 100 characters). */
+export interface EditorTagsQuery {
+	q?: string;
 }
 
 /** A delete: the item's revision when the editor started (stale is 409). */

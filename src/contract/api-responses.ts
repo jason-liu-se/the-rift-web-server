@@ -184,6 +184,7 @@ export interface ConflictResponse<T> extends ErrorResponse {
 //   GET /editor/gallery/collections EditorCollection[], by slug
 //   GET /editor/gallery/images      PaginatedResponse<EditorGalleryImage>
 //   GET /editor/gallery/images/:id  EditorGalleryImage
+//   GET /editor/gallery/tags        EditorGalleryTags
 //   GET /editor/downloads/collections  EditorCollection[], by slug
 //   GET /editor/downloads/items     PaginatedResponse<EditorDownloadItemSummary>
 //   GET /editor/downloads/items/:id EditorDownloadItem
@@ -192,6 +193,12 @@ export interface ConflictResponse<T> extends ErrorResponse {
 //
 // Lists carry what a table shows; open an item (`/:id`) for all of it.
 // Lists take an EditorListQuery (api-requests.ts). A missing item is 404.
+
+/**
+ * The tags on every gallery image, public or not, and on the editor's own
+ * gallery drafts, sorted. Never cached (it holds the caller's drafts').
+ */
+export type EditorGalleryTags = string[];
 
 /** The Discord user behind an edit, as they were when they made it. */
 export interface EditorRef {
@@ -341,7 +348,10 @@ export type DraftSummary = (
 	  }
 	| {
 			type: "gallery";
-			fields: Pick<Partial<GalleryImageFields>, "caption" | "imageUrl">;
+			fields: Pick<
+				Partial<GalleryImageFields>,
+				"caption" | "imageUrl" | "tags"
+			>;
 	  }
 	| {
 			type: "downloads";

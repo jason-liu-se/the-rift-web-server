@@ -70,6 +70,8 @@ export interface EditorListQuery {
 	/** A search, in the fields `searchIn` names (all of the type's if empty). */
 	readonly q?: string;
 	readonly searchIn: readonly string[];
+	/** Gallery only: images with every tag. */
+	readonly tags?: readonly string[];
 }
 
 export interface EditorCollectionSummary extends ContentCollection {

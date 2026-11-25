@@ -25,6 +25,7 @@ import type {
 	EditorDownloadItem,
 	EditorDownloadItemSummary,
 	EditorGalleryImage,
+	EditorGalleryTags,
 	EditorMapSeason,
 	EditorMapSeasonSummary,
 	EditorNewsPost,
@@ -68,6 +69,10 @@ export const galleryCollections = z.toZod<GalleryCollection[]>()(
 );
 
 export const galleryTags = z.toZod<GalleryTags>()(z.array(z.string()));
+
+export const editorGalleryTags = z.toZod<EditorGalleryTags>()(
+	z.array(z.string())
+);
 
 const downloadItem = z.toZod<DownloadItem>()(
 	z.object({
@@ -285,7 +290,8 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 				type: z.literal("gallery"),
 				fields: galleryImageFields.draft.pick({
 					caption: true,
-					imageUrl: true
+					imageUrl: true,
+					tags: true
 				}),
 				...draftFields
 			}),

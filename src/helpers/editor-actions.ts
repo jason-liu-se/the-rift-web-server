@@ -11,7 +11,10 @@ import {
 	parseEditorItem,
 	parseResponse
 } from "../api/response-schemas.ts";
-import { editorListQuery } from "../api/query-schemas.ts";
+import {
+	editorListQuery,
+	galleryImageListQuery
+} from "../api/query-schemas.ts";
 import { CONTENT_TYPES, statusesOf } from "../managers/editor-content.ts";
 import type {
 	CollectionTypeName,
@@ -21,15 +24,17 @@ import type {
 } from "../types/editor-content.ts";
 
 /**
- * A type's list query: its statuses, its search fields, and `collection` if
- * it has collections.
+ * A type's list query: its statuses, its search fields, `collection` if it
+ * has collections, and the gallery's `tags`.
  */
 export function listQueryFor(typeName: ContentTypeName) {
 	const { searchFields, collectionModel } = CONTENT_TYPES[typeName];
-	const schema = editorListQuery(
-		statusesOf(typeName),
-		Object.keys(searchFields)
-	);
+	const statuses = statusesOf(typeName);
+	const fields = Object.keys(searchFields);
+	if (typeName === "gallery") {
+		return galleryImageListQuery(statuses, fields);
+	}
+	const schema = editorListQuery(statuses, fields);
 	return collectionModel ? schema : schema.omit({ collection: true });
 }
 
