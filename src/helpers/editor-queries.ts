@@ -11,6 +11,7 @@ import type {
 	EditorListQuery,
 	FieldChanges,
 	SearchField,
+	SortOrder,
 	StatusRules,
 	StoredItem,
 	WriteResult
@@ -147,10 +148,10 @@ function sortKey(field: string): object {
 
 // The stages sorting a list by `sort`'s fields (checked against the type's
 // by its list query), ties by `_id`. Unindexed, as the keys are computed.
-export function sortByFields({
-	sort,
-	order
-}: Pick<EditorListQuery, "sort" | "order">): PipelineStage[] {
+export function sortByFields(
+	sort: readonly string[],
+	order: readonly SortOrder[] = []
+): PipelineStage[] {
 	const directions = sort.map((field, i) => [
 		`sortKeys.${field}`,
 		order[i] === "desc" ? -1 : 1
