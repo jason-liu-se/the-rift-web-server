@@ -301,6 +301,22 @@ describe("GET /editor/drafts", () => {
 		]);
 	});
 
+	it("lists a gallery draft's tags, for the tag filter", async () => {
+		const { id } = await createDraft({
+			type: "gallery",
+			fields: { caption: "c", tags: ["night"] }
+		});
+
+		const res = await editor.get("/editor/drafts").expect(200);
+
+		expect(res.body).toEqual([
+			expect.objectContaining({
+				id,
+				fields: { caption: "c", tags: ["night"] }
+			})
+		]);
+	});
+
 	it("counts a map season draft's dimensions instead of listing them", async () => {
 		const dimension = {
 			name: "Overworld",

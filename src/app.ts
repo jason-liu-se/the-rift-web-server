@@ -23,6 +23,7 @@ import { draftsRouter } from "./routes/editor/drafts.ts";
 import { IMAGE_UPLOAD_PATH, imagesRouter } from "./routes/editor/images.ts";
 import { editorCollectionsRouter } from "./routes/editor/collections.ts";
 import { editorItemsRouter } from "./routes/editor/items.ts";
+import { editorGalleryTagsRouter } from "./routes/editor/tags.ts";
 import { newsRouter } from "./routes/news/news.ts";
 import { downloadsRouter } from "./routes/downloads/downloads.ts";
 import { galleryRouter } from "./routes/gallery/gallery.ts";
@@ -74,6 +75,7 @@ export function apiRouters(config: AppConfig): Record<string, Router> {
 		"/editor/news": editorItemsRouter("news"),
 		"/editor/gallery/collections": editorCollectionsRouter("gallery"),
 		"/editor/gallery/images": editorItemsRouter("gallery"),
+		"/editor/gallery/tags": editorGalleryTagsRouter,
 		"/editor/downloads/collections": editorCollectionsRouter("downloads"),
 		"/editor/downloads/items": editorItemsRouter("downloads"),
 		"/editor/maps/seasons": editorItemsRouter("maps"),

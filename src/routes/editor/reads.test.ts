@@ -82,6 +82,7 @@ describe("editor reads, logged out", () => {
 		`/editor/news/${NEWS.live._id.toHexString()}`,
 		"/editor/gallery/collections",
 		"/editor/gallery/images",
+		"/editor/gallery/tags",
 		"/editor/downloads/collections",
 		"/editor/downloads/items",
 		"/editor/maps/seasons"
@@ -278,13 +279,13 @@ describe("GET /editor/gallery/images", () => {
 				collection: "season5",
 				caption: "Spawn",
 				imageUrl: "1.png",
-				tags: ["spawn"]
+				tags: ["night", "spawn"]
 			},
 			{
 				collection: "season6",
 				caption: "Castle",
 				imageUrl: "2.png",
-				tags: ["build"],
+				tags: ["build", "night"],
 				visible: false
 			}
 		]);
@@ -304,7 +305,10 @@ describe("GET /editor/gallery/images", () => {
 	it.each([
 		["collection=season5", ["Spawn"]],
 		["q=BUI&in=tags", ["Castle"]],
-		["status=hidden", ["Castle"]]
+		["status=hidden", ["Castle"]],
+		["tags=night", ["Castle", "Spawn"]],
+		["tags=build,night", ["Castle"]],
+		["tags=build,spawn", []]
 	])("filters (%s)", async (query, captions) => {
 		await seedImages();
 
@@ -330,6 +334,14 @@ describe("GET /editor/gallery/images", () => {
 
 		expect(list.body.items).toMatchObject([{ status: "live" }]);
 		expect(live.body.total).toBe(1);
+	});
+
+	it("answers 400 for tags not written one way", async () => {
+		const res = await get("/editor/gallery/images?tags=night,build").expect(
+			400
+		);
+
+		expect(res.body.error).toMatch(/tags/);
 	});
 });
 

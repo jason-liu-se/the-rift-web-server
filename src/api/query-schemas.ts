@@ -14,6 +14,8 @@ import type { NewsStatus } from "../contract/api-responses.ts";
 import type {
 	DetailVersionQuery,
 	EditorListQuery,
+	EditorTagsQuery,
+	GalleryImageListQuery,
 	GalleryTagsQuery,
 	PaginationQuery,
 	VersionQuery
@@ -114,13 +116,22 @@ function nameList<const Name extends string>(allowed: readonly Name[]) {
 // characters, Discord's limit).
 const editorUser = z.string().min(1).max(32);
 
-// An editor list's filters and search, for one content type: its statuses,
-// its searchable fields, and whether it has collections.
-export function editorListQuery(
+// A case-insensitive search's text.
+const searchText = z
+	.string()
+	.max(
+		MAX_SEARCH_QUERY_LENGTH,
+		`q must be at most ${MAX_SEARCH_QUERY_LENGTH} characters`
+	)
+	.optional();
+
+// An editor list's filters and search, for one content type: its statuses
+// and its searchable fields.
+function editorListShape(
 	statuses: readonly NewsStatus[],
 	searchFields: readonly string[]
 ) {
-	return queryFor<EditorListQuery<NewsStatus>>()({
+	return {
 		...paginationShape,
 		// Capped, as editors see every item, hidden ones too.
 		limit: z.coerce
@@ -133,16 +144,33 @@ export function editorListQuery(
 		lastUpdatedBy: editorUser.optional(),
 		status: z.enum(statuses).optional(),
 		collection: collectionSlug.optional(),
-		q: z
-			.string()
-			.max(
-				MAX_SEARCH_QUERY_LENGTH,
-				`q must be at most ${MAX_SEARCH_QUERY_LENGTH} characters`
-			)
-			.optional(),
+		q: searchText,
 		in: nameList(searchFields)
+	};
+}
+
+export function editorListQuery(
+	statuses: readonly NewsStatus[],
+	searchFields: readonly string[]
+) {
+	return queryFor<EditorListQuery<NewsStatus>>()(
+		editorListShape(statuses, searchFields)
+	);
+}
+
+// The gallery's editor list, which also filters by tags like the public one.
+export function galleryImageListQuery(
+	statuses: readonly NewsStatus[],
+	searchFields: readonly string[]
+) {
+	return queryFor<GalleryImageListQuery>()({
+		...editorListShape(statuses, searchFields),
+		...galleryTagsQuery.shape
 	});
 }
+
+// `GET /editor/gallery/tags`.
+export const editorTagsQuery = queryFor<EditorTagsQuery>()({ q: searchText });
 
 // A public read's `v`, the content version the caller last saw (see
 // cacheByContentVersion). Kept as the digits sent and compared as text, so

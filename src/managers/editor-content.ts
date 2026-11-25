@@ -26,7 +26,9 @@ import {
 	isDuplicateKeyError,
 	listFilter,
 	revisionFilter,
+	searchPattern,
 	staleOutcome,
+	tagsMatching,
 	textSearch,
 	toEditorItem,
 	uniqueFieldsOf,
@@ -143,6 +145,15 @@ export async function listItems(
 		type.model.countDocuments(filter)
 	]);
 	return { items: items.map((item) => toEditorItem(type, item, now)), total };
+}
+
+// The tags on every gallery image, public or not, containing `query`
+// (case-insensitive; empty is every tag), sorted.
+export async function getGalleryTags(query: string): Promise<string[]> {
+	const tags = await galleryImageModel.aggregate<{ _id: string }>(
+		tagsMatching("tags", searchPattern(query))
+	);
+	return tags.map(({ _id }) => _id);
 }
 
 // One item, public or not, or undefined when there's none.
