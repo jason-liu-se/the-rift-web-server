@@ -153,7 +153,12 @@ export type WriteOp =
 	| { readonly name: "deleteOne"; readonly filter: object };
 
 export type CollectionWriteResult =
-	| { readonly outcome: "ok"; readonly collection?: EditorCollectionSummary }
+	| {
+			readonly outcome: "ok";
+			readonly collection?: EditorCollectionSummary;
+			/** False for a repeated create, which made nothing. */
+			readonly created?: boolean;
+	  }
 	| Duplicate
 	| {
 			readonly outcome: "conflict";

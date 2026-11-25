@@ -35,20 +35,20 @@ export function editorCollectionsRouter(typeName: CollectionTypeName): Router {
 		);
 	});
 
+	// 201 when it creates the collection, 200 for a repeated createId.
 	router.post("/", async (req, res) => {
 		const fields = collectionCreateRequest.parse(req.body);
 
-		const collection = writtenCollection(
+		const result = await collectionsManager.createCollection(
 			typeName,
-			fields.slug,
-			await collectionsManager.createCollection(
-				typeName,
-				fields,
-				editorOf(res)
-			)
+			fields,
+			editorOf(res)
 		);
+		const collection = writtenCollection(typeName, fields.slug, result);
 		await mongoManager.updateContentVersion();
-		res.status(201).json(collection);
+		res.status(
+			result.outcome === "ok" && result.created === false ? 200 : 201
+		).json(collection);
 	});
 
 	router.patch("/:slug", async (req, res) => {

@@ -95,15 +95,41 @@ async function collectionSummary(
 	return { ...collection, itemCount };
 }
 
-// A Duplicate when the slug is taken.
+// The collection a create with this createId made, if it's still there.
+async function findCreatedCollection(
+	typeName: CollectionTypeName,
+	createId: string
+): Promise<CollectionWriteResult | undefined> {
+	const found = await collectionModelOf(typeName)
+		.findOne({ createId })
+		.lean();
+	if (!found) {
+		return undefined;
+	}
+	return {
+		outcome: "ok",
+		collection: await collectionSummary(typeName, found),
+		created: false
+	};
+}
+
+// A Duplicate when the slug is taken. A repeated createId returns the
+// collection it made (`created: false`), or not-found once that's deleted.
 export async function createCollection(
 	typeName: CollectionTypeName,
 	fields: Pick<ContentCollection, "slug" | "title" | "dimensions"> & {
 		visible?: boolean;
+		createId?: string;
 	},
 	editor: EditorRef
 ): Promise<CollectionWriteResult> {
-	return unlessDuplicate(async () => {
+	const { createId } = fields;
+	const repeat =
+		createId && (await findCreatedCollection(typeName, createId));
+	if (repeat) {
+		return repeat;
+	}
+	const result = await unlessDuplicate(async () => {
 		const created = await collectionModelOf(typeName).create({
 			visible: true,
 			...fields,
@@ -113,9 +139,29 @@ export async function createCollection(
 		});
 		return {
 			outcome: "ok",
-			collection: { ...created.toObject(), itemCount: 0 }
+			collection: { ...created.toObject(), itemCount: 0 },
+			created: true
 		} as const;
 	});
+	// Insert errors name only one of the indexes the create broke, so a
+	// repeat is told apart by looking up its createId, then its slug: if
+	// neither is held, its first attempt's collection was deleted meanwhile.
+	if (createId && result.outcome === "duplicate") {
+		const repeatSinceInsert = await findCreatedCollection(
+			typeName,
+			createId
+		);
+		if (repeatSinceInsert) {
+			return repeatSinceInsert;
+		}
+		const isSlugTaken = await collectionModelOf(typeName).exists({
+			slug: fields.slug
+		});
+		return isSlugTaken
+			? { outcome: "duplicate", field: "slug" }
+			: { outcome: "not-found" };
+	}
+	return result;
 }
 
 async function staleCollection(

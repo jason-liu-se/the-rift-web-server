@@ -248,7 +248,8 @@ export const collectionCreateRequest = z.toZod<CollectionCreateRequest>()(
 			slug: collectionSlug,
 			title: collectionTitle,
 			dimensions: dimensionList(dimension).optional(),
-			visible: z.boolean().optional()
+			visible: z.boolean().optional(),
+			createId: createId.optional()
 		})
 		.superRefine(checkDimensionImageUrls)
 );

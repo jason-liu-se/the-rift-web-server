@@ -255,13 +255,22 @@ export type DownloadItemUpdateRequest = UpdateRequest<DownloadItemFields>;
 export type MapSeasonCreateRequest = CreateRequest<MapSeasonFields>;
 export type MapSeasonUpdateRequest = UpdateRequest<MapSeasonFields>;
 
-/** A gallery or download collection. */
-export interface CollectionCreateRequest extends VisibilityFields {
+/** A gallery or download collection's fields. */
+export interface CollectionFields {
 	/** Kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`); fixed once created. */
 	slug: string;
 	title: string;
 	/** Absent: none. */
 	dimensions?: Dimension[];
+}
+
+/**
+ * A collection's create. `createId` works as an item create's: repeating the
+ * create returns the collection already made (200), or 404 if it was deleted.
+ */
+export interface CollectionCreateRequest
+	extends CollectionFields, VisibilityFields {
+	createId?: string;
 }
 
 export interface CollectionUpdateRequest extends VisibilityFields {

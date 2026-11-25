@@ -940,6 +940,55 @@ describe("collections", () => {
 		expect(res.body.error).toMatch(/slug already exists/);
 	});
 
+	it("returns the collection a repeated createId made, unchanged", async () => {
+		const createId = randomUUID();
+		const body = { slug: "worlds", title: "Worlds", createId };
+
+		const first = await editor
+			.post("/editor/downloads/collections", body)
+			.expect(201);
+		const repeat = await editor
+			.post("/editor/downloads/collections", { ...body, title: "Other" })
+			.expect(200);
+
+		expect(repeat.body).toEqual(first.body);
+		expect(await collections().countDocuments()).toBe(1);
+	});
+
+	it("answers 404 for a repeated createId whose collection was deleted meanwhile", async () => {
+		const body = {
+			slug: "worlds",
+			title: "Worlds",
+			createId: randomUUID()
+		};
+		raceCreateWithDelete("downloads", "collections", body, "create");
+
+		const res = await editor
+			.post("/editor/downloads/collections", body)
+			.expect(404);
+
+		expect(res.body).toEqual({
+			error: "ERROR: downloads collection 'worlds' not found"
+		});
+		expect(await collections().countDocuments()).toBe(0);
+	});
+
+	it("makes the collection again for a create repeated after it was deleted", async () => {
+		const body = {
+			slug: "worlds",
+			title: "Worlds",
+			createId: randomUUID()
+		};
+		await editor.post("/editor/downloads/collections", body).expect(201);
+		await editor
+			.delete("/editor/downloads/collections/worlds?startingRevision=1")
+			.expect(204);
+
+		await editor.post("/editor/downloads/collections", body).expect(201);
+
+		expect(await collections().countDocuments()).toBe(1);
+	});
+
 	it("renames and hides a collection, keeping its slug", async () => {
 		await collections().insertOne({ slug: "worlds", title: "W" });
 
