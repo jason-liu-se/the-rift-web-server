@@ -6,6 +6,7 @@ import { NotFoundError } from "../errors/not-found-error.ts";
 import type { EditorRef } from "../models/audit-fields.ts";
 import type { EditorCollection } from "../contract/api-responses.ts";
 import {
+	EDITOR_SUMMARY_SCHEMAS,
 	type EditorItemBody,
 	editorCollection,
 	parseEditorItem,
@@ -13,7 +14,8 @@ import {
 } from "../api/response-schemas.ts";
 import {
 	editorListQuery,
-	galleryImageListQuery
+	galleryImageListQuery,
+	withOrderForEachSort
 } from "../api/query-schemas.ts";
 import { CONTENT_TYPES, statusesOf } from "../managers/editor-content.ts";
 import type {
@@ -23,19 +25,32 @@ import type {
 	ItemOutcome
 } from "../types/editor-content.ts";
 
+// Every field a type's list sends but `status`, which isn't stored (it's
+// worked out from each item once read).
+function sortFieldsOf(typeName: ContentTypeName): string[] {
+	return Object.keys(EDITOR_SUMMARY_SCHEMAS[typeName].shape).filter(
+		(field) => field !== "status"
+	);
+}
+
 /**
- * A type's list query: its statuses, its search fields, `collection` if it
- * has collections, and the gallery's `tags`.
+ * A type's list query: its statuses, its search and sort fields, `collection`
+ * if it has collections, and the gallery's `tags`.
  */
 export function listQueryFor(typeName: ContentTypeName) {
 	const { searchFields, collectionModel } = CONTENT_TYPES[typeName];
-	const statuses = statusesOf(typeName);
-	const fields = Object.keys(searchFields);
+	const fields = {
+		statuses: statusesOf(typeName),
+		searchFields: Object.keys(searchFields),
+		sortFields: sortFieldsOf(typeName)
+	};
 	if (typeName === "gallery") {
-		return galleryImageListQuery(statuses, fields);
+		return withOrderForEachSort(galleryImageListQuery(fields));
 	}
-	const schema = editorListQuery(statuses, fields);
-	return collectionModel ? schema : schema.omit({ collection: true });
+	const schema = editorListQuery(fields);
+	return withOrderForEachSort(
+		collectionModel ? schema : schema.omit({ collection: true })
+	);
 }
 
 // Who's writing, as stored on the item.

@@ -212,7 +212,7 @@ export function parseEditorItem(
 
 // What each type's list sends of an item.
 export const EDITOR_SUMMARY_SCHEMAS: Readonly<
-	Record<ContentTypeName, z.ZodType>
+	Record<ContentTypeName, z.ZodObject>
 > = {
 	news: editorNewsPostSummary,
 	gallery: editorGalleryImage,

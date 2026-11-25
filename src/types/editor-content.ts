@@ -58,6 +58,8 @@ export interface StatusRules {
 	>;
 }
 
+export type SortOrder = "asc" | "desc";
+
 export interface EditorListQuery {
 	readonly startIndex: number;
 	readonly limit?: number;
@@ -72,6 +74,10 @@ export interface EditorListQuery {
 	readonly searchIn: readonly string[];
 	/** Gallery only: images with every tag. */
 	readonly tags?: readonly string[];
+	/** The fields to sort by, most significant first (none: the public order). */
+	readonly sort: readonly string[];
+	/** Each `sort` field's order, by position (missing: ascending). */
+	readonly order: readonly SortOrder[];
 }
 
 export interface EditorCollectionSummary extends ContentCollection {

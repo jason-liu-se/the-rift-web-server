@@ -27,6 +27,7 @@ import {
 	listFilter,
 	revisionFilter,
 	searchPattern,
+	sortByFields,
 	staleOutcome,
 	tagsMatching,
 	textSearch,
@@ -121,8 +122,8 @@ export const CONTENT_TYPES: Readonly<Record<ContentTypeName, ContentType>> = {
 	}
 };
 
-// A page of a type's items, public or not, in the public order, with the
-// number matching. As the type's summaries: see getItem for whole items.
+// A page of a type's items, public or not, with the number matching. As the
+// type's summaries: see getItem for whole items.
 export async function listItems(
 	typeName: ContentTypeName,
 	query: EditorListQuery,
@@ -135,13 +136,15 @@ export async function listItems(
 		page.push({ $limit: query.limit });
 	}
 
+	// The public order sorts right after $match, where an index can serve it;
+	// sorted fields sort after the summary, so computed ones (a map's
+	// dimensionCount) sort too.
+	const ordered =
+		query.sort.length === 0
+			? [...type.sort, ...page, ...type.summary]
+			: [...type.summary, ...sortByFields(query), ...page];
 	const [items, total] = await Promise.all([
-		type.model.aggregate<StoredItem>([
-			{ $match: filter },
-			...type.sort,
-			...page,
-			...type.summary
-		]),
+		type.model.aggregate<StoredItem>([{ $match: filter }, ...ordered]),
 		type.model.countDocuments(filter)
 	]);
 	return { items: items.map((item) => toEditorItem(type, item, now)), total };
