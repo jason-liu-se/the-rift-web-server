@@ -8,11 +8,13 @@
 // the two can't drift apart without a compile error.
 import * as z from "zod";
 import {
+	collectionDraftFields,
 	downloadItemFields,
 	galleryImageFields,
 	mapSeasonFields,
 	newsPostFields
 } from "./write-schemas.ts";
+import { collectionDraftType } from "./draft-requests.ts";
 import type {
 	ContentVersion,
 	CountResponse,
@@ -288,6 +290,11 @@ export const draft = z.toZod<Draft>()(
 			type: z.literal("maps"),
 			fields: mapSeasonFields.draft,
 			...draftFields
+		}),
+		z.object({
+			type: collectionDraftType,
+			fields: collectionDraftFields,
+			...draftFields
 		})
 	])
 );
@@ -328,6 +335,12 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 					season: true,
 					imageUrl: true
 				}),
+				dimensionCount: z.number().int().min(0),
+				...draftFields
+			}),
+			z.object({
+				type: collectionDraftType,
+				fields: collectionDraftFields.pick({ slug: true, title: true }),
 				dimensionCount: z.number().int().min(0),
 				...draftFields
 			})

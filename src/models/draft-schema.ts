@@ -1,11 +1,11 @@
 import mongoose from "mongoose";
 import {
-	CONTENT_TYPE_NAMES,
-	type ContentTypeName
+	DRAFT_TYPE_NAMES,
+	type DraftTypeName
 } from "../types/editor-content.ts";
 
-// An editor's unpublished work, private to its owner: a new item, or an edit
-// of a published one (`target`). Saved loosely as the editor types; checked
+// An editor's unpublished work, private to its owner: a new item or
+// collection, or an edit of a published one (`target`). Saved loosely as the editor types; checked
 // fully on publish. Publishing turns it into a marker (`publishedAs`, no
 // fields) that expires, so a repeated publish returns the same item.
 export interface DraftTarget {
@@ -19,7 +19,7 @@ export interface Draft {
 	readonly _id: string;
 	/** Discord user ID. */
 	readonly owner: string;
-	readonly type: ContentTypeName;
+	readonly type: DraftTypeName;
 	readonly fields?: Record<string, unknown>;
 	/** The draft's own, incremented by every save. */
 	readonly revision: number;
@@ -44,7 +44,7 @@ const draftSchema = new mongoose.Schema<Draft>(
 	{
 		_id: { type: String, required: true },
 		owner: { type: String, required: true },
-		type: { type: String, enum: CONTENT_TYPE_NAMES, required: true },
+		type: { type: String, enum: DRAFT_TYPE_NAMES, required: true },
 		fields: { type: mongoose.Schema.Types.Mixed },
 		revision: { type: Number, required: true },
 		target: { type: draftTargetSchema },

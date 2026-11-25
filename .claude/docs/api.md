@@ -309,27 +309,29 @@ changes the content version once (even when it fails after writing some items).
 ### Drafts
 
 `/editor/drafts` (`src/routes/editor/drafts.ts`, logic in
-`src/helpers/draft-actions.ts`) is per editor: every query in
-`src/managers/drafts.ts` is scoped to the owner, and another editor's draft is a
-`404`, never a `403`. Drafts are checked loosely (`draft` variants, plus
-`MAX_DRAFTS_PER_USER` and `MAX_DRAFT_BYTES`) and keep their own `revision` (a
-save sends it as `startingRevision`), so a save from a second device makes the
-first one's next save `409`, and a save of a draft that's gone (deleted, or
-published and its marker expired) `404`, never making it again; a repeated
-create (no `startingRevision`) is `200` with the draft as stored. The list sends
-only what names each draft, its image, and its `collection` (and a gallery
-draft's `tags`, a map season's `dimensionCount`); `GET /:id` sends its fields. A
-draft's `fields` also keep `visible` (and a news draft's `date`), so a change to
-only an item's visibility or date is a draft too; publish's `visible` and `date`
-override them, and with neither the item is visible (and its date as for a
-create or update). Publishing checks the fields fully, then creates the item
-(with the draft's ID as its `createId`) or updates the one an edit draft started
-from, at the revision it started from. The draft then becomes a marker naming
-the item, which a TTL index deletes after `PUBLISHED_DRAFT_TTL_MS`, so a
-repeated publish returns the same item. There's no transaction: if the server
-stops between the two writes, a new item's repeat still finds it by `createId`,
-but an edit's repeat gets `409` (the item's revision moved). Drafts stay
-`no-store`.
+`src/helpers/draft-actions.ts`) holds drafts of items and of gallery and
+download collections (`gallery-collections`, `downloads-collections`; an edit
+draft's `target.id` is the slug, which publishing never changes). It's per
+editor: every query in `src/managers/drafts.ts` is scoped to the owner, and
+another editor's draft is a `404`, never a `403`. Drafts are checked loosely
+(`draft` variants, plus `MAX_DRAFTS_PER_USER` and `MAX_DRAFT_BYTES`) and keep
+their own `revision` (a save sends it as `startingRevision`), so a save from a
+second device makes the first one's next save `409`, and a save of a draft
+that's gone (deleted, or published and its marker expired) `404`, never making
+it again; a repeated create (no `startingRevision`) is `200` with the draft as
+stored. The list sends only what names each draft, its image, and its
+`collection` (and a gallery draft's `tags`, a map season's or collection's
+`dimensionCount`); `GET /:id` sends its fields. A draft's `fields` also keep
+`visible` (and a news draft's `date`), so a change to only an item's visibility
+or date is a draft too; publish's `visible` and `date` override them, and with
+neither the item is visible (and its date as for a create or update). Publishing
+checks the fields fully, then creates the item (with the draft's ID as its
+`createId`) or updates the one an edit draft started from, at the revision it
+started from. The draft then becomes a marker naming the item, which a TTL index
+deletes after `PUBLISHED_DRAFT_TTL_MS`, so a repeated publish returns the same
+item. There's no transaction: if the server stops between the two writes, a new
+item's repeat still finds it by `createId`, but an edit's repeat gets `409` (the
+item's revision moved). Drafts stay `no-store`.
 
 ## Contract
 

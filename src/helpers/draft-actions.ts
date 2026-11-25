@@ -1,5 +1,6 @@
 // What the drafts routes do around drafts.ts's queries: saving (create or
-// update, with the per-editor limits) and publishing a draft as its item.
+// update, with the per-editor limits) and publishing a draft as its item or
+// collection.
 // Another editor's draft is always "not found", never forbidden, so nobody can
 // learn that it exists.
 import {
@@ -10,7 +11,7 @@ import {
 import { BadRequestError } from "../errors/bad-request-error.ts";
 import { ConflictError } from "../errors/conflict-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
-import type { Draft } from "../contract/api-responses.ts";
+import type { Draft, EditorCollection } from "../contract/api-responses.ts";
 import type { EditorRef } from "../models/audit-fields.ts";
 import type {
 	DraftPublishRequest,
@@ -21,16 +22,56 @@ import {
 	type EditorItemBody,
 	parseEditorItem,
 	draft as draftResponse,
+	editorCollection,
 	parseResponse
 } from "../api/response-schemas.ts";
-import { itemNotFound, writtenItem } from "./editor-actions.ts";
+import { collectionCreateRequest } from "../api/write-schemas.ts";
+import {
+	itemNotFound,
+	writtenCollection,
+	writtenItem
+} from "./editor-actions.ts";
 import { createEach, onlyOutcome, updateEach } from "./editor-writes.ts";
-import type { ContentTypeName } from "../types/editor-content.ts";
+import {
+	COLLECTION_DRAFT_TYPES,
+	type CollectionTypeName,
+	type ContentTypeName,
+	type DraftTypeName,
+	isCollectionDraftType
+} from "../types/editor-content.ts";
+import * as collectionsManager from "../managers/editor-collections.ts";
 import * as drafts from "../managers/drafts.ts";
 import * as editorContent from "../managers/editor-content.ts";
 
 export function draftNotFound(id: string): NotFoundError {
 	return new NotFoundError(`draft '${id}'`);
+}
+
+/** What publishing a draft answers: its item, or its collection. */
+type PublishedBody = EditorItemBody | EditorCollection;
+
+// The item (by ID) or collection (by slug) a draft names, as stored.
+async function getPublished(type: DraftTypeName, id: string): Promise<unknown> {
+	return isCollectionDraftType(type)
+		? collectionsManager.getCollection(COLLECTION_DRAFT_TYPES[type], id)
+		: editorContent.getItem(type, id);
+}
+
+function parsePublished(
+	type: DraftTypeName,
+	published: unknown
+): PublishedBody {
+	return isCollectionDraftType(type)
+		? parseResponse(editorCollection, published)
+		: parseEditorItem(type, published);
+}
+
+function publishedNotFound(type: DraftTypeName, id: string): NotFoundError {
+	return isCollectionDraftType(type)
+		? new NotFoundError(
+				`${COLLECTION_DRAFT_TYPES[type]} collection '${id}'`
+			)
+		: itemNotFound(type, id);
 }
 
 // The owner's unpublished draft, or a 404.
@@ -118,8 +159,8 @@ async function createDraft(
 		);
 	}
 	const { target } = body;
-	if (target && !(await editorContent.getItem(body.type, target.id))) {
-		throw itemNotFound(body.type, target.id);
+	if (target && !(await getPublished(body.type, target.id))) {
+		throw publishedNotFound(body.type, target.id);
 	}
 
 	const result = await drafts.createDraft({
@@ -147,48 +188,106 @@ async function createDraft(
 	return parseResponse(draftResponse, result.draft);
 }
 
-// Checks the draft fully, then creates or updates its item and marks the
-// draft published. A repeat returns the same item without writing
-// (`wrote: false`).
+// Checks the draft fully, then creates or updates its item (or collection)
+// and marks the draft published. A repeat returns the same item without
+// writing (`wrote: false`).
 export async function publishDraft(
 	editor: EditorRef,
 	id: string,
 	options: DraftPublishRequest
-): Promise<{ item: EditorItemBody | undefined; wrote: boolean }> {
+): Promise<{ item: PublishedBody | undefined; wrote: boolean }> {
 	const stored = await drafts.getDraft(editor.id, id);
 	if (!stored) {
 		throw draftNotFound(id);
 	}
 	const { type } = stored;
 	if (stored.publishedAs) {
-		const item = await editorContent.getItem(type, stored.publishedAs);
-		if (!item) {
+		const published = await getPublished(type, stored.publishedAs);
+		if (!published) {
 			throw draftNotFound(id);
 		}
-		return {
-			item: parseEditorItem(type, item),
-			wrote: false
-		};
+		return { item: parsePublished(type, published), wrote: false };
 	}
 
 	const now = new Date();
-	const result = await writeItem(type, stored, options, editor, now);
-	const item = writtenItem(type, stored.target?.id ?? id, result);
-	if (result.outcome === "ok" && result.item) {
+	const { item, publishedAs } = isCollectionDraftType(type)
+		? await writeCollection(
+				COLLECTION_DRAFT_TYPES[type],
+				stored,
+				options,
+				editor
+			)
+		: await writeItem(type, stored, options, editor, now);
+	if (publishedAs !== undefined) {
 		await drafts.markPublished(
 			editor.id,
 			id,
 			stored.revision,
-			result.item.id,
+			publishedAs,
 			new Date(now.getTime() + PUBLISHED_DRAFT_TTL_MS)
 		);
 	}
 	return { item, wrote: true };
 }
 
+/** What a publish wrote, and the ID (or slug) its draft's marker names. */
+interface Published {
+	readonly item: PublishedBody | undefined;
+	readonly publishedAs: string | undefined;
+}
+
+// Creates the draft's collection (a new-collection draft, or `asNew`), or
+// updates the one an edit draft started from, at the revision it started
+// from. An edit draft's slug is always its target's: a slug never changes.
+async function writeCollection(
+	typeName: CollectionTypeName,
+	stored: drafts.StoredDraft,
+	{ visible, asNew }: DraftPublishRequest,
+	editor: EditorRef
+): Promise<Published> {
+	const { target } = stored;
+	// Every field is required, as for a create.
+	const { slug, ...changes } = collectionCreateRequest.parse({
+		...stored.fields,
+		...(visible !== undefined && { visible }),
+		...(target && { slug: target.id })
+	});
+	const result =
+		!target || asNew
+			? await collectionsManager.createCollection(
+					typeName,
+					{ slug, ...changes, createId: stored.id },
+					editor
+				)
+			: await collectionsManager.updateCollection(
+					typeName,
+					slug,
+					target.startingRevision,
+					changes,
+					editor
+				);
+	const collection = writtenCollection(typeName, slug, result);
+	return { item: collection, publishedAs: collection?.slug };
+}
+
 // Creates the draft's item (a new-item draft, or `asNew`), or updates the
 // item an edit draft started from, at the revision it started from.
 async function writeItem(
+	type: ContentTypeName,
+	stored: drafts.StoredDraft,
+	options: DraftPublishRequest,
+	editor: EditorRef,
+	now: Date
+): Promise<Published> {
+	const result = await writeItemOutcome(type, stored, options, editor, now);
+	return {
+		item: writtenItem(type, stored.target?.id ?? stored.id, result),
+		publishedAs:
+			result.outcome === "ok" && result.item ? result.item.id : undefined
+	};
+}
+
+async function writeItemOutcome(
 	type: ContentTypeName,
 	stored: drafts.StoredDraft,
 	{ visible, date, asNew }: DraftPublishRequest,

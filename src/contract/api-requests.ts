@@ -332,9 +332,13 @@ export interface GalleryImageBulkCreateRequest {
 
 export type EditorContentType = "news" | "gallery" | "downloads" | "maps";
 
-/** The drafts list, of every content type unless `type` names one. */
+/** What a draft can be of: an item, or a gallery or download collection. */
+export type DraftType =
+	EditorContentType | "gallery-collections" | "downloads-collections";
+
+/** The drafts list, of every type unless `type` names one. */
 export interface DraftListQuery {
-	type?: EditorContentType;
+	type?: DraftType;
 }
 
 /** Kept with a draft's fields, so a change to only these is saved too. */
@@ -354,10 +358,16 @@ export type DraftContent =
 	| { type: "news"; fields: Partial<NewsPostFields> & NewsDraftOptions }
 	| { type: "gallery"; fields: Partial<GalleryImageFields> & DraftOptions }
 	| { type: "downloads"; fields: Partial<DownloadItemFields> & DraftOptions }
-	| { type: "maps"; fields: Partial<MapSeasonFields> & DraftOptions };
+	| { type: "maps"; fields: Partial<MapSeasonFields> & DraftOptions }
+	| {
+			type: "gallery-collections" | "downloads-collections";
+			/** An edit draft's `slug` is ignored: it's its target's. */
+			fields: Partial<CollectionFields> & DraftOptions;
+	  };
 
 /** The published item an edit draft started from. */
 export interface DraftTarget {
+	/** The item's ID, or a collection's slug. */
 	id: string;
 	/** The item's revision when the draft started from it. */
 	startingRevision: number;
@@ -381,7 +391,10 @@ export interface DraftPublishRequest {
 	 * post, unchanged for an edit.
 	 */
 	date?: NewsDate;
-	/** Publish an edit draft whose item was deleted as a new item. */
+	/**
+	 * Publish an edit draft whose item was deleted as a new item (a
+	 * collection keeps its target's slug).
+	 */
 	asNew?: boolean;
 }
 

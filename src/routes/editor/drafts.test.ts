@@ -763,6 +763,180 @@ describe("POST /editor/drafts/:id/publish", () => {
 	);
 });
 
+describe("collection drafts", () => {
+	const galleries = () => collection("gallery", "collections");
+	const DIMENSION = { name: "Nether", imageUrl: IMAGE };
+
+	function collectionDraft(fields: object = {}) {
+		return {
+			type: "gallery-collections",
+			fields: { slug: "art", title: "Art", ...fields }
+		};
+	}
+
+	async function seedGallery() {
+		await galleries().insertOne({ slug: "art", title: "Art", revision: 2 });
+		return { id: "art", startingRevision: 2 };
+	}
+
+	it("saves a collection's missing fields, and lists its slug, title, and dimension count", async () => {
+		const { id, draft } = await createDraft(
+			collectionDraft({ title: undefined, dimensions: [DIMENSION] })
+		);
+		await createDraft(newsDraft());
+
+		const res = await editor
+			.get("/editor/drafts?type=gallery-collections")
+			.expect(200);
+
+		expect(draft.fields).toEqual({ slug: "art", dimensions: [DIMENSION] });
+		expect(res.body).toEqual([
+			{
+				id,
+				type: "gallery-collections",
+				fields: { slug: "art" },
+				dimensionCount: 1,
+				revision: 1,
+				createdAt: expect.any(String),
+				updatedAt: expect.any(String)
+			}
+		]);
+	});
+
+	it("answers 404 for an edit draft of a missing collection", async () => {
+		const res = await editor
+			.put(`/editor/drafts/${randomUUID()}`, {
+				...collectionDraft(),
+				target: { id: "art", startingRevision: 0 }
+			})
+			.expect(404);
+
+		expect(res.body.error).toBe(
+			"ERROR: gallery collection 'art' not found"
+		);
+	});
+
+	it("publishes a new collection once, with the draft's visibility", async () => {
+		const { id } = await createDraft(
+			collectionDraft({ dimensions: [DIMENSION], visible: false })
+		);
+
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, {})
+			.expect(200);
+		const repeat = await editor
+			.post(`/editor/drafts/${id}/publish`, {})
+			.expect(200);
+
+		expect(res.body).toMatchObject({
+			slug: "art",
+			title: "Art",
+			dimensions: [DIMENSION],
+			visible: false,
+			revision: 1,
+			itemCount: 0,
+			createdBy: EDITOR
+		});
+		expect(repeat.body).toEqual(res.body);
+		expect(await galleries().findOne()).toMatchObject({ createId: id });
+		await editor.get(`/editor/drafts/${id}`).expect(404);
+	});
+
+	it.each([
+		["a missing title", { title: undefined }, "title"],
+		[
+			"a dimension image outside the allowlist",
+			{
+				dimensions: [
+					{ name: "Nether", imageUrl: "https://example.com/n.png" }
+				]
+			},
+			"dimensions.0.imageUrl: must start with an allowed image host"
+		]
+	])(
+		"checks the draft fully before publishing: %s",
+		async (_, fields, error) => {
+			const { id } = await createDraft(collectionDraft(fields));
+
+			const res = await editor
+				.post(`/editor/drafts/${id}/publish`, {})
+				.expect(400);
+
+			expect(res.body.error).toContain(error);
+			expect(await galleries().countDocuments()).toBe(0);
+		}
+	);
+
+	it("answers 409 for a new collection's taken slug", async () => {
+		await seedGallery();
+		const { id } = await createDraft(collectionDraft());
+
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, {})
+			.expect(409);
+
+		expect(res.body.error).toMatch(/slug already exists/);
+	});
+
+	it("updates the collection an edit draft started from, keeping its slug", async () => {
+		const target = await seedGallery();
+		const { id } = await createDraft({
+			...collectionDraft({ slug: "renamed", title: "Edited" }),
+			target
+		});
+
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, {})
+			.expect(200);
+
+		expect(res.body).toMatchObject({
+			slug: "art",
+			title: "Edited",
+			revision: 3
+		});
+		expect(await galleries().countDocuments()).toBe(1);
+	});
+
+	it("answers 409 with the collection when it changed since the draft started", async () => {
+		const target = await seedGallery();
+		const { id } = await createDraft({ ...collectionDraft(), target });
+		await galleries().updateOne(
+			{},
+			{ $set: { title: "Theirs", revision: 3 } }
+		);
+
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, {})
+			.expect(409);
+
+		expect(res.body.current).toMatchObject({
+			slug: "art",
+			title: "Theirs"
+		});
+		await editor.get(`/editor/drafts/${id}`).expect(200);
+	});
+
+	it("answers 404 when the collection was deleted, then publishes it as new", async () => {
+		const target = await seedGallery();
+		const { id } = await createDraft({
+			...collectionDraft({ title: "Kept" }),
+			target
+		});
+		await galleries().deleteMany({});
+
+		await editor.post(`/editor/drafts/${id}/publish`, {}).expect(404);
+		const res = await editor
+			.post(`/editor/drafts/${id}/publish`, { asNew: true })
+			.expect(200);
+
+		expect(res.body).toMatchObject({
+			slug: "art",
+			title: "Kept",
+			revision: 1
+		});
+	});
+});
+
 describe("a published draft", () => {
 	it("no longer counts towards the cap, nor can be saved, before or after its marker expires", async () => {
 		await stored().insertMany(

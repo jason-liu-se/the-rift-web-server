@@ -11,7 +11,10 @@ import {
 	searchPattern,
 	tagsMatching
 } from "../helpers/editor-queries.ts";
-import type { ContentTypeName } from "../types/editor-content.ts";
+import {
+	COLLECTION_DRAFT_TYPE_NAMES,
+	type DraftTypeName
+} from "../types/editor-content.ts";
 import { draftSummaries } from "../api/response-schemas.ts";
 
 const UNPUBLISHED = { publishedAs: { $exists: false } };
@@ -32,14 +35,19 @@ const SUMMARY_FIELDS = [
 	)
 ];
 
-/** A draft in a list; a map season's also counts its dimensions. */
+const TYPES_WITH_DIMENSIONS: readonly DraftTypeName[] = [
+	"maps",
+	...COLLECTION_DRAFT_TYPE_NAMES
+];
+
+/** A draft in a list; a map season's or collection's counts its dimensions. */
 export type DraftSummary = StoredDraft & { readonly dimensionCount?: number };
 
 // The owner's drafts, most recently saved first, optionally of one type, with
 // only their SUMMARY_FIELDS (getDraft has the rest).
 export async function listDrafts(
 	owner: string,
-	type?: ContentTypeName
+	type?: DraftTypeName
 ): Promise<DraftSummary[]> {
 	const found = await draftModel.aggregate<
 		Draft & { dimensionCount?: number }
@@ -64,7 +72,7 @@ export async function listDrafts(
 				),
 				dimensionCount: {
 					$cond: [
-						{ $eq: ["$type", "maps"] },
+						{ $in: ["$type", TYPES_WITH_DIMENSIONS] },
 						{ $size: { $ifNull: ["$fields.dimensions", []] } },
 						"$$REMOVE"
 					]
@@ -110,7 +118,7 @@ export async function countDrafts(owner: string): Promise<number> {
 // The owner's edit draft of an item, if they have one.
 export async function getTargetDraft(
 	owner: string,
-	type: ContentTypeName,
+	type: DraftTypeName,
 	targetId: string
 ): Promise<StoredDraft | undefined> {
 	const found = await draftModel
@@ -128,7 +136,7 @@ export type DraftWriteResult =
 export async function createDraft(draft: {
 	readonly id: string;
 	readonly owner: string;
-	readonly type: ContentTypeName;
+	readonly type: DraftTypeName;
 	readonly fields: Record<string, unknown>;
 	readonly target?: DraftTarget;
 }): Promise<DraftWriteResult> {

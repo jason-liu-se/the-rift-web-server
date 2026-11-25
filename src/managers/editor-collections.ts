@@ -58,6 +58,15 @@ function collectionModelOf(
 	return collectionModel;
 }
 
+// The collection with this slug, public or not.
+export async function getCollection(
+	typeName: CollectionTypeName,
+	slug: string
+): Promise<EditorCollectionSummary | undefined> {
+	const found = await collectionModelOf(typeName).findOne({ slug }).lean();
+	return found ? collectionSummary(typeName, found) : undefined;
+}
+
 // Every slug in `slugs` that names no collection, public or not (none for a
 // type without collections).
 export async function missingCollections(

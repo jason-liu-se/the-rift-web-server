@@ -26,6 +26,7 @@ import {
 } from "../config/content-limits.ts";
 import type {
 	CollectionCreateRequest,
+	CollectionFields,
 	CollectionUpdateRequest,
 	DeleteQuery,
 	DownloadItemFields,
@@ -242,12 +243,21 @@ export const createId = z.uuid("must be a UUID");
 
 const collectionTitle = requiredText(MAX_COLLECTION_TITLE_LENGTH);
 
+const collectionShape = z.object({
+	slug: collectionSlug,
+	title: collectionTitle,
+	dimensions: dimensionList(dimension).optional()
+}) satisfies z.ZodType<CollectionFields>;
+
+/** A collection draft's fields: types and caps only, like the items'. */
+export const collectionDraftFields = collectionShape
+	.partial()
+	.extend(draftOptions.shape);
+
 export const collectionCreateRequest = z.toZod<CollectionCreateRequest>()(
 	z
 		.object({
-			slug: collectionSlug,
-			title: collectionTitle,
-			dimensions: dimensionList(dimension).optional(),
+			...collectionShape.shape,
 			visible: z.boolean().optional(),
 			createId: createId.optional()
 		})

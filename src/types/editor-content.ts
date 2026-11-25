@@ -17,6 +17,34 @@ export type ContentTypeName = (typeof CONTENT_TYPE_NAMES)[number];
 
 export type CollectionTypeName = "gallery" | "downloads";
 
+export const COLLECTION_DRAFT_TYPE_NAMES = [
+	"gallery-collections",
+	"downloads-collections"
+] as const;
+
+export type CollectionDraftTypeName =
+	(typeof COLLECTION_DRAFT_TYPE_NAMES)[number];
+
+/** What a draft can be of: an item, or a gallery or download collection. */
+export const DRAFT_TYPE_NAMES = [
+	...CONTENT_TYPE_NAMES,
+	...COLLECTION_DRAFT_TYPE_NAMES
+] as const;
+
+export type DraftTypeName = (typeof DRAFT_TYPE_NAMES)[number];
+
+/** The collections each collection draft type is of. */
+export const COLLECTION_DRAFT_TYPES = {
+	"gallery-collections": "gallery",
+	"downloads-collections": "downloads"
+} as const satisfies Record<CollectionDraftTypeName, CollectionTypeName>;
+
+export function isCollectionDraftType(
+	type: DraftTypeName
+): type is CollectionDraftTypeName {
+	return Object.hasOwn(COLLECTION_DRAFT_TYPES, type);
+}
+
 // A stored content document, whatever its type: the fields the shared
 // queries use, plus the type's own.
 export interface StoredItem extends Audited {
