@@ -71,11 +71,19 @@ export interface GalleryImage {
 	tags: string[];
 }
 
-/** A gallery, e.g. `{ slug: "season5", title: "Season 5" }`. */
+/** A world of a collection or map season, e.g. the nether, with its image. */
+export interface Dimension {
+	name: string;
+	imageUrl: string;
+}
+
+/** A gallery, e.g. `{ slug: "season5", title: "Season 5", dimensions: [] }`. */
 export interface GalleryCollection {
 	/** In URLs (`/gallery/:collection`); kebab-case, never changes. */
 	slug: string;
 	title: string;
+	/** In the order the editor set; names may repeat. Absent: none. */
+	dimensions?: Dimension[];
 }
 
 /** The tags on a gallery's public images, sorted. */
@@ -93,13 +101,13 @@ export interface DownloadCollection {
 	/** The collection's slug, in URLs (`/downloads/:collection`). */
 	name: string;
 	title: string;
+	/** In the order the editor set; names may repeat. Absent: none. */
+	dimensions?: Dimension[];
 	items: DownloadItem[];
 }
 
 /** One world of a season's map, e.g. the overworld. */
-export interface MapDimension {
-	name: string;
-	imageUrl: string;
+export interface MapDimension extends Dimension {
 	/** BlueMap map ID, the URL fragment that opens this dimension */
 	worldId: string;
 	/** BlueMap perspective (camera position) to open the map at */
@@ -273,6 +281,8 @@ export type EditorMapSeasonSummary = Omit<EditorMapSeason, "dimensions"> & {
 export interface EditorCollection extends EditorAuditFields {
 	slug: string;
 	title: string;
+	/** Absent: none. */
+	dimensions?: Dimension[];
 	/** Every item in it, public or not (deleting it deletes them all). */
 	itemCount: number;
 }

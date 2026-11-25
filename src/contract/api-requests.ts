@@ -73,6 +73,7 @@
 // names each wrong parameter or field and why.
 import type {
 	ContentStatus,
+	Dimension,
 	MapDimension,
 	NewsStatus
 } from "./api-responses.ts";
@@ -258,12 +259,16 @@ export interface CollectionCreateRequest extends VisibilityFields {
 	/** Kebab-case (`^[a-z0-9]+(-[a-z0-9]+)*$`); fixed once created. */
 	slug: string;
 	title: string;
+	/** Absent: none. */
+	dimensions?: Dimension[];
 }
 
 export interface CollectionUpdateRequest extends VisibilityFields {
 	/** The collection's revision when the editor started. */
 	startingRevision: number;
 	title?: string;
+	/** Replaces every dimension. Absent: unchanged. */
+	dimensions?: Dimension[];
 }
 
 // Bulk actions: what each answers is BulkResponse, in api-responses.ts.

@@ -64,8 +64,19 @@ const galleryImage = z.toZod<GalleryImage>()(
 	})
 );
 
+const dimension = z.object({ name: z.string(), imageUrl: z.string() });
+
+// Optional: collections stored before dimensions have none.
+const collectionDimensions = z.array(dimension).optional();
+
 export const galleryCollections = z.toZod<GalleryCollection[]>()(
-	z.array(z.object({ slug: z.string(), title: z.string() }))
+	z.array(
+		z.object({
+			slug: z.string(),
+			title: z.string(),
+			dimensions: collectionDimensions
+		})
+	)
 );
 
 export const galleryTags = z.toZod<GalleryTags>()(z.array(z.string()));
@@ -88,7 +99,12 @@ export const downloadItems = z.toZod<DownloadItem[]>()(z.array(downloadItem));
 
 export const downloadCollections = z.toZod<DownloadCollection[]>()(
 	z.array(
-		z.object({ name: z.string(), title: z.string(), items: downloadItems })
+		z.object({
+			name: z.string(),
+			title: z.string(),
+			dimensions: collectionDimensions,
+			items: downloadItems
+		})
 	)
 );
 
@@ -98,9 +114,7 @@ const mapSeason = z.toZod<MapSeason>()(
 		season: z.number().int(),
 		imageUrl: z.string().optional(),
 		dimensions: z.array(
-			z.object({
-				name: z.string(),
-				imageUrl: z.string(),
+			dimension.extend({
 				worldId: z.string(),
 				perspective: z.string()
 			})
@@ -229,6 +243,7 @@ export const editorCollection = z.toZod<EditorCollection>()(
 	z.object({
 		slug: z.string(),
 		title: z.string(),
+		dimensions: collectionDimensions,
 		itemCount: z.number().int().min(0),
 		...editorAuditFields
 	})

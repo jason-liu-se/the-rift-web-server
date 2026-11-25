@@ -15,8 +15,8 @@ import {
 	MAX_DOWNLOAD_DESCRIPTION_LENGTH,
 	MAX_DOWNLOAD_TITLE_LENGTH,
 	MAX_GALLERY_CAPTION_LENGTH,
-	MAX_MAP_DIMENSIONS,
-	MAX_MAP_DIMENSION_NAME_LENGTH,
+	MAX_DIMENSIONS,
+	MAX_DIMENSION_NAME_LENGTH,
 	MAX_MAP_WORLD_FIELD_LENGTH,
 	MAX_NEWS_CONTENT_LENGTH,
 	MAX_NEWS_TITLE_LENGTH,
@@ -35,6 +35,7 @@ import type {
 	MapSeasonFields,
 	NewsPostFields
 } from "../contract/api-requests.ts";
+import type { Dimension } from "../contract/api-responses.ts";
 import { isAllowedImageUrl } from "../api/images.ts";
 import { inlineMarkdownProblem, markdownProblem } from "./markdown.ts";
 import { collectionSlug, normaliseTags, queryFor } from "./query-schemas.ts";
@@ -67,9 +68,18 @@ export const tagList = z
 	.transform(normaliseTags)
 	.pipe(z.array(z.string()).max(MAX_TAGS_PER_IMAGE, tooManyTags));
 
-const mapDimension = z.object({
-	name: requiredText(MAX_MAP_DIMENSION_NAME_LENGTH),
-	imageUrl: url,
+const dimension = z.object({
+	name: requiredText(MAX_DIMENSION_NAME_LENGTH),
+	imageUrl: url
+});
+
+function dimensionList<Item extends typeof dimension>(item: Item) {
+	return z
+		.array(item)
+		.max(MAX_DIMENSIONS, `at most ${MAX_DIMENSIONS} dimensions`);
+}
+
+const mapDimension = dimension.extend({
 	worldId: requiredText(MAX_MAP_WORLD_FIELD_LENGTH),
 	perspective: text(MAX_MAP_WORLD_FIELD_LENGTH)
 });
@@ -99,9 +109,7 @@ const downloadShape = z.object({
 const mapSeasonShape = z.object({
 	season: z.number().int().min(0),
 	imageUrl: url.nullable().optional(),
-	dimensions: z
-		.array(mapDimension)
-		.max(MAX_MAP_DIMENSIONS, `at most ${MAX_MAP_DIMENSIONS} dimensions`)
+	dimensions: dimensionList(mapDimension)
 }) satisfies z.ZodType<MapSeasonFields>;
 
 // Reports a problem with one field (by path), unless the field is absent. An
@@ -141,16 +149,23 @@ const checkNews: ContentCheck<NewsPostFields> = (fields, ctx) => {
 	checkImageUrl(fields, ctx);
 };
 
-const checkMapSeason: ContentCheck<MapSeasonFields> = (fields, ctx) => {
-	checkImageUrl(fields, ctx);
-	fields.dimensions?.forEach((dimension, index) => {
+const checkDimensionImageUrls: ContentCheck<{ dimensions: Dimension[] }> = (
+	{ dimensions },
+	ctx
+) => {
+	dimensions?.forEach(({ imageUrl }, index) => {
 		check(
 			ctx,
 			["dimensions", index, "imageUrl"],
-			dimension.imageUrl,
+			imageUrl,
 			imageUrlProblem
 		);
 	});
+};
+
+const checkMapSeason: ContentCheck<MapSeasonFields> = (fields, ctx) => {
+	checkImageUrl(fields, ctx);
+	checkDimensionImageUrls(fields, ctx);
 };
 
 const draftOptions = z.object({
@@ -223,19 +238,25 @@ export const newsDate = z.union([
 const collectionTitle = requiredText(MAX_COLLECTION_TITLE_LENGTH);
 
 export const collectionCreateRequest = z.toZod<CollectionCreateRequest>()(
-	z.object({
-		slug: collectionSlug,
-		title: collectionTitle,
-		visible: z.boolean().optional()
-	})
+	z
+		.object({
+			slug: collectionSlug,
+			title: collectionTitle,
+			dimensions: dimensionList(dimension).optional(),
+			visible: z.boolean().optional()
+		})
+		.superRefine(checkDimensionImageUrls)
 );
 
 export const collectionUpdateRequest = z.toZod<CollectionUpdateRequest>()(
-	z.object({
-		startingRevision,
-		title: collectionTitle.optional(),
-		visible: z.boolean().optional()
-	})
+	z
+		.object({
+			startingRevision,
+			title: collectionTitle.optional(),
+			dimensions: dimensionList(dimension).optional(),
+			visible: z.boolean().optional()
+		})
+		.superRefine(checkDimensionImageUrls)
 );
 
 // What a create sends besides the item's fields.

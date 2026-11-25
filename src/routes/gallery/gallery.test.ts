@@ -31,6 +31,8 @@ const NEWEST_FIRST = IMAGES.map(({ _id, ...fields }) => ({
 	...fields
 })).toReversed();
 
+const NETHER = { name: "nether", imageUrl: "nether.png" };
+
 function seedCollections(...collections: object[]) {
 	return collection("gallery", "collections").insertMany(
 		collections.map((fields) => ({ ...fields }))
@@ -51,9 +53,14 @@ function seedGallery() {
 }
 
 describe("GET /gallery", () => {
-	it("returns every visible collection's slug and title, sorted", async () => {
+	it("returns every visible collection's slug, title, and dimensions, sorted", async () => {
 		await seedCollections(
-			{ slug: "season5", title: "Season 5", visible: true },
+			{
+				slug: "season5",
+				title: "Season 5",
+				visible: true,
+				dimensions: [NETHER, NETHER]
+			},
 			{ slug: "builds", title: "Builds" },
 			{ slug: "art", title: "Art" },
 			{ slug: "secret", title: "Secret", visible: false }
@@ -61,10 +68,11 @@ describe("GET /gallery", () => {
 
 		const res = await request(app).get("/gallery").expect(200);
 
+		// Collections stored without dimensions are sent without them.
 		expect(res.body).toEqual([
 			{ slug: "art", title: "Art" },
 			{ slug: "builds", title: "Builds" },
-			{ slug: "season5", title: "Season 5" }
+			{ slug: "season5", title: "Season 5", dimensions: [NETHER, NETHER] }
 		]);
 	});
 

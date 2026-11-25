@@ -98,7 +98,9 @@ async function collectionSummary(
 // A Duplicate when the slug is taken.
 export async function createCollection(
 	typeName: CollectionTypeName,
-	fields: { slug: string; title: string; visible?: boolean },
+	fields: Pick<ContentCollection, "slug" | "title" | "dimensions"> & {
+		visible?: boolean;
+	},
 	editor: EditorRef
 ): Promise<CollectionWriteResult> {
 	return unlessDuplicate(async () => {
@@ -133,7 +135,9 @@ export async function updateCollection(
 	typeName: CollectionTypeName,
 	slug: string,
 	revision: number,
-	changes: { title?: string; visible?: boolean },
+	changes: Partial<
+		Pick<ContentCollection, "title" | "dimensions" | "visible">
+	>,
 	editor: EditorRef
 ): Promise<CollectionWriteResult> {
 	const updated = await collectionModelOf(typeName)

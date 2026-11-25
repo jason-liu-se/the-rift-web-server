@@ -11,6 +11,7 @@ import {
 import request from "supertest";
 import { randomUUID } from "node:crypto";
 import mongoose, { Types } from "mongoose";
+import { MAX_DIMENSIONS } from "../../config/content-limits.ts";
 import * as mongoManager from "../../managers/mongo-manager.ts";
 import { app, testConfig } from "../../../test/app.ts";
 import {
@@ -796,12 +797,107 @@ describe("collections", () => {
 		expect(res.body).toMatchObject({
 			slug: "worlds",
 			title: "Worlds",
+			dimensions: [],
 			visible: true,
 			revision: 1,
 			itemCount: 0,
 			createdBy: EDITOR
 		});
 	});
+
+	it("creates a collection with its dimensions, in order and repeatable", async () => {
+		const dimensions = [
+			{ name: "Nether", imageUrl: IMAGE },
+			{ name: "Overworld", imageUrl: IMAGE },
+			{ name: "Nether", imageUrl: IMAGE }
+		];
+
+		const res = await editor
+			.post("/editor/downloads/collections", {
+				slug: "worlds",
+				title: "Worlds",
+				dimensions
+			})
+			.expect(201);
+
+		expect(res.body.dimensions).toEqual(dimensions);
+		expect(await collections().findOne({ slug: "worlds" })).toMatchObject({
+			dimensions
+		});
+	});
+
+	it("replaces a collection's dimensions, keeping them when absent", async () => {
+		await collections().insertOne({
+			slug: "worlds",
+			title: "W",
+			dimensions: [{ name: "Nether", imageUrl: IMAGE }]
+		});
+
+		await editor
+			.patch("/editor/downloads/collections/worlds", {
+				startingRevision: 0,
+				title: "Worlds"
+			})
+			.expect(200);
+		const res = await editor
+			.patch("/editor/downloads/collections/worlds", {
+				startingRevision: 1,
+				dimensions: [{ name: "End", imageUrl: IMAGE }]
+			})
+			.expect(200);
+
+		expect(res.body).toMatchObject({
+			title: "Worlds",
+			dimensions: [{ name: "End", imageUrl: IMAGE }],
+			revision: 2
+		});
+	});
+
+	it.each([
+		[
+			"an image outside the allowlist",
+			[{ name: "Nether", imageUrl: "https://example.com/n.png" }],
+			"dimensions.0.imageUrl: must start with an allowed image host"
+		],
+		[
+			"a blank name",
+			[{ name: " ", imageUrl: IMAGE }],
+			"dimensions.0.name: is required"
+		],
+		[
+			"too many dimensions",
+			Array.from({ length: MAX_DIMENSIONS + 1 }, () => ({
+				name: "Nether",
+				imageUrl: IMAGE
+			})),
+			`dimensions: at most ${MAX_DIMENSIONS} dimensions`
+		]
+	])(
+		"refuses a collection's dimensions with %s",
+		async (_, dimensions, error) => {
+			await collections().insertOne({ slug: "worlds", title: "W" });
+
+			const [created, updated] = await Promise.all([
+				editor
+					.post("/editor/downloads/collections", {
+						slug: "new",
+						title: "New",
+						dimensions
+					})
+					.expect(400),
+				editor
+					.patch("/editor/downloads/collections/worlds", {
+						startingRevision: 0,
+						dimensions
+					})
+					.expect(400)
+			]);
+
+			expect(created.body.error).toContain(error);
+			expect(updated.body.error).toContain(error);
+			expect(await collections().countDocuments()).toBe(1);
+		}
+	);
 
 	it("answers 409 for a taken slug", async () => {
 		await collections().insertOne({ slug: "worlds", title: "W" });

@@ -29,6 +29,8 @@ const PACK = {
 	imageUrl: "pack.png"
 };
 
+const NETHER = { name: "nether", imageUrl: "nether.png" };
+
 // Seeds the collections and their items, as { slug: items }.
 function seedDownloads(
 	groups: Record<string, object[]>,
@@ -70,7 +72,8 @@ function item(title: string, fields: object = {}) {
 describe("GET /downloads", () => {
 	it("returns every visible collection with its items, sorted by slug", async () => {
 		await Promise.all([
-			seedDownloads({ packs: [PACK], maps: [MAP], empty: [] }),
+			seedDownloads({ packs: [PACK], empty: [] }),
+			seedDownloads({ maps: [MAP] }, { dimensions: [NETHER] }),
 			seedDownloads({ hidden: [item("h")] }, { visible: false }),
 			seedDownloads({ other: [] }).then(() =>
 				collection("downloads", "items").insertOne(
@@ -81,12 +84,22 @@ describe("GET /downloads", () => {
 
 		const res = await request(app).get("/downloads").expect(200);
 
-		// toEqual: only the contract's fields, with _id as id and no __v
+		// toEqual: only the contract's fields, with _id as id and no __v;
+		// collections stored without dimensions are sent without them
 		expect(res.body).toEqual([
 			{ name: "empty", title: "Title empty", items: [] },
-			{ name: "maps", title: "Title maps", items: [withId(MAP)] },
+			{
+				name: "maps",
+				title: "Title maps",
+				dimensions: [NETHER],
+				items: [withId(MAP)]
+			},
 			{ name: "other", title: "Title other", items: [] },
-			{ name: "packs", title: "Title packs", items: [withId(PACK)] }
+			{
+				name: "packs",
+				title: "Title packs",
+				items: [withId(PACK)]
+			}
 		]);
 	});
 
