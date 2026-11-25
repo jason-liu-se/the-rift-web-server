@@ -12,6 +12,7 @@ import {
 	tagsMatching
 } from "../helpers/editor-queries.ts";
 import type { ContentTypeName } from "../types/editor-content.ts";
+import { draftSummaries } from "../api/response-schemas.ts";
 
 const UNPUBLISHED = { publishedAs: { $exists: false } };
 
@@ -22,15 +23,13 @@ function withId({ _id, ...draft }: Draft): StoredDraft {
 	return { ...draft, id: _id };
 }
 
-// The fields that name a draft in a list, its main image, and its collection
-// (see the contract's DraftSummary).
+// The fields the contract's DraftSummary sends of any type's draft.
 const SUMMARY_FIELDS = [
-	"collection",
-	"title",
-	"caption",
-	"imageUrl",
-	"tags",
-	"season"
+	...new Set(
+		draftSummaries.element.options.flatMap(({ shape }) =>
+			Object.keys(shape.fields.shape)
+		)
+	)
 ];
 
 /** A draft in a list; a map season's also counts its dimensions. */
