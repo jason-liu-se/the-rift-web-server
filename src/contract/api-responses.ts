@@ -48,9 +48,11 @@ import type {
 	CollectionDraftType,
 	CollectionFields,
 	DraftContent,
+	DraftOptions,
 	DraftTarget,
 	GalleryImageFields,
 	MapSeasonFields,
+	NewsDraftOptions,
 	NewsPostFields
 } from "./api-requests.ts";
 
@@ -354,35 +356,47 @@ export type Draft = DraftContent & {
 	updatedAt: string;
 };
 
-/** A draft in the list: what names it so far, without the rest of its fields. */
+/**
+ * A draft in the list: what names it so far, without the rest of its fields,
+ * plus its own `visible` (and a news draft's `date`), if it set them.
+ */
 export type DraftSummary = (
 	| {
 			type: "news";
-			fields: Pick<Partial<NewsPostFields>, "title" | "imageUrl">;
+			fields: Pick<
+				Partial<NewsPostFields> & NewsDraftOptions,
+				"title" | "imageUrl" | "date" | "visible"
+			>;
 	  }
 	| {
 			type: "gallery";
 			fields: Pick<
-				Partial<GalleryImageFields>,
-				"collection" | "caption" | "imageUrl" | "tags"
+				Partial<GalleryImageFields> & DraftOptions,
+				"collection" | "caption" | "imageUrl" | "tags" | "visible"
 			>;
 	  }
 	| {
 			type: "downloads";
 			fields: Pick<
-				Partial<DownloadItemFields>,
-				"collection" | "title" | "imageUrl"
+				Partial<DownloadItemFields> & DraftOptions,
+				"collection" | "title" | "imageUrl" | "visible"
 			>;
 	  }
 	| {
 			type: "maps";
-			fields: Pick<Partial<MapSeasonFields>, "season" | "imageUrl">;
+			fields: Pick<
+				Partial<MapSeasonFields> & DraftOptions,
+				"season" | "imageUrl" | "visible"
+			>;
 			/** How many dimensions it has so far, not the dimensions. */
 			dimensionCount: number;
 	  }
 	| {
 			type: CollectionDraftType;
-			fields: Pick<Partial<CollectionFields>, "slug" | "title">;
+			fields: Pick<
+				Partial<CollectionFields> & DraftOptions,
+				"slug" | "title" | "visible"
+			>;
 			/** How many dimensions it has so far, not the dimensions. */
 			dimensionCount: number;
 	  }

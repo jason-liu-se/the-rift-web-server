@@ -306,7 +306,9 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 				type: z.literal("news"),
 				fields: newsPostFields.draft.pick({
 					title: true,
-					imageUrl: true
+					imageUrl: true,
+					date: true,
+					visible: true
 				}),
 				...draftFields
 			}),
@@ -316,7 +318,8 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 					collection: true,
 					caption: true,
 					imageUrl: true,
-					tags: true
+					tags: true,
+					visible: true
 				}),
 				...draftFields
 			}),
@@ -325,7 +328,8 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 				fields: downloadItemFields.draft.pick({
 					collection: true,
 					title: true,
-					imageUrl: true
+					imageUrl: true,
+					visible: true
 				}),
 				...draftFields
 			}),
@@ -333,14 +337,19 @@ export const draftSummaries = z.toZod<DraftSummary[]>()(
 				type: z.literal("maps"),
 				fields: mapSeasonFields.draft.pick({
 					season: true,
-					imageUrl: true
+					imageUrl: true,
+					visible: true
 				}),
 				dimensionCount: z.number().int().min(0),
 				...draftFields
 			}),
 			z.object({
 				type: collectionDraftType,
-				fields: collectionDraftFields.pick({ slug: true, title: true }),
+				fields: collectionDraftFields.pick({
+					slug: true,
+					title: true,
+					visible: true
+				}),
 				dimensionCount: z.number().int().min(0),
 				...draftFields
 			})

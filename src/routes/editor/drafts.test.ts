@@ -306,9 +306,15 @@ describe("GET /editor/drafts", () => {
 		expect(res.headers["cache-control"]).toBe("no-store");
 	});
 
-	it("lists only what names each draft and its image, not the rest of its fields", async () => {
+	it("lists only what names each draft, its image, visibility, and a news draft's date, not the rest of its fields", async () => {
+		const date = "2030-01-01T00:00:00.000Z";
 		const { id } = await createDraft(
-			newsDraft({ content: "Long body", imageUrl: IMAGE })
+			newsDraft({
+				content: "Long body",
+				imageUrl: IMAGE,
+				date,
+				visible: false
+			})
 		);
 
 		const res = await editor.get("/editor/drafts").expect(200);
@@ -317,7 +323,12 @@ describe("GET /editor/drafts", () => {
 			{
 				id,
 				type: "news",
-				fields: { title: "Draft", imageUrl: IMAGE },
+				fields: {
+					title: "Draft",
+					imageUrl: IMAGE,
+					date,
+					visible: false
+				},
 				revision: 1,
 				createdAt: expect.any(String),
 				updatedAt: expect.any(String)
