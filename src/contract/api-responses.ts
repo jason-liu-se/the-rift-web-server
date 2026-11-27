@@ -2,7 +2,7 @@
 // with src/contract/api-requests.ts (what each endpoint takes).
 //
 // Edit the contract here, never in the website: the website keeps a verbatim
-// copy of both files in ../website/src/app/interfaces/ (refresh them with
+// copy of both files in ../website/src/app/core/api/ (refresh them with
 // `npm run api:sync` there). Import only from api-requests.ts, so the copies
 // compile on their own.
 //

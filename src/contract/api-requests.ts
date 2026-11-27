@@ -1,7 +1,7 @@
 // What the website sends this API: each endpoint's query parameters and
 // request body. The other half of the contract with The Rift website, beside
 // src/contract/api-responses.ts (the responses); the website keeps a verbatim
-// copy of both in ../website/src/app/interfaces/ (refresh them with
+// copy of both in ../website/src/app/core/api/ (refresh them with
 // `npm run api:sync` there). Import only from api-responses.ts, so the copies
 // compile on their own.
 //
