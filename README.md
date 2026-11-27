@@ -9,7 +9,7 @@ Express + Mongoose in TypeScript.
 
 - Node.js at the version in [`.nvmrc`](./.nvmrc) (keep the
   [`Dockerfile`](./Dockerfile)'s base image on the same major), npm 11+
-- MongoDB
+- MongoDB 8.0+ (bulk editor writes)
 - Redis 7+ (login sessions); enable persistence (AOF) in production, or a Redis
   restart logs everyone out
 
@@ -41,6 +41,7 @@ meant to be edited directly.
 | `DISCORD_CLIENT_SECRET`          | Yes      | Discord application's client secret                                                             |
 | `DISCORD_REDIRECT_URI`           | Yes      | `<this API>/auth/discord/callback`, registered with Discord                                     |
 | `DISCORD_GUILD_ID`               | Yes      | The Rift's Discord server, for role grants                                                      |
+| `IMGBB_API_KEY`                  | Yes      | imgbb API key, for [image uploads](#image-uploads); a secret                                    |
 | `TRUST_PROXY_HOPS`               | No       | Proxies in front of the server (default `0`), for rate limiting                                 |
 | `BEHIND_CLOUDFLARE_TUNNEL`       | No       | `true` only behind a Cloudflare Tunnel; see [Behind Cloudflare](#behind-cloudflare)             |
 | `READ_RATE_LIMIT_WITHOUT_TUNNEL` | No       | Reads per minute without the tunnel, e.g. in development (default: `src/config/rate-limits.ts`) |
@@ -67,28 +68,41 @@ its `check` job a required status check on `main`.
 
 ## Endpoints
 
-| Endpoint                         | Query                 | Returns                                  | Access |
-| -------------------------------- | --------------------- | ---------------------------------------- | ------ |
-| `GET /content/version`           |                       | `{ version }`, never cached              | Public |
-| `GET /news`                      | `startIndex`, `limit` | `{ items, total }`, newest first         | Public |
-| `GET /news/count`                |                       | `{ total }`                              | Public |
-| `GET /gallery`                   |                       | Every gallery collection's name, sorted  | Public |
-| `GET /gallery/:collection`       | `startIndex`, `limit` | `{ items, total }`                       | Public |
-| `GET /gallery/:collection/count` |                       | `{ total }`                              | Public |
-| `GET /downloads`                 |                       | `[{ name, items }]` for every group      | Public |
-| `GET /downloads/:collection`     |                       | The group's items                        | Public |
-| `GET /maps/seasons`              |                       | Every season's map, oldest first         | Public |
-| `GET /health`                    |                       | `200`                                    | Public |
-| `GET /auth/discord`              |                       | Starts a Discord login                   | Public |
-| `GET /auth/discord/callback`     | From Discord          | Redirects to the website                 | Public |
-| `GET /auth/me`                   |                       | The logged-in user, or `401`             | Public |
-| `POST /auth/refresh`             |                       | `204` with new session cookies, or `401` | Public |
-| `POST /auth/logout`              |                       | `204`                                    | Public |
+### Public
+
+| Endpoint                         | Query                         | Returns                                  |
+| -------------------------------- | ----------------------------- | ---------------------------------------- |
+| `GET /content/version`           |                               | `{ version }`, never cached              |
+| `GET /content/version/:area`     |                               | `{ version }` for `news`, never cached   |
+| `GET /news`                      | `startIndex`, `limit`         | `{ items, total }`, newest first         |
+| `GET /news/count`                |                               | `{ total }`                              |
+| `GET /gallery`                   |                               | `[{ slug, title, dimensions }]`, by slug |
+| `GET /gallery/:collection`       | `startIndex`, `limit`, `tags` | `{ items, total }`, newest first         |
+| `GET /gallery/:collection/count` | `tags`                        | `{ total }`                              |
+| `GET /gallery/:collection/tags`  |                               | The images' tags, sorted                 |
+| `GET /downloads`                 |                               | `[{ name, title, dimensions, items }]`   |
+| `GET /downloads/:collection`     |                               | The group's items, by `sortOrder`        |
+| `GET /maps/seasons`              |                               | Every season's map, oldest first         |
+| `GET /health`                    |                               | `200`                                    |
+| `GET /auth/discord`              |                               | Starts a Discord login                   |
+| `GET /auth/discord/callback`     | From Discord                  | Redirects to the website                 |
+| `GET /auth/me`                   |                               | The logged-in user, or `401`             |
+| `POST /auth/refresh`             |                               | `204` with new session cookies, or `401` |
+| `POST /auth/logout`              |                               | `204`                                    |
+
+Content reads return only public content: visible, in a visible collection
+(hidden ones are `404`), and for news, dated now or earlier (a later date is
+scheduled). `tags=a,b` keeps images with every tag, written lowercase, unique,
+and sorted (`400` otherwise, so one filter has one cache entry).
 
 Content reads (`/news` to `/maps/seasons`) also take `v`, the current `version`:
 only responses for it are cached (a day at Cloudflare's edge), and an edit
-changes it, so it shows on the next page load. Without `v`, they're never cached
+changes it, so it shows on the next page load. `/news` and `/news/count` also
+need `dv`, the news detail version, so scheduled posts show on their date.
+Without `v`, they're never cached
 ([Content versions](./.claude/docs/api.md#content-versions)).
+
+### Editor
 
 Every other request, including any unknown path, needs a logged-in editor and
 answers `401` otherwise: public routes are an allow list in
@@ -96,10 +110,27 @@ answers `401` otherwise: public routes are an allow list in
 GET, HEAD, or OPTIONS must send `Origin: <FRONTEND_URL>` (CSRF protection), or
 gets `403`. Request bodies must be JSON (`415` otherwise).
 
-Errors are `{ "error": string }`. Response types:
-[`src/contract/api-responses.ts`](./src/contract/api-responses.ts), which the
-website copies (see its README's "API contract"). How routes, errors, and
-sessions work: [api.md](./.claude/docs/api.md).
+| Endpoint                                                                                        | Query                                                                                                                         | Returns                                                                        |
+| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `GET /editor/news`, `/editor/gallery/images`, `/editor/downloads/items`, `/editor/maps/seasons` | `startIndex`, `limit`, `createdBy`, `lastUpdatedBy`, `status`, `collection`, `q`, `in`, `sort`, `order`; the gallery's `tags` | `{ items, total }`: every item's summary, status, and history                  |
+| `GET /editor/<…>/:id`                                                                           |                                                                                                                               | One whole item, public or not                                                  |
+| `GET /editor/gallery/tags`                                                                      | `q`                                                                                                                           | The tags on every image and the caller's gallery drafts containing `q`, sorted |
+| `GET /editor/gallery/collections`, `/editor/downloads/collections`                              |                                                                                                                               | Every collection, with its item count                                          |
+| `POST /editor/<items>`                                                                          | Body: the fields and a `createId`                                                                                             | `201` with the item (`200` for a repeat)                                       |
+| `PATCH /editor/<items>/:id`, `DELETE /editor/<items>/:id`                                       | Body or query: `startingRevision`                                                                                             | The item, or `204`; `409` with it when stale                                   |
+| `POST`, `PATCH`, `DELETE /editor/<items>/bulk`                                                  | Body: `items` (and `action` for `PATCH`); `POST` for the gallery only                                                         | `{ results }`, one per item                                                    |
+| `POST`, `PATCH /:slug`, `DELETE /:slug` on `/editor/<…>/collections`                            | Body: the fields and a `createId`; or `startingRevision` (body or query)                                                      | The collection (`200` for a repeated create), or `204`                         |
+| `GET /editor/drafts`, `GET /editor/drafts/:id`                                                  | `type`                                                                                                                        | The caller's drafts of items and collections (summaries), or one whole draft   |
+| `PUT /editor/drafts/:id`, `DELETE /editor/drafts/:id`                                           | Body: `type`, `fields`, `startingRevision`                                                                                    | The draft (`201` created), or `204`                                            |
+| `POST /editor/drafts/:id/publish`                                                               | Body: `visible`, `date` (else the draft's), `asNew`                                                                           | The published item or collection                                               |
+| `POST /editor/images`                                                                           | Multipart: `album`, `collection`, `files`                                                                                     | `{ results }`: each file's imgbb URL or error                                  |
+
+Errors are `{ "error": string }`. Request types (each endpoint's query and
+body): [`src/contract/api-requests.ts`](./src/contract/api-requests.ts);
+response types:
+[`src/contract/api-responses.ts`](./src/contract/api-responses.ts). The website
+copies both (see its README's "API contract"). How routes, errors, and sessions
+work: [api.md](./.claude/docs/api.md).
 
 ## Sessions and access
 
@@ -163,14 +194,27 @@ use it up for everyone.
    string in the cache key (the default), or every content version shares one
    entry.
 
+## Image uploads
+
+`POST /editor/images` sends each file through this server to imgbb (the key must
+stay secret), within the limits in
+[`src/config/uploads.ts`](./src/config/uploads.ts). Get the key from
+[api.imgbb.com](https://api.imgbb.com/) while logged in to the site's imgbb
+account. imgbb's API can't choose an album or delete an image, so each upload is
+named for sorting into albums by hand: `g-<gallery slug>-…` (gallery), `n-…`
+(news), `d-…` (downloads), `m-…` (maps). Replaced images stay on imgbb; delete
+them there. Every saved image URL must start with a prefix in
+[`src/config/images.ts`](./src/config/images.ts).
+
 ## Data
 
-**MongoDB:** databases `news` (collection `posts`), `gallery` (one collection
-per gallery), `downloads` (one per group), `maps` (`seasons`), and `auth`
-(`accessGrants`), and `content` (`meta`: the content version). Add content
-directly, then set the `contentVersion` document's `version` to any new whole
-number (e.g. the current time in ms) so the edit shows at once. See
-[database.md](./.claude/rules/database.md).
+**MongoDB:** databases `news` (collection `posts`), `gallery` (`images`, plus
+`collections`: each gallery's `slug` and `title`), `downloads` (`items`, plus
+`collections`), `maps` (`seasons`), `auth` (`accessGrants`), `content` (`meta`:
+the content version), and `editor` (`drafts`: editors' unpublished work, private
+to each). Add content directly, then set the `contentVersion` document's
+`version` to any new whole number (e.g. the current time in ms) so the edit
+shows at once. See [database.md](./.claude/rules/database.md).
 
 **Redis:** one hash per login session, key `session:<session ID>`, expiring with
 the session; fields in
@@ -184,10 +228,11 @@ src/
 ├── config/       Environment variables and tunable settings
 ├── contract/     Response types shared with the website
 ├── errors/       Errors mapped to status codes
-├── helpers/      MongoDB, Redis, and Discord access
+├── helpers/      Editor logic
+├── managers/     MongoDB, Redis, Discord, and imgbb access
 ├── middleware/   CORS, sessions, error handler
 ├── models/       Mongoose schemas
-├── routes/       Routers and request/response schemas
+├── routes/       Routers, one folder per URL group
 ├── app.ts        Builds the Express app
 └── index.ts      Entry point
 test/             Test helpers
@@ -198,7 +243,7 @@ test/             Test helpers
 | Problem                      | Check                                                 |
 | ---------------------------- | ----------------------------------------------------- |
 | Exits on startup             | The listed `.env` variables; MongoDB and Redis are up |
-| `404` for a gallery/download | The collection exists in the right database           |
+| `404` for a gallery/download | Its slug is in the database's `collections`           |
 | `500` errors                 | The server console                                    |
 | `403` on a POST              | `Origin` is exactly `FRONTEND_URL`                    |
 | Login fails                  | The `error` code on `/admin/login` and the console    |

@@ -36,6 +36,9 @@ const envSchema = z.object({
 	DISCORD_REDIRECT_URI: z.url({ protocol: /^https?$/ }),
 	// The Rift's Discord server, whose roles access grants can name.
 	DISCORD_GUILD_ID: discordId,
+	// The imgbb account's API key, for image uploads (README "Image uploads").
+	// A secret: never logged or sent to the client.
+	IMGBB_API_KEY: z.string().min(1),
 	// How many proxies (e.g. the host's load balancer) sit in front of the
 	// server, so req.ip, and so rate limiting, sees the client's address.
 	TRUST_PROXY_HOPS: z.preprocess(

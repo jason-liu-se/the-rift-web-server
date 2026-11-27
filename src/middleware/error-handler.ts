@@ -1,5 +1,8 @@
 import type { ErrorRequestHandler } from "express";
+import multer from "multer";
 import * as z from "zod";
+import { BadRequestError } from "../errors/bad-request-error.ts";
+import { ConflictError } from "../errors/conflict-error.ts";
 import { ForbiddenError } from "../errors/forbidden-error.ts";
 import { NotFoundError } from "../errors/not-found-error.ts";
 import { UnauthorizedError } from "../errors/unauthorized-error.ts";
@@ -29,7 +32,8 @@ const BODY_ERROR_MESSAGES: Readonly<Record<number, string>> = {
 
 // Express 5 sends errors thrown by any route (including rejected promises)
 // here. Zod errors come from routes parsing their path and query parameters,
-// so they're the caller's mistake (400), as are bad bodies (400, 413, 415).
+// and bodies, so they're the caller's mistake (400), as are bad bodies (400,
+// 413, 415) and BadRequestError (400).
 // UnauthorizedError means nobody is logged in (401), ForbiddenError means it's
 // refused whoever asks (403), and NotFoundError means the resource doesn't
 // exist (404). Anything else is logged but not exposed (500).
@@ -60,6 +64,23 @@ export const handleError: ErrorRequestHandler = (error, req, res, next) => {
 		return;
 	}
 
+	// An upload's multipart body broke a limit (src/config/uploads.ts). Its
+	// message can name the client's file, so callers get ours.
+	if (error instanceof multer.MulterError) {
+		const tooLarge = error.code === "LIMIT_FILE_SIZE";
+		res.status(tooLarge ? 413 : 400).json({
+			error: tooLarge
+				? "ERROR: an image is too large"
+				: "ERROR: invalid upload (too many files, or an unexpected field)"
+		});
+		return;
+	}
+
+	if (error instanceof BadRequestError) {
+		res.status(400).json({ error: `ERROR: ${error.message}` });
+		return;
+	}
+
 	if (error instanceof UnauthorizedError) {
 		res.status(401).json({ error: `ERROR: ${error.message}` });
 		return;
@@ -72,6 +93,14 @@ export const handleError: ErrorRequestHandler = (error, req, res, next) => {
 
 	if (error instanceof UnsupportedMediaTypeError) {
 		res.status(415).json({ error: `ERROR: ${error.message}` });
+		return;
+	}
+
+	if (error instanceof ConflictError) {
+		res.status(409).json({
+			error: `ERROR: ${error.message}`,
+			...(error.current !== undefined && { current: error.current })
+		});
 		return;
 	}
 

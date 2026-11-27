@@ -30,7 +30,14 @@
 			"Bash(gh pr create:*)",
 			"Bash(gh pr diff:*)",
 			"Bash(gh api -X PATCH repos/jason-liu-se/the-rift-web-server/issues/comments/:*)",
-			"Bash(npm ci:*)"
+			"Bash(npm ci:*)",
+			"Bash(gh stack push:*)",
+			"Bash(gh stack sync:*)",
+			"Bash(gh stack submit:*)",
+			"Bash(gh stack merge:*)",
+			"Bash(gh stack link:*)",
+			"Bash(gh stack unstack:*)",
+			"Bash(gh stack delete:*)"
 		],
 		"deny": [
 			"Bash(git push --force:*)",

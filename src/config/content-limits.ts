@@ -1,0 +1,37 @@
+// Tunable limits on content that editors write, in characters unless noted.
+// The website mirrors the ones it shows (e.g. a character count), so tell it
+// when they change.
+
+export const MAX_NEWS_TITLE_LENGTH = 200;
+export const MAX_NEWS_CONTENT_LENGTH = 20_000;
+export const MAX_GALLERY_CAPTION_LENGTH = 300;
+export const MAX_DOWNLOAD_TITLE_LENGTH = 100;
+export const MAX_DOWNLOAD_DESCRIPTION_LENGTH = 1000;
+
+/** A gallery or download collection's slug and title. */
+export const MAX_COLLECTION_SLUG_LENGTH = 40;
+export const MAX_COLLECTION_TITLE_LENGTH = 60;
+
+/** Tags per gallery image, and each tag's length. */
+export const MAX_TAGS_PER_IMAGE = 5;
+export const MAX_TAG_LENGTH = 16;
+
+/** Any URL: images, downloads, links. */
+export const MAX_URL_LENGTH = 2000;
+
+/** A collection's or map season's dimensions, and each one's name. */
+export const MAX_DIMENSIONS = 10;
+export const MAX_DIMENSION_NAME_LENGTH = 60;
+
+/** A map dimension's BlueMap fields (`worldId`, `perspective`). */
+export const MAX_MAP_WORLD_FIELD_LENGTH = 200;
+
+/** An editor list's search query (`q`). */
+export const MAX_SEARCH_QUERY_LENGTH = 100;
+
+/** Drafts one editor may keep, and one draft's fields as JSON, in bytes. */
+export const MAX_DRAFTS_PER_USER = 100;
+export const MAX_DRAFT_BYTES = 64 * 1024;
+
+/** How long a published draft's ID still answers a repeated publish, in ms. */
+export const PUBLISHED_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;

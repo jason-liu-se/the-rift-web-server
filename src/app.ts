@@ -17,13 +17,18 @@ import {
 import { requireLogin } from "./middleware/require-login.ts";
 import { sessionMiddleware } from "./middleware/session.ts";
 import { PUBLIC_ROUTES } from "./api/public-routes.ts";
-import { authRouter } from "./routes/auth.ts";
-import { contentRouter } from "./routes/content.ts";
-import { newsRouter } from "./routes/news.ts";
-import { downloadsRouter } from "./routes/downloads.ts";
-import { galleryRouter } from "./routes/gallery.ts";
-import { healthRouter } from "./routes/health.ts";
-import { mapsRouter } from "./routes/maps.ts";
+import { authRouter } from "./routes/auth/auth.ts";
+import { contentRouter } from "./routes/content/content.ts";
+import { draftsRouter } from "./routes/editor/drafts.ts";
+import { IMAGE_UPLOAD_PATH, imagesRouter } from "./routes/editor/images.ts";
+import { editorCollectionsRouter } from "./routes/editor/collections.ts";
+import { editorItemsRouter } from "./routes/editor/items.ts";
+import { editorGalleryTagsRouter } from "./routes/editor/tags.ts";
+import { newsRouter } from "./routes/news/news.ts";
+import { downloadsRouter } from "./routes/downloads/downloads.ts";
+import { galleryRouter } from "./routes/gallery/gallery.ts";
+import { healthRouter } from "./routes/health/health.ts";
+import { mapsRouter } from "./routes/maps/maps.ts";
 
 export function createApp(config: AppConfig): Express {
 	const app = express();
@@ -41,7 +46,7 @@ export function createApp(config: AppConfig): Express {
 	app.use(readRateLimit(config));
 	app.use("/auth", authRateLimit(config));
 	app.use(requireLogin(PUBLIC_ROUTES));
-	app.use(jsonBody());
+	app.use(jsonBody([IMAGE_UPLOAD_PATH]));
 	for (const [prefix, router] of Object.entries(apiRouters(config))) {
 		app.use(prefix, router);
 	}
@@ -65,6 +70,16 @@ export function apiRouters(config: AppConfig): Record<string, Router> {
 		"/news": newsRouter,
 		"/downloads": downloadsRouter,
 		"/gallery": galleryRouter,
-		"/maps": mapsRouter
+		"/maps": mapsRouter,
+		// Each editor router has its own prefix, so tests list every route.
+		"/editor/news": editorItemsRouter("news"),
+		"/editor/gallery/collections": editorCollectionsRouter("gallery"),
+		"/editor/gallery/images": editorItemsRouter("gallery"),
+		"/editor/gallery/tags": editorGalleryTagsRouter,
+		"/editor/downloads/collections": editorCollectionsRouter("downloads"),
+		"/editor/downloads/items": editorItemsRouter("downloads"),
+		"/editor/maps/seasons": editorItemsRouter("maps"),
+		"/editor/drafts": draftsRouter,
+		[IMAGE_UPLOAD_PATH]: imagesRouter(config)
 	};
 }

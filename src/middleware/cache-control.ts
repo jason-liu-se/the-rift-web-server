@@ -1,7 +1,11 @@
-import type { RequestHandler, Response } from "express";
+import type { Request, RequestHandler, Response } from "express";
 import { VERSIONED_CACHE } from "../config/caching.ts";
-import * as mongoManager from "../helpers/mongo-manager.ts";
-import { contentVersionQuery } from "../api/query-schemas.ts";
+import { detailVersionAreaOf } from "../helpers/detail-versions.ts";
+import * as mongoManager from "../managers/mongo-manager.ts";
+import {
+	contentVersionQuery,
+	detailVersionQuery
+} from "../api/query-schemas.ts";
 
 // Cloudflare reads CDN-Cache-Control ahead of Cache-Control, so the edge can
 // keep a response longer than browsers.
@@ -30,15 +34,39 @@ export const noCachingByDefault: RequestHandler = (_req, res, next) => {
 // routes under the same prefix would be cached too. The version is read before
 // the route reads its content, so a response is never older than the version
 // it's cached under. handleError calls forbidCaching, so only successes are
-// cached.
+// cached. A route in a detail-version area (src/helpers/detail-versions.ts)
+// also needs that area's current version as `dv`; other routes ignore `dv`.
 export const cacheByContentVersion: RequestHandler = async (req, res, next) => {
-	const { v } = contentVersionQuery.parse(req.query);
-
-	if (v === String(await mongoManager.getContentVersion())) {
+	if (await sendsCurrentVersions(req)) {
 		allowCaching(res);
 	}
 	next();
 };
+
+// Whether the request names the current content version, and its area's
+// current detail version if it has one. A request missing either is never
+// cached, so it reads neither version from the database.
+async function sendsCurrentVersions(req: Request): Promise<boolean> {
+	const { v } = contentVersionQuery.parse(req.query);
+	const area = detailVersionAreaOf(routePattern(req));
+	const { dv } = area ? detailVersionQuery.parse(req.query) : {};
+	if (v === undefined || (area && dv === undefined)) {
+		return false;
+	}
+
+	const [version, detailVersion] = await Promise.all([
+		mongoManager.getContentVersion(),
+		area?.currentKey()
+	]);
+	return v === String(version) && dv === detailVersion;
+}
+
+// The route's full Express pattern, e.g. `/gallery/:collection`, as listed in
+// PUBLIC_ROUTES.
+function routePattern(req: Request): string {
+	const path: string = req.route?.path ?? "";
+	return path === "/" ? req.baseUrl : `${req.baseUrl}${path}`;
+}
 
 function allowCaching(res: Response): void {
 	res.set("Cache-Control", BROWSER_POLICY).set(
@@ -55,3 +83,14 @@ function allowCaching(res: Response): void {
 export function forbidCaching(res: Response): void {
 	res.set("Cache-Control", "no-store").removeHeader(CDN_CACHE_CONTROL);
 }
+
+// For the editor's reads: browsers may keep a copy but must revalidate it
+// every time (by the ETag Express sets, so an unchanged list is a 304), and
+// nothing shared may keep it. Mount it on the editor's content routers only,
+// never on drafts, which stay no-store.
+export const revalidateEveryTime: RequestHandler = (req, res, next) => {
+	if (req.method === "GET" || req.method === "HEAD") {
+		res.set("Cache-Control", "private, no-cache");
+	}
+	next();
+};

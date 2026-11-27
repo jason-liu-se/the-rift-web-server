@@ -70,7 +70,8 @@ findings. You are **strictly read-only**.
 
 **Contract and compatibility**
 
-- `src/contract/api-responses.ts` changed: dependency-free still, schemas in
+- `src/contract/` changed: imports only between its two files, each file's
+  endpoint index updated, query schemas built with `queryFor`, schemas in
   `response-schemas.ts` updated, and the change backward compatible. Check
   `../website/src/app/services/` for callers of any changed path, parameter,
   status code, or field, and flag a breaking change as Critical.
@@ -98,6 +99,8 @@ findings. You are **strictly read-only**.
   `src/config/`.
 - Renamed or removed symbols still referenced elsewhere (grep for them).
 - Dead code, unused imports, `console.log`, commented-out blocks, stray TODOs.
+- Comments that restate the code, or run longer than they need to (`CLAUDE.md`
+  "Few comments").
 - New dependencies in `package.json` without the justification `CLAUDE.md`
   requires.
 - `README.md` (endpoint table, environment variables), `CLAUDE.md`,

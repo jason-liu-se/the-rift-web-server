@@ -19,19 +19,21 @@ status code), stop and raise it with the user before continuing.
 
 ## 2. Contract
 
-Add or change the response type in `src/contract/api-responses.ts`. Keep the
-file dependency-free.
+Add or change the response type in `src/contract/api-responses.ts`, and the
+query and body types in `src/contract/api-requests.ts`, with the endpoint's line
+in each file's index. They import only from each other.
 
 ## 3. Schemas
 
 - Response: add or update a schema in `src/api/response-schemas.ts`, typed with
   `z.toZod<ContractType>()`, until `npm run typecheck` passes.
 - Input: reuse `collectionParams` and `paginationQuery` from
-  `src/api/query-schemas.ts`, or add a schema there.
+  `src/api/query-schemas.ts`, or add a query schema there with
+  `queryFor<ContractType>()`, until `npm run typecheck` passes.
 
 ## 4. Data access
 
-Add, edit, or reuse a function in `src/helpers/mongo-manager.ts`. Keep reads
+Add, edit, or reuse a function in `src/managers/mongo-manager.ts`. Keep reads
 bounded, and let MongoDB filter, sort, and paginate. A new database needs a
 model in `src/models/`, and its database added to `DATABASES` in
 `test/database.ts`.

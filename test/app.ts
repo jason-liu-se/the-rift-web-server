@@ -9,6 +9,7 @@ export const testConfig: AppConfig = {
 	DISCORD_CLIENT_SECRET: "test-client-secret",
 	DISCORD_REDIRECT_URI: "http://localhost:4000/auth/discord/callback",
 	DISCORD_GUILD_ID: "2000000000000000002",
+	IMGBB_API_KEY: "test-imgbb-key",
 	TRUST_PROXY_HOPS: 0,
 	BEHIND_CLOUDFLARE_TUNNEL: false,
 	READ_RATE_LIMIT_WITHOUT_TUNNEL: DEFAULT_READ_RATE_LIMIT_WITHOUT_TUNNEL,

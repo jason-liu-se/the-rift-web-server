@@ -141,9 +141,9 @@ function describe<T>(state: RequestState<T>): string {
 ## Derived Types
 
 Derive types (utility types, `z.infer<typeof schema>`) instead of redeclaring
-them by hand. The exception is `src/contract/api-responses.ts`: the website
-keeps a verbatim copy, so its types stay hand-written and dependency-free, and
-the schemas are checked against them instead.
+them by hand. The exception is `src/contract/`: the website keeps a verbatim
+copy, so its types stay hand-written and import only from each other, and the
+schemas are checked against them instead.
 
 ## Anti-Patterns
 

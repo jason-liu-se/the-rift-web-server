@@ -1,11 +1,11 @@
-// An in-memory stand-in for src/helpers/redis-manager.ts, so tests need no
+// An in-memory stand-in for src/managers/redis-manager.ts, so tests need no
 // Redis. It keeps the same contract: sessions expire once their time has passed
 // (by Date.now(), so fake timers apply), extending never shortens one, and
 // rotation is a compare-and-swap. Use it
 // with
-//   vi.mock(import("<path to>/helpers/redis-manager.ts"), () => import("<path to>/test/redis.ts"))
+//   vi.mock(import("<path to>/managers/redis-manager.ts"), () => import("<path to>/test/redis.ts"))
 // and clearRedis in afterEach.
-import type * as RedisManager from "../src/helpers/redis-manager.ts";
+import type * as RedisManager from "../src/managers/redis-manager.ts";
 
 interface Entry {
 	readonly fields: RedisManager.SessionFields;

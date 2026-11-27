@@ -7,73 +7,133 @@
 // z.toZod makes each schema's output type exactly equal its contract type, so
 // the two can't drift apart without a compile error.
 import * as z from "zod";
+import {
+	collectionDraftFields,
+	collectionDraftType,
+	downloadItemFields,
+	galleryImageFields,
+	mapSeasonFields,
+	newsPostFields
+} from "./write-schemas.ts";
 import type {
 	ContentVersion,
 	CountResponse,
+	DetailVersion,
 	DownloadCollection,
 	DownloadItem,
-	GalleryCollectionNames,
+	Draft,
+	DraftSummary,
+	EditorCollection,
+	EditorDownloadItem,
+	EditorDownloadItemSummary,
+	EditorGalleryImage,
+	EditorGalleryTags,
+	EditorMapSeason,
+	EditorMapSeasonSummary,
+	EditorNewsPost,
+	EditorNewsPostSummary,
+	GalleryCollection,
 	GalleryImage,
+	GalleryTags,
+	ImageUploadResponse,
 	MapSeason,
 	NewsPost,
 	PaginatedResponse,
 	SessionUser
 } from "../contract/api-responses.ts";
+import type { ContentTypeName } from "../types/editor-content.ts";
+
+const isoDate = z.date().transform((date) => date.toISOString());
 
 const newsPost = z.toZod<NewsPost>()(
 	z.object({
 		id: z.string(),
 		title: z.string(),
-		date: z.date().transform((date) => date.toISOString()),
+		date: isoDate,
 		content: z.string(),
-		imageUrl: z.string().optional()
+		imageUrl: z.string().optional(),
+		editedAt: isoDate.optional()
 	})
 );
 
 const galleryImage = z.toZod<GalleryImage>()(
-	z.object({ id: z.string(), imageUrl: z.string(), caption: z.string() })
+	z.object({
+		id: z.string(),
+		imageUrl: z.string(),
+		caption: z.string(),
+		// Images stored before tags have none.
+		tags: z.array(z.string()).default([])
+	})
 );
 
-export const galleryCollectionNames = z.toZod<GalleryCollectionNames>()(
-	z.array(z.string())
-);
+const dimension = z.object({ name: z.string(), imageUrl: z.string() });
 
-export const downloadItems = z.toZod<DownloadItem[]>()(
+// Optional: collections and seasons stored before dimensions have none.
+const collectionDimensions = z.array(dimension).optional();
+
+export const galleryCollections = z.toZod<GalleryCollection[]>()(
 	z.array(
 		z.object({
-			id: z.string(),
+			slug: z.string(),
 			title: z.string(),
-			desc: z.string(),
-			downloadUrl: z.string(),
-			imageUrl: z.string()
+			dimensions: collectionDimensions
 		})
 	)
 );
 
-export const downloadCollections = z.toZod<DownloadCollection[]>()(
-	z.array(z.object({ name: z.string(), items: downloadItems }))
+export const galleryTags = z.toZod<GalleryTags>()(z.array(z.string()));
+
+export const editorGalleryTags = z.toZod<EditorGalleryTags>()(
+	z.array(z.string())
 );
 
-export const mapSeasons = z.toZod<MapSeason[]>()(
+const downloadItem = z.toZod<DownloadItem>()(
+	z.object({
+		id: z.string(),
+		title: z.string(),
+		desc: z.string(),
+		downloadUrl: z.string(),
+		imageUrl: z.string()
+	})
+);
+
+export const downloadItems = z.toZod<DownloadItem[]>()(z.array(downloadItem));
+
+export const downloadCollections = z.toZod<DownloadCollection[]>()(
 	z.array(
 		z.object({
-			id: z.string(),
-			season: z.number().int(),
-			imageUrl: z.string(),
-			dimensions: z.array(
-				z.object({
-					name: z.string(),
-					imageUrl: z.string(),
+			name: z.string(),
+			title: z.string(),
+			dimensions: collectionDimensions,
+			items: downloadItems
+		})
+	)
+);
+
+const mapSeason = z.toZod<MapSeason>()(
+	z.object({
+		id: z.string(),
+		season: z.number().int(),
+		imageUrl: z.string().optional(),
+		dimensions: z
+			.array(
+				dimension.extend({
 					worldId: z.string(),
 					perspective: z.string()
 				})
 			)
-		})
-	)
+			.optional()
+	})
 );
+
+export const mapSeasons = z.toZod<MapSeason[]>()(z.array(mapSeason));
 
 export const contentVersion = z.toZod<ContentVersion>()(
 	z.object({ version: z.number().int() })
+);
+
+export const detailVersion = z.toZod<DetailVersion>()(
+	z.object({ version: z.string() })
 );
 
 export const countResponse = z.toZod<CountResponse>()(
@@ -86,6 +146,226 @@ export const newsPostsPage = z.toZod<PaginatedResponse<NewsPost>>()(
 
 export const galleryPage = z.toZod<PaginatedResponse<GalleryImage>>()(
 	countResponse.extend({ items: z.array(galleryImage) })
+);
+
+const editorRef = z.object({
+	id: z.string(),
+	username: z.string(),
+	avatarUrl: z.string().optional()
+});
+
+// What the editor reads about every item and collection. Ones from before the
+// editor tools have no `visible` (visible), `revision` (0), or audit fields.
+const editorAuditFields = {
+	visible: z.boolean().default(true),
+	revision: z.number().int().default(0),
+	createdBy: editorRef.optional(),
+	lastUpdatedBy: editorRef.optional(),
+	createdAt: isoDate.optional(),
+	updatedAt: isoDate.optional()
+};
+
+// Every item's, but news's: only news can be scheduled (NewsStatus).
+const editorFields = {
+	...editorAuditFields,
+	status: z.enum(["live", "hidden"])
+};
+
+export const editorNewsPost = z.toZod<EditorNewsPost>()(
+	newsPost.extend({
+		...editorAuditFields,
+		status: z.enum(["live", "scheduled", "hidden"])
+	})
+);
+
+export const editorGalleryImage = z.toZod<EditorGalleryImage>()(
+	galleryImage.extend({ ...editorFields, collection: z.string() })
+);
+
+export const editorDownloadItem = z.toZod<EditorDownloadItem>()(
+	downloadItem.extend({
+		...editorFields,
+		collection: z.string(),
+		sortOrder: z.number().optional()
+	})
+);
+
+export const editorMapSeason = z.toZod<EditorMapSeason>()(
+	mapSeason.extend(editorFields)
+);
+
+// What the lists send (see the contract's *Summary types).
+export const editorNewsPostSummary = z.toZod<EditorNewsPostSummary>()(
+	editorNewsPost.omit({ content: true })
+);
+
+export const editorDownloadItemSummary = z.toZod<EditorDownloadItemSummary>()(
+	editorDownloadItem.omit({ desc: true })
+);
+
+export const editorMapSeasonSummary = z.toZod<EditorMapSeasonSummary>()(
+	editorMapSeason
+		.omit({ dimensions: true })
+		.extend({ dimensionCount: z.number().int().min(0) })
+);
+
+const EDITOR_ITEM_SCHEMAS = {
+	news: editorNewsPost,
+	gallery: editorGalleryImage,
+	downloads: editorDownloadItem,
+	maps: editorMapSeason
+} as const satisfies Record<ContentTypeName, z.ZodType>;
+
+/** Any type's editor item, as sent. */
+export type EditorItemBody = z.output<
+	(typeof EDITOR_ITEM_SCHEMAS)[ContentTypeName]
+>;
+
+export function parseEditorItem(
+	typeName: ContentTypeName,
+	item: unknown
+): EditorItemBody {
+	return parseResponse<EditorItemBody>(EDITOR_ITEM_SCHEMAS[typeName], item);
+}
+
+// What each type's list sends of an item.
+export const EDITOR_SUMMARY_SCHEMAS: Readonly<
+	Record<ContentTypeName, z.ZodObject>
+> = {
+	news: editorNewsPostSummary,
+	gallery: editorGalleryImage,
+	downloads: editorDownloadItemSummary,
+	maps: editorMapSeasonSummary
+};
+
+// A page of any editor item type.
+export function editorPage<T>(item: z.ZodType<T>) {
+	return countResponse.extend({ items: z.array(item) });
+}
+
+export const editorCollection = z.toZod<EditorCollection>()(
+	z.object({
+		slug: z.string(),
+		title: z.string(),
+		dimensions: collectionDimensions,
+		itemCount: z.number().int().min(0),
+		...editorAuditFields
+	})
+);
+
+export const editorCollections = z.toZod<EditorCollection[]>()(
+	z.array(editorCollection)
+);
+
+const draftFields = {
+	id: z.string(),
+	revision: z.number().int(),
+	target: z
+		.object({ id: z.string(), startingRevision: z.number().int() })
+		.optional(),
+	createdAt: isoDate,
+	updatedAt: isoDate
+};
+
+// A stored draft's fields were checked when saved; they're parsed again so
+// the response carries only the contract's fields.
+export const draft = z.toZod<Draft>()(
+	z.discriminatedUnion("type", [
+		z.object({
+			type: z.literal("news"),
+			fields: newsPostFields.draft,
+			...draftFields
+		}),
+		z.object({
+			type: z.literal("gallery"),
+			fields: galleryImageFields.draft,
+			...draftFields
+		}),
+		z.object({
+			type: z.literal("downloads"),
+			fields: downloadItemFields.draft,
+			...draftFields
+		}),
+		z.object({
+			type: z.literal("maps"),
+			fields: mapSeasonFields.draft,
+			...draftFields
+		}),
+		z.object({
+			type: collectionDraftType,
+			fields: collectionDraftFields,
+			...draftFields
+		})
+	])
+);
+
+export const draftSummaries = z.toZod<DraftSummary[]>()(
+	z.array(
+		z.discriminatedUnion("type", [
+			z.object({
+				type: z.literal("news"),
+				fields: newsPostFields.draft.pick({
+					title: true,
+					imageUrl: true,
+					date: true,
+					visible: true
+				}),
+				...draftFields
+			}),
+			z.object({
+				type: z.literal("gallery"),
+				fields: galleryImageFields.draft.pick({
+					collection: true,
+					caption: true,
+					imageUrl: true,
+					tags: true,
+					visible: true
+				}),
+				...draftFields
+			}),
+			z.object({
+				type: z.literal("downloads"),
+				fields: downloadItemFields.draft.pick({
+					collection: true,
+					title: true,
+					imageUrl: true,
+					visible: true
+				}),
+				...draftFields
+			}),
+			z.object({
+				type: z.literal("maps"),
+				fields: mapSeasonFields.draft.pick({
+					season: true,
+					imageUrl: true,
+					visible: true
+				}),
+				dimensionCount: z.number().int().min(0),
+				...draftFields
+			}),
+			z.object({
+				type: collectionDraftType,
+				fields: collectionDraftFields.pick({
+					slug: true,
+					title: true,
+					visible: true
+				}),
+				dimensionCount: z.number().int().min(0),
+				...draftFields
+			})
+		])
+	)
+);
+
+export const imageUploadResponse = z.toZod<ImageUploadResponse>()(
+	z.object({
+		results: z.array(
+			z.union([
+				z.object({ name: z.string(), url: z.string() }),
+				z.object({ name: z.string(), error: z.string() })
+			])
+		)
+	})
 );
 
 export const sessionUser = z.toZod<SessionUser>()(

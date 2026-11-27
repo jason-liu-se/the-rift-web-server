@@ -31,17 +31,19 @@ promises to the handler.
 
 The handler in `src/middleware/error-handler.ts` answers `{ "error": string }`:
 
-| Error                                    | Status | Body                                 |
-| ---------------------------------------- | ------ | ------------------------------------ |
-| `ZodError` (bad params or query)         | `400`  | Which parameters are wrong           |
-| Malformed JSON body (body-parser)        | `400`  | Generic; never echoes the body       |
-| `UnauthorizedError` (`src/errors/`)      | `401`  | Nobody is logged in, or bad refresh  |
-| `ForbiddenError` (`src/errors/`)         | `403`  | A write not from the website (CSRF)  |
-| `NotFoundError` (`src/errors/`)          | `404`  | What wasn't found; also no route     |
-| Body over `JSON_BODY_LIMIT`              | `413`  | Generic                              |
-| `UnsupportedMediaTypeError`, bad charset | `415`  | The body must be JSON (UTF-8)        |
-| Rate limit (see [below](#rate-limits))   | `429`  | Try again later (callback: redirect) |
-| Anything else, incl. a broken contract   | `500`  | Generic message; details only logged |
+| Error                                    | Status | Body                                                       |
+| ---------------------------------------- | ------ | ---------------------------------------------------------- |
+| `ZodError` (bad params, query, or body)  | `400`  | Which fields are wrong, and why                            |
+| `BadRequestError` (`src/errors/`)        | `400`  | Invalid given stored data (a date)                         |
+| Malformed JSON body (body-parser)        | `400`  | Generic; never echoes the body                             |
+| `UnauthorizedError` (`src/errors/`)      | `401`  | Nobody is logged in, or bad refresh                        |
+| `ForbiddenError` (`src/errors/`)         | `403`  | A write not from the website (CSRF)                        |
+| `NotFoundError` (`src/errors/`)          | `404`  | What wasn't found; also no route                           |
+| `ConflictError` (`src/errors/`)          | `409`  | Stale revision (with `current`), or a taken slug or season |
+| Body over `JSON_BODY_LIMIT`              | `413`  | Generic                                                    |
+| `UnsupportedMediaTypeError`, bad charset | `415`  | The body must be JSON (UTF-8)                              |
+| Rate limit (see [below](#rate-limits))   | `429`  | Try again later (callback: redirect)                       |
+| Anything else, incl. a broken contract   | `500`  | Generic message; details only logged                       |
 
 Never reveal internals (stack traces, queries, connection strings) in a body.
 Every error is sent `Cache-Control: no-store`, even from a cacheable route
@@ -94,8 +96,18 @@ can send cross-site without a preflight. So routes only ever see parsed JSON (or
 nothing) in `req.body`, and logged-out bodies are never read. Still validate
 `req.body` with a Zod schema before use.
 
-CORS allows only `GET,POST,OPTIONS` (`src/middleware/cors.ts`): the first PUT,
-PATCH, or DELETE route must add its method there, or browsers block it.
+The one exception is `POST /editor/images` (`IMAGE_UPLOAD_PATH`), whose
+`multipart/form-data` body `jsonBody` leaves unread for the route's own `multer`
+(memory storage, `src/config/uploads.ts` limits), which runs after the login
+gate, so logged-out uploads are never read either. Multer's limit errors are
+`413` (a file too large) or `400`, with our own message (theirs can quote the
+client's file name), and a malformed body is `400`. Files are checked by their
+first bytes, not their name, and uploaded a few at a time through
+`src/managers/imgbb.ts`, which logs imgbb's failures (never the key), including
+a URL outside the image allowlist, and reports them generically.
+
+CORS allows `GET,POST,PUT,PATCH,DELETE,OPTIONS` (`src/middleware/cors.ts`): a
+route with any other method must add it there, or browsers block it.
 
 ### Rate limits
 
@@ -156,6 +168,12 @@ drops `CDN-Cache-Control`), so neither is a `404` or `500` from a public read.
 describe one caller's budget. `src/middleware/cache-control.test.ts` fails if a
 public read doesn't mount it, and checks every one handles `v` (below).
 
+The editor's reads (`/editor/*` but drafts and `/editor/gallery/tags`, which
+holds the caller's draft tags) mount `revalidateEveryTime` instead:
+`Cache-Control: private, no-cache`, so a browser keeps a copy but revalidates it
+by the ETag Express sets every time (`304` when unchanged), and nothing shared
+keeps it.
+
 #### Content versions
 
 So an edit shows on the next page load without purging Cloudflare, public reads
@@ -177,6 +195,21 @@ committed (never before, or a read in between caches old content under the new
 version), which sets the current time, or one more than the current version if
 that's not later, so it always changes. A missing version is created on the
 first read.
+
+##### Detail versions
+
+A scheduled news post goes live on its date without a write, so `v` alone would
+keep it hidden for up to a day. Areas registered in
+`src/helpers/detail-versions.ts` (only `news`) also have a detail version,
+`GET /content/version/:area` (never cached, `404` for an unknown area), which
+callers send as `?dv=` with `v` on that area's routes. `cacheByContentVersion`
+caches them only when both are current; otherwise they're current content with
+`no-store`, and a `dv` that isn't digits is `400` (other routes ignore `dv`).
+News's is the date (ms) of the newest public post (`0` with none), computed on
+every read, so it changes when a post goes live. Only the date: every other
+change (an edit, hide, delete, or move) is a write, so `v` changes anyway, and
+`dv` may then return to an earlier value safely. A new area is one entry: its
+routes and how to compute its key.
 
 A cached response is shared by every caller, so it mustn't depend on who asks:
 no `Set-Cookie`, nothing from the session, and CORS headers that don't vary by
@@ -212,27 +245,120 @@ reuse are one atomic Redis script; a refresh then pushes the expiry later with
 `PEXPIREAT … GT` (Redis 7+), which never shortens it if a slower concurrent
 refresh lands last and does nothing to a session already ended. If it fails, the
 refresh still succeeds (the rotation has committed) and the error is logged.
-Every Redis command goes through `src/helpers/redis-manager.ts`, as every
+Every Redis command goes through `src/managers/redis-manager.ts`, as every
 MongoDB query goes through `mongo-manager`.
 
 The Discord login lives in `src/auth/discord-login.ts`, and every call to
-Discord in `src/helpers/discord.ts`, which throws `DiscordApiError` for any
+Discord in `src/managers/discord.ts`, which throws `DiscordApiError` for any
 Discord failure. The callback never answers with an error status; it redirects
 to the website with a `LoginErrorCode`, so a failure is always attributed to the
 user, this server, or Discord.
 
-## Response contract
+## Editor writes
 
-`src/contract/api-responses.ts` holds the response types. The website keeps a
-verbatim copy, so keep the file dependency-free.
+Every editor write body (creates, updates, bulk items, draft publishes) goes
+through `src/api/write-schemas.ts`. Each content type has one object of its
+fields' types and caps (`src/config/content-limits.ts`), in three variants:
+`full` for a whole item, `patch` for an update's fields, and `draft` (types and
+caps only, every field optional). `full` and `patch` also check every image URL
+against `IMAGE_URL_PREFIXES` (`src/config/images.ts`) and news markdown with
+`marked` (`src/api/markdown.ts`): no raw HTML, only allowlisted images, and only
+web, email, or relative links; titles inline only. `marked` is pinned to the
+website's version, so the server checks the tokens the website renders. News
+dates and `editedAt` follow `src/helpers/news-dates.ts` once the stored post is
+read.
 
-Each schema in `response-schemas.ts` is typed with `z.toZod<ContractType>()`, so
-it fails to compile if it drifts from the contract. `parseResponse` drops fields
-outside the contract (e.g. `_id`), turns Dates into ISO strings, and throws a
-`500` if stored data is missing a required field: bad stored data is a server
-fault, not the caller's.
+Creates send a client UUID (`createId`, unique and sparse on every model): a
+repeat returns the item already made (`200`, not `201`), without checking the
+body again, and still changes the content version. If the insert meets the
+createId but its item is deleted before it can be read (a delete racing the
+repeat), it's `404` (`not-found` in a bulk create). Insert errors name the index
+only in their message, so `explainDuplicates` (`editor-content.ts`) tells that
+apart from a taken season by looking the season up (`createCollection`, a taken
+slug). Updates (`PATCH`, body `startingRevision`) and deletes
+(`?startingRevision=`) send the revision they started from; a stale one is `409`
+with the item as it is now. Every committed write calls `updateContentVersion`;
+`src/routes/editor/content-version.test.ts` fails if an editor write route isn't
+listed there with a write that changes it, or as one that changes nothing public
+(a draft's save or delete, an image upload).
 
-To change a response:
+Bulk actions (`/editor/<items>/bulk`: `POST` creates, gallery only; `PATCH`
+updates; `DELETE` deletes) check each item on its own, then write every valid
+one at once, without a transaction. Single writes run the same functions
+(`src/helpers/editor-writes.ts`) with one item, and turn its outcome into a
+status. Each type's `PATCH` takes `show` and `hide` (`DEFAULT_UPDATES`) plus its
+own actions, one schema per type in `src/api/bulk-requests.ts`, each checked
+against the type's `*BulkUpdateRequest`. A bulk action answers once with every
+item's result: a bad item is `invalid`, never a failed request, so the website
+reports all failures together. A batch is a few queries however many items it
+has: updates read the items, run one unordered bulk write, and read the results;
+deletes run the bulk write, then read the items it missed; creates run one
+unordered `insertMany`; collections named by the items are checked in one query
+before the write and one after. An item written into a collection deleted in
+between is deleted again (a create is `invalid`, a move `not-found`), and
+deleting a collection deletes its items both before and after removing it, so no
+item outlives its collection for a new one of that slug to take over. The bulk
+write is MongoDB 8.0's client bulk write (`connection.bulkWrite` with
+`verboseResults`), the only one that reports each op's matched or deleted count,
+so a stale revision or a missing item is known exactly. Only what's wrong with
+the whole request (an action the type doesn't have, the target collection, over
+`MAX_BULK_ITEMS`) is a `400`. One request is one write for the rate limit, and
+changes the content version once (even when it fails after writing some items).
+
+### Drafts
+
+`/editor/drafts` (`src/routes/editor/drafts.ts`, logic in
+`src/helpers/draft-actions.ts`) holds drafts of items and of gallery and
+download collections (`gallery-collections`, `downloads-collections`; an edit
+draft's `target.id` is the slug, which publishing never changes; its marker
+names the slug too, so a repeat returns whichever collection holds it now). It's
+per editor: every query in `src/managers/drafts.ts` is scoped to the owner, and
+another editor's draft is a `404`, never a `403`. Drafts are checked loosely
+(`draft` variants, plus `MAX_DRAFTS_PER_USER` and `MAX_DRAFT_BYTES`) and keep
+their own `revision` (a save sends it as `startingRevision`), so a save from a
+second device makes the first one's next save `409`, and a save of a draft
+that's gone (deleted, or published and its marker expired) `404`, never making
+it again; a repeated create (no `startingRevision`) is `200` with the draft as
+stored. The list sends only what names each draft, its image, its `collection`,
+and its `visible` (and a gallery draft's `tags`, a news draft's `date`, a map
+season's or collection's `dimensionCount`); `GET /:id` sends its fields. A
+draft's `fields` also keep `visible` (and a news draft's `date`), so a change to
+only an item's visibility or date is a draft too; publish's `visible` and `date`
+override them, and with neither a new item is visible and dated now, and an edit
+keeps its item's. Publishing checks the fields fully, then creates the item
+(with the draft's ID as its `createId`) or updates the one an edit draft started
+from, at the revision it started from. The draft then becomes a marker naming
+the item, which a TTL index deletes after `PUBLISHED_DRAFT_TTL_MS`, so a
+repeated publish returns the same item. There's no transaction: if the server
+stops between the two writes, a new item's repeat still finds it by `createId`,
+but an edit's repeat gets `409` (the item's revision moved). Drafts stay
+`no-store`.
+
+## Contract
+
+`src/contract/api-requests.ts` holds each endpoint's query and body types, and
+`src/contract/api-responses.ts` the response types, each file with an index of
+the endpoints. The website keeps a verbatim copy of both, so they import only
+from each other.
+
+Each query schema in `query-schemas.ts` is built with
+`queryFor<ContractType>()`, which fails to compile if it reads a parameter the
+type doesn't name or misses one, or if a parameter can't take what the website
+sends (coerced numbers are typed `z.coerce.number<string>()` so this holds). Of
+the bodies, the `*Fields` schemas in `write-schemas.ts` are checked with
+`satisfies` (they must produce the type), the collection ones with `z.toZod`,
+and the bulk ones with `bodyFor<ContractType>()` (`bulk-requests.ts`), which
+fails to compile if a schema doesn't have exactly the contract's actions or
+can't take its top-level fields and each item's `id` or `createId` (the rest of
+each item is checked at run time, by the same schemas as a single write); the
+draft and create/update option bodies aren't checked yet. Each schema in
+`response-schemas.ts` is typed with `z.toZod<ContractType>()`, so it fails to
+compile if it drifts from the contract. `parseResponse` drops fields outside the
+contract (e.g. `_id`), turns Dates into ISO strings, and throws a `500` if
+stored data is missing a required field: bad stored data is a server fault, not
+the caller's.
+
+To change a request or response:
 
 1. Edit the contract file.
 2. Update the schemas until they compile.
@@ -248,6 +374,17 @@ To change a response:
 - **Error messages** help the caller fix their request without helping an
   attacker probe: a failed sign-in says "invalid email or password", not which
   one was wrong.
+- **Editor lists send summaries.** A list (an editor table) sends only what it
+  shows, leaving out long fields (news content, a download's description, map
+  dimensions, which become a `dimensionCount`, a draft's fields); opening an
+  item fetches all of it (`/:id`). Collection lists send each collection's
+  `dimensions` whole (there's no `/:slug` read).
+- **Sorting.** Editor lists take `sort` (fields, most significant first) and
+  `order` (`asc`/`desc` for each). The fields are the list's summary fields
+  (`EDITOR_SUMMARY_SCHEMAS`) but `status`, so a new field is sortable without
+  listing it; `sortByFields` (`src/helpers/editor-queries.ts`) maps the few that
+  don't sort as stored. Without `sort`, lists keep the public order, which an
+  index can serve; sorted fields are computed, so they never use one.
 - **Pagination.** Collections that can grow take `startIndex`/`limit`
   (`paginationQuery`) and return `{ items, total }`, plus a `/count` endpoint.
 - **Compatibility.** Keep responses backward compatible. Check

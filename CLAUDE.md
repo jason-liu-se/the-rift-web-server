@@ -38,18 +38,25 @@ edited.
 - **`createApp` (`src/app.ts`) builds the app; `src/index.ts` runs it**
   (validates the environment, connects to MongoDB and Redis, listens, shuts down
   gracefully).
-- **Routers** (`src/routes/`) validate input with Zod, call `mongo-manager`, and
-  send bodies through the response schemas. They don't catch errors; the handler
-  in `src/middleware/error-handler.ts` maps them to status codes.
+- **Routers** (`src/routes/<group>/`, one folder per URL group: `auth`,
+  `editor`, `gallery`, ...) validate input with Zod, call the managers and
+  helpers, and send bodies through the response schemas. A route file holds only
+  its routers; logic they share or that isn't routing (checks, turning a write's
+  outcome into a response, bulk actions) lives in `src/helpers/`. They don't
+  catch errors; the handler in `src/middleware/error-handler.ts` maps them to
+  status codes.
 - **Routes are private unless listed in `src/api/public-routes.ts`**:
   `requireLogin` answers `401` to everything else when nobody is logged in.
-- **`src/helpers/mongo-manager.ts` owns all database access**, and
-  `src/helpers/redis-manager.ts` all Redis access. Routers never touch models or
-  the Redis client.
-- **`src/contract/api-responses.ts` is the contract with the website**, which
-  keeps a verbatim copy. Endpoint paths, parameters, and response shapes must be
-  changed conservatively since the frontend must be updated to maintain
-  synchronicity.
+- **`src/managers/` owns the access to databases and outside services**:
+  `mongo-manager.ts` the MongoDB connection and public reads,
+  `editor-content.ts` the editor's item queries, `editor-collections.ts` its
+  collections', `drafts.ts` the drafts', `redis-manager.ts` all Redis access,
+  `discord.ts` every call to Discord, and `imgbb.ts` the image uploads. Routers
+  never touch models, the Redis client, Discord, or imgbb directly.
+- **`src/contract/` is the contract with the website** (`api-requests.ts` what
+  each endpoint takes, `api-responses.ts` what it sends), which keeps a verbatim
+  copy. Endpoint paths, parameters, and response shapes must be changed
+  conservatively since the frontend must be updated to maintain synchronicity.
 
 ## Conventions
 
@@ -77,8 +84,15 @@ edited.
   that variants compose. Single responsibility, low coupling, pure functions,
   side effects (database, network, logging) at the edges.
 - **Clarity.** Descriptive names (`.claude/rules/naming.md`), small functions,
-  guard clauses, named constants. Simple over clever; comment a non-obvious
-  version that's worth keeping.
+  guard clauses, named constants. Simple over clever.
+- **Few comments.** Readers skim past walls of comments and miss the ones that
+  matter, so each must add what the names and types don't.
+    - Inline comments say only why: a non-obvious constraint or trade-off, a
+      version workaround. Never restate a line (rename instead), and keep them
+      to a line or two.
+    - A function, type, or exported value may have a JSDoc block (`/** … */`)
+      saying what it does, its assumptions, and what its parameters and return
+      value mean, as long as it isn't longer than it needs to be.
 - **Write less code.** Humans review every line. Use what Express, Mongoose, and
   Zod provide, and skip speculative code (unused options, "just in case"
   branches, single-caller abstractions).
